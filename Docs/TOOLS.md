@@ -10,7 +10,7 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 2._
+_Last updated: Phase 3._
 
 ---
 
@@ -89,3 +89,56 @@ call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeInspectTools", "too
 ```
 
 > Argument keys are camelCase (`xM`, `centerXM`, `sizeM`, `gridCount`, `landscapeName`): the first letter of the C++ parameter name is lowercased. `landscapeName` defaults to `"auto"` everywhere and can be omitted.
+
+---
+
+## `AIWorldBuilderToolsets.LandscapeSculptTools` (C++, writes terrain)
+Real landscape heights, never meshes. Every call:
+- writes into the **`AI Sculpt`** edit layer (created on first use; hide/lock/delete it in Landscape mode to manage all AI changes),
+- is one **undo** step (`Ctrl+Z`), named e.g. "AI: Apply Volcano",
+- forces the landscape to merge immediately and re-reads collision at the most-changed point (`bCollisionVerified`),
+- refuses (changes nothing) if the result exceeds the landscape's height range, unless `bAllowClipping: true`;
+  the message says the Scale Z needed,
+- refuses areas larger than 4097 × 4097 samples or touching unloaded World Partition regions.
+
+Shared result (`FWorldBuilderSculptResult`): `bSuccess`, `message`, `landscapeName`, `editLayerName`, `bCreatedEditLayer`,
+`regionMinM`/`regionMaxM`, `sampleCount`, `changedSampleCount`, `minChangeM`/`maxChangeM`, `newMinHeightM`/`newMaxHeightM`,
+`clippedSampleCount`, `bCollisionVerified`, `verifyPointM`, `collisionHeightM`.
+
+**Enums** (pass as strings): `shapeType` Mountain | Volcano | Crater | Hill | Plateau | Mesa;
+line `shapeType` Valley | Ridge; `blendMode` Add | Max | Min | Replace | Blend; `falloff` Linear | Smooth | Sphere | Tip.
+
+**Blend modes** (Ref = ground at the shape centre; line shapes interpolate ground between the ends):
+| Mode | Result |
+|---|---|
+| Add | terrain + alpha × shape (keeps underlying bumps) |
+| Max | raise toward Ref + shape, never lower |
+| Min | lower toward Ref + shape, never raise |
+| Replace | Ref + shape, blended at the footprint edge |
+| Blend | lerp(terrain, Ref + shape, alpha) |
+
+### `ApplyShape(shapeType, centerXM, centerYM, radiusM, heightM, blendMode = Add, blendAlpha = 1, noiseAmount = 0.3, seed = 1, craterRadiusM = 0, craterDepthM = 0, rimSharpness = 0.5, lavaChannels = 0, topFraction = 0.6, bAllowClipping = false, landscapeName = "auto")`
+Crater: `radiusM` = rim radius, `heightM` = depth. Volcano: crater defaults 12 % of radius, 20 % of height deep.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool_name": "ApplyShape", "arguments": { "shapeType": "Volcano", "centerXM": 0, "centerYM": 0, "radiusM": 600, "heightM": 120, "lavaChannels": 3 } }
+```
+
+### `ApplyLineShape(shapeType, startXM, startYM, endXM, endYM, widthM, heightM, blendMode = Add, blendAlpha = 1, noiseAmount = 0.3, seed = 1, bAllowClipping = false, landscapeName = "auto")`
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool_name": "ApplyLineShape", "arguments": { "shapeType": "Valley", "startXM": -800, "startYM": 500, "endXM": 800, "endYM": 300, "widthM": 120, "heightM": 20 } }
+```
+
+### `RaiseLower(centerXM, centerYM, radiusM, deltaM, falloff = Smooth, bAllowClipping = false, landscapeName = "auto")`
+### `Flatten(centerXM, centerYM, radiusM, targetHeightM, strength = 1, edgeFraction = 0.3, falloff = Smooth, bAllowClipping = false, landscapeName = "auto")`
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool_name": "Flatten", "arguments": { "centerXM": 400, "centerYM": 0, "radiusM": 60, "targetHeightM": 50 } }
+```
+### `Smooth(centerXM, centerYM, radiusM, strength = 0.5, kernelRadiusM = 0, iterations = 3, falloff = Smooth, landscapeName = "auto")`
+`kernelRadiusM` 0 = 5 % of the radius.
+### `AddNoise(centerXM, centerYM, sizeXM, sizeYM, amplitudeM, wavelengthM = 200, octaves = 4, seed = 1, bRidged = false, bAllowClipping = false, landscapeName = "auto")`
+### `CarvePath(pointsM, widthM, depthM, bankWidthM = 0, falloff = Smooth, bLowerOnly = true, bAllowClipping = false, landscapeName = "auto")`
+`pointsM` is `[{"x":..,"y":..}, ...]` in meters. Bed = ground at each point − depth, interpolated; order river points downhill.
+`bLowerOnly: false` cuts and fills (roads).
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool_name": "CarvePath", "arguments": { "pointsM": [{"x":-900,"y":300},{"x":-200,"y":100},{"x":600,"y":-400}], "widthM": 20, "depthM": 4 } }
+```

@@ -13,7 +13,9 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"AIWorldBuilderCore",
 			"CoreUObject",
 			"Engine",
+			"Foliage",
 			"Landscape",
+			"RHI",
 			"ToolsetRegistry",
 			"UnrealEd",
 		});

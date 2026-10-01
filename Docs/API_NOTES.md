@@ -147,7 +147,19 @@ World Z (cm) = `GetLocalHeight(H) * ActorScale.Z + ActorLocation.Z`. This matche
 - `ULandscapeComponent::GetHeightmap(FGuid())` with an invalid GUID returns the final merged heightmap. `FLandscapeEditDataInterface(Info, FGuid(), false)` therefore reads final heights (and has the same dirtying caveat).
 - Bounds: `ULandscapeInfo::GetCompleteBounds()` and `GetCompleteLandscapeExtent()` cover all World Partition proxies, loaded or not. `GetLoadedBounds()` and `GetLandscapeExtent()` (which iterates `XYtoComponentMap`) cover loaded data only.
 
-### Writing heights (Phase 3)
+### Writing heights — implemented path (Phase 3)
+Verified in `LandscapeEditLayers.cpp`, `LandscapeEditLayer.cpp`, `LandscapeEdModeTools.h`, `LandscapeEditLayersHeightmaps.usf`:
+- **Standard edit layers are additive.** `ULandscapeEditLayerBase::GetBlendMode()` returns `LSBM_AdditiveBlend`, and the shader does `Final += LayerAlpha * (LayerValue − 32768)`. Each layer stores a delta around 32768. New layers start empty, via `ALandscapeProxy::AddLayer` → `InitializeLayerWithEmptyContent`.
+- `ALandscape::CreateLayer(FName, Class = ULandscapeEditLayer, bIgnoreLimit)` calls `Modify()` (transactional), appends to the top of the stack and returns the index, or `INDEX_NONE` at the max layer count. It then requests layer re-initialization.
+- **Merged heights for any subset of layers:** `ALandscape::SelectiveRenderEditLayersHeightmaps(FLandscapeEditLayerRenderHeightParams{Bounds (half-open, landscape coords), ActiveEditLayers bit array, CpuResult})`. This is what the editor's `FLandscapeEditLayerStackDataCache` uses for "bottom layers". It's read-only and dirties nothing.
+  - ⚠️ It does `check(bLandscapeLayersAreInitialized)` **before** its `CanUpdateLayersContent()` early-out. Always call `ForceUpdateLayersContent()` first, since `UpdateLayersContent` runs `InitializeLayers()`. Also guard with the public pieces of `CanUpdateLayersContent`: `FApp::CanEverRender()`, `Info->AreAllComponentsRegistered()` and `Info->SupportsLandscapeEditing()`.
+- **Our algorithm:** render F (all visible layers) and B (all visible layers except "AI Sculpt"), compute the new heights N from F, then write `L' = (N − B) / alpha` into "AI Sculpt" via `FHeightmapAccessor<false>` + `SetEditLayer(guid)` + `SetData`. This matches the editor's own combined-layer write (`LandscapeEdModeTools.h:889`). The merged result is exactly N, and the layer holds only the AI's contribution.
+- **Undo:** `FScopedTransaction` around everything. `FLandscapeTextureDataInfo` sets `RF_Transactional` and calls `Modify()` on each touched layer heightmap texture, so the texture state is recorded. `Transaction.Cancel()` on any refusal.
+- **After writing:** `ALandscape::ForceUpdateLayersContent()`, which is `UpdateLayersContent(bWaitForStreaming=true, bSkipMonitor=true, bFlushRender=true)`. This merges synchronously and updates collision, so the next tool call and `SampleHeight` see the result.
+- `ForceUpdateLayersContent(bool)` is deprecated in 5.7. Use the no-argument version.
+- **Name clash:** a global `::EBlendMode` (material blend mode) exists, so don't name our own enum `EBlendMode` in any namespace that might be `using`-ed.
+
+### Writing heights — original plan notes
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:
 ```cpp
 FHeightmapAccessor<false> Acc(LandscapeInfo);

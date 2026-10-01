@@ -2,6 +2,7 @@
 #include "Modules/ModuleManager.h"
 #include "ToolsetRegistry/UToolsetRegistry.h"
 #include "LandscapeInspectTools.h"
+#include "LandscapeSculptTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 
 class FAIWorldBuilderToolsetsModule : public IModuleInterface
@@ -32,6 +33,7 @@ private:
 		return {
 			UWorldBuilderDiagnosticsToolset::StaticClass(),
 			ULandscapeInspectTools::StaticClass(),
+			ULandscapeSculptTools::StaticClass(),
 		};
 	}
 };
