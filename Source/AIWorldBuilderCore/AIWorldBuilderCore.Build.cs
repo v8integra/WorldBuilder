@@ -15,6 +15,7 @@ public class AIWorldBuilderCore : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"Landscape",
 			"Projects",
 			"UnrealEd",
 		});

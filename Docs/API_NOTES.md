@@ -94,6 +94,12 @@ class MyTools(unreal.ToolsetDefinition):
 - Return values are wrapped: `{"returnValue": {...}}`.
 - UPROPERTY names are camelCased by lowercasing the first letter only; the `b` bool prefix is kept: `bSuccess`, `message`, `landscapeCount`, `bWorldPartitionEnabled`.
 - `call_tool` arguments: `toolset_name`, `tool_name`, `arguments` (object).
+- Argument keys are camelCased the same way (`XM` → `xM`, `LandscapeName` → `landscapeName`).
+- **Required vs optional — two separate checks:**
+  1. The schema (`JsonUtilities/.../JsonSchemaGenerator.cpp:293`) marks a parameter optional if it has a `default` or is an `FOptionalProperty`.
+  2. **The call** (`ToolsetRegistry/.../ObjectFunctionToolCall.cpp:222-240`) rejects any omitted argument whose schema has no `default`, with the error *"input param X needs a default value"*. Being `TOptional` doesn't help here.
+  - Defaults come from UHT's `CPP_Default_<Param>` metadata, via `ToolsetJson.cpp:76` `CustomJsonSchema`. **An empty default string counts as no default.**
+  - **Rule:** to make an argument omittable, give it a **non-empty C++ default**. `= TEXT("")` and `TOptional<>` without a default both fail when the argument is omitted. Our optional landscape names use `= TEXT("auto")` (`AIWorldBuilder::LandscapeUtils::AutoLandscapeName`).
 
 ### Transactions / undo
 - **Toolset calls are not wrapped in a transaction automatically.** `FScopedTransaction` only appears in `ModelContextProtocolToolLibrary.cpp` (the separate "tool library" path). The `NonTransactableToolCall` meta used by PCGToolset isn't read by any C++ in 5.8.3. **Our tools must open their own `FScopedTransaction`,** as the plan says.
@@ -134,6 +140,12 @@ World Z (cm) = `GetLocalHeight(H) * ActorScale.Z + ActorLocation.Z`. This matche
 - Fast path: `ALandscapeProxy::GetHeightAtLocation(FVector, EHeightfieldSource = Complex) -> TOptional<float>` (uses collision).
 - Region read: `FLandscapeEditDataInterface(ULandscapeInfo*)` → `GetHeightData(X1,Y1,X2,Y2, uint16*, Stride)` / `GetHeightDataFast(...)`. Coordinates are in landscape quad/sample space (inclusive).
 - Extent: `ULandscapeInfo::GetLandscapeExtent(MinX,MinY,MaxX,MaxY)`, `ComponentSizeQuads`, `DrawScale`, `GetLandscapeProxy()`, `ForEachLandscapeProxy(fn)`, `GetSortedStreamingProxies()`.
+
+### Reading heights — chosen path (Phase 2)
+- **Read path chosen: collision heightfield.** `ALandscapeProxy::GetHeightAtLocation(Location, EHeightfieldSource::Editor)`, then falling back to `Complex` (`Editor` geometry only exists when the collision mip level is > 0; `GetHeight` does not fall back by itself). The lookup is constant-time (`Info->XYtoCollisionComponentMap`), read-only, and matches the surface players walk on.
+- **Avoid `FLandscapeEditDataInterface` for reads.** `FLandscapeTextureDataInfo`'s constructor calls `Texture->Modify(bShouldDirtyPackage)` and `Source.LockMip()` (read-write). On destruction it clears `RF_Transactional` and updates the texture hash. If we ever need texture-accurate reads, wrap them in `FLandscapeDoNotDirtyScope`.
+- `ULandscapeComponent::GetHeightmap(FGuid())` with an invalid GUID returns the final merged heightmap. `FLandscapeEditDataInterface(Info, FGuid(), false)` therefore reads final heights (and has the same dirtying caveat).
+- Bounds: `ULandscapeInfo::GetCompleteBounds()` and `GetCompleteLandscapeExtent()` cover all World Partition proxies, loaded or not. `GetLoadedBounds()` and `GetLandscapeExtent()` (which iterates `XYtoComponentMap`) cover loaded data only.
 
 ### Writing heights (Phase 3)
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:

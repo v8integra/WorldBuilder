@@ -1,6 +1,7 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "ToolsetRegistry/UToolsetRegistry.h"
+#include "LandscapeInspectTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 
 class FAIWorldBuilderToolsetsModule : public IModuleInterface
@@ -8,15 +9,30 @@ class FAIWorldBuilderToolsetsModule : public IModuleInterface
 public:
 	virtual void StartupModule() override
 	{
-		UToolsetRegistry::RegisterToolsetClass(UWorldBuilderDiagnosticsToolset::StaticClass());
+		for (UClass* Toolset : GetToolsetClasses())
+		{
+			UToolsetRegistry::RegisterToolsetClass(Toolset);
+		}
 	}
 
 	virtual void ShutdownModule() override
 	{
 		if (UObjectInitialized())
 		{
-			UToolsetRegistry::UnregisterToolsetClass(UWorldBuilderDiagnosticsToolset::StaticClass());
+			for (UClass* Toolset : GetToolsetClasses())
+			{
+				UToolsetRegistry::UnregisterToolsetClass(Toolset);
+			}
 		}
+	}
+
+private:
+	static TArray<UClass*> GetToolsetClasses()
+	{
+		return {
+			UWorldBuilderDiagnosticsToolset::StaticClass(),
+			ULandscapeInspectTools::StaticClass(),
+		};
 	}
 };
 
