@@ -55,3 +55,16 @@ Setup: `TestLandscape` level. Optional: set the landscape's Scale Z to 200 (Deta
 5. "Flatten an area on the volcano's east flank for a village."
 
 **Extra:** "Carve a river from the north-west hills down to the basin", "Add a ridge line along the southern edge", "Smooth the crater rim a little".
+
+## Phase 4 — Eyes (captures and height previews)
+
+**Unit tests:** Session Frontend → Automation → `AIWorldBuilder` → all green (TerrainMath.Geometry now also checks preview colours).
+
+**Inspector:**
+1. `ExportHeightPreview` `{}` → two PNG paths; open them: grey height map and coloured slope map of the whole landscape; volcano visible; image top = +X.
+2. `CaptureOrbit` `{"targetXM":0,"targetYM":0,"distanceM":1500,"count":3,"targetHeightAboveGroundM":60}` → 3 PNGs of the volcano from 3 sides; viewport camera returns to where it was.
+3. `CaptureTopDown` `{"centerXM":0,"centerYM":0,"sizeM":2000}` → overhead PNG matching the height map's orientation.
+4. Images match what the viewport shows (same lighting).
+
+**Claude Code (plan test):** "Build a mountain range across the north of the map, capture three angles, look at the images, and fix anything that looks wrong."
+Check that Claude actually opens the PNGs and describes/fixes what it sees.

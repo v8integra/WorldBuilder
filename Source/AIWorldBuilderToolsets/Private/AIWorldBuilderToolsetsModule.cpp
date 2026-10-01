@@ -4,6 +4,7 @@
 #include "LandscapeInspectTools.h"
 #include "LandscapeSculptTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
+#include "WorldCaptureTools.h"
 
 class FAIWorldBuilderToolsetsModule : public IModuleInterface
 {
@@ -34,6 +35,7 @@ private:
 			UWorldBuilderDiagnosticsToolset::StaticClass(),
 			ULandscapeInspectTools::StaticClass(),
 			ULandscapeSculptTools::StaticClass(),
+			UWorldCaptureTools::StaticClass(),
 		};
 	}
 };

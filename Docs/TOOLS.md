@@ -10,7 +10,7 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 3._
+_Last updated: Phase 4._
 
 ---
 
@@ -141,4 +141,38 @@ call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool
 `bLowerOnly: false` cuts and fills (roads).
 ```json
 call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeSculptTools", "tool_name": "CarvePath", "arguments": { "pointsM": [{"x":-900,"y":300},{"x":-200,"y":100},{"x":600,"y":-400}], "widthM": 20, "depthM": 4 } }
+```
+
+---
+
+## `AIWorldBuilderToolsets.WorldCaptureTools` (C++, eyes)
+Every image is a **PNG saved to `<Project>/Saved/AIWorldBuilder/Captures/`**; results return absolute `filePath`s —
+**open the file to look at it**. (Unreal MCP returns toolset results as text, so inline images would arrive as base64 text.)
+
+Camera captures render through the **editor level viewport** (same lighting/Lumen as the editor; 4 warm-up frames),
+then restore the user's camera. The viewport must be Perspective; PIE must be stopped.
+Top-down images: **image top = +X, image right = +Y**.
+
+Result (`FWorldBuilderCaptureResult`): `bSuccess`, `message`, `images[]` (`filePath`, `widthPx`, `heightPx`,
+`cameraLocationM`, `pitchDeg`, `yawDeg`, `fovDeg`).
+
+### `CaptureView(cameraXM, cameraYM, cameraZM, pitchDeg, yawDeg, fovDeg = 60, widthPx = 1280, heightPx = 720)`
+Pitch: 0 horizontal, negative looks down. Yaw: 0 = +X, 90 = +Y.
+### `CaptureLookAt(cameraXM, cameraYM, cameraZM, targetXM, targetYM, targetZM, fovDeg = 60, widthPx = 1280, heightPx = 720)`
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldCaptureTools", "tool_name": "CaptureLookAt", "arguments": { "cameraXM": -1200, "cameraYM": -1200, "cameraZM": 500, "targetXM": 0, "targetYM": 0, "targetZM": 100 } }
+```
+### `CaptureOrbit(targetXM, targetYM, distanceM, count = 4, elevationDeg = 30, targetHeightAboveGroundM = 0, startYawDeg = 45, fovDeg = 60, widthPx = 1280, heightPx = 720, landscapeName = "auto")`
+Cameras stay ≥ 5 m above terrain.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldCaptureTools", "tool_name": "CaptureOrbit", "arguments": { "targetXM": 0, "targetYM": 0, "distanceM": 1500, "count": 3, "targetHeightAboveGroundM": 60 } }
+```
+### `CaptureTopDown(centerXM, centerYM, sizeM, sizePx = 1024, fovDeg = 30, landscapeName = "auto")`
+Perspective camera straight down, high enough to frame the square at its highest point.
+### `ExportHeightPreview(centerXM = 0, centerYM = 0, sizeM = 0, widthPx = 1024, landscapeName = "auto")`
+Drawn from terrain data (exact, lighting-independent): `heightMapPath` (grey: black = `minHeightM`, white = `maxHeightM`)
+and `slopeMapPath` (green 0° → yellow-green 10° → yellow 20° → orange 30° → red 40° → purple 55°+, magenta = no data).
+`sizeM = 0` maps the whole landscape. Also returns `metersPerPixel`, `regionMinM`/`regionMaxM`, `slopeLegend`.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldCaptureTools", "tool_name": "ExportHeightPreview", "arguments": {} }
 ```

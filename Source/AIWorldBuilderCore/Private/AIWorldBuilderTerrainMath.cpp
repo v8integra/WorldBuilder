@@ -326,6 +326,56 @@ namespace AIWorldBuilder::TerrainMath
 		return Best;
 	}
 
+	namespace
+	{
+		struct FSlopeStop { double Degrees; FColor Color; const TCHAR* Name; };
+		const FSlopeStop SlopeStops[] = {
+			{  0.0, FColor( 34, 139,  34), TEXT("green") },
+			{ 10.0, FColor(154, 205,  50), TEXT("yellow-green") },
+			{ 20.0, FColor(255, 215,   0), TEXT("yellow") },
+			{ 30.0, FColor(255, 140,   0), TEXT("orange") },
+			{ 40.0, FColor(220,  20,  60), TEXT("red") },
+			{ 55.0, FColor(128,   0, 128), TEXT("purple") },
+		};
+	}
+
+	FColor SlopeToColor(double SlopeDegrees)
+	{
+		const int32 Count = UE_ARRAY_COUNT(SlopeStops);
+		if (SlopeDegrees <= SlopeStops[0].Degrees)
+		{
+			return SlopeStops[0].Color;
+		}
+		for (int32 I = 1; I < Count; ++I)
+		{
+			if (SlopeDegrees <= SlopeStops[I].Degrees)
+			{
+				const double T = (SlopeDegrees - SlopeStops[I - 1].Degrees) / (SlopeStops[I].Degrees - SlopeStops[I - 1].Degrees);
+				const FColor A = SlopeStops[I - 1].Color, B = SlopeStops[I].Color;
+				auto Mix = [T](uint8 X, uint8 Y) { return static_cast<uint8>(FMath::RoundToInt32(FMath::Lerp(double(X), double(Y), T))); };
+				return FColor(Mix(A.R, B.R), Mix(A.G, B.G), Mix(A.B, B.B), 255);
+			}
+		}
+		return SlopeStops[Count - 1].Color;
+	}
+
+	FString SlopeLegend()
+	{
+		TArray<FString> Parts;
+		for (const FSlopeStop& Stop : SlopeStops)
+		{
+			Parts.Add(FString::Printf(TEXT("%s=%.0f deg"), Stop.Name, Stop.Degrees));
+		}
+		return FString::Join(Parts, TEXT(", ")) + TEXT(" (and steeper); magenta = no data");
+	}
+
+	FColor HeightToGrey(double Height, double Min, double Max)
+	{
+		const double T = Max > Min ? FMath::Clamp((Height - Min) / (Max - Min), 0.0, 1.0) : 0.5;
+		const uint8 G = static_cast<uint8>(FMath::RoundToInt32(T * 255.0));
+		return FColor(G, G, G, 255);
+	}
+
 	void BoxBlur(TArray<double>& Grid, int32 Width, int32 Height, int32 RadiusSamples, int32 Passes)
 	{
 		if (RadiusSamples <= 0 || Width <= 0 || Height <= 0 || Grid.Num() != Width * Height)

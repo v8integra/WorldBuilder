@@ -98,4 +98,15 @@ namespace AIWorldBuilder::TerrainMath
 	 * Edges clamp. RadiusSamples is the box half-width in samples.
 	 */
 	AIWORLDBUILDERCORE_API void BoxBlur(TArray<double>& Grid, int32 Width, int32 Height, int32 RadiusSamples, int32 Passes);
+
+	// ---------------------------------------------------------------- preview colours
+
+	/** Slope colour ramp: green (flat) > yellow-green > yellow > orange > red > purple (55 degrees and steeper). */
+	AIWORLDBUILDERCORE_API FColor SlopeToColor(double SlopeDegrees);
+
+	/** Human-readable legend matching SlopeToColor. */
+	AIWORLDBUILDERCORE_API FString SlopeLegend();
+
+	/** Height mapped linearly to grey: Min = black, Max = white. */
+	AIWORLDBUILDERCORE_API FColor HeightToGrey(double Height, double Min, double Max);
 }

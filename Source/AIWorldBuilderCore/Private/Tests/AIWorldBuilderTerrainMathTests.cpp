@@ -165,6 +165,14 @@ bool FAIWorldBuilderGeometryTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("noise bounded"), bBounded);
 	TestTrue(TEXT("noise seeds differ"), !FMath::IsNearlyEqual(FBM(FVector2D(1.3, 2.7), 4, 1), FBM(FVector2D(1.3, 2.7), 4, 2)));
 	TestTrue(TEXT("noise deterministic"), FBM(FVector2D(1.3, 2.7), 4, 1) == FBM(FVector2D(1.3, 2.7), 4, 1));
+
+	// Preview colours.
+	TestTrue(TEXT("flat is green"), SlopeToColor(0.0) == FColor(34, 139, 34));
+	TestTrue(TEXT("very steep is purple"), SlopeToColor(80.0) == FColor(128, 0, 128));
+	TestTrue(TEXT("stop exact"), SlopeToColor(30.0) == FColor(255, 140, 0));
+	TestEqual(TEXT("grey min"), HeightToGrey(10.0, 10.0, 20.0).R, uint8(0));
+	TestEqual(TEXT("grey max"), HeightToGrey(20.0, 10.0, 20.0).R, uint8(255));
+	TestEqual(TEXT("grey flat range"), HeightToGrey(5.0, 5.0, 5.0).R, uint8(128));
 	return true;
 }
 

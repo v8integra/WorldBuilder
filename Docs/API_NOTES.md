@@ -109,6 +109,19 @@ class MyTools(unreal.ToolsetDefinition):
 - Async variant: `UToolCallAsyncResultImage` (`ToolCallAsyncResultImage.h`). Return it from a tool and call `SetValue()` when the render finishes.
 - **We can return images directly.** A file path is only needed as a fallback or for saving.
 
+### ⚠️ Images do NOT reach the agent as images (verified in Phase 4)
+`ModelContextProtocolToolsetRegistryAdapter.cpp:76/267` wraps **every** toolset result in `MakeTextResult(JsonString)`. A returned `FToolsetImage` (or a struct that contains one, like Epic's `FViewportCapture`) is serialized as `{mimeType, data: <base64>}` **inside a text block**. That's megabytes of text, not an MCP image content block. Only non-toolset MCP tools (`ModelContextProtocolToolUtils.cpp:101`, `MakeImageResult`) produce real image content.
+→ **Our capture tools save PNGs to `Saved/AIWorldBuilder/Captures/` and return file paths.** Claude Code opens the PNG to look at it.
+
+### Viewport capture technique (Phase 4)
+Same approach as `UEditorAppToolset::CaptureViewport` (`EditorAppToolset.cpp:1076`):
+- Take `GCurrentLevelEditingViewportClient` (`Editor.h`), or fall back to the first perspective client in `GEditor->GetLevelViewportClients()`.
+- Save the camera location, rotation, `ViewFOV` and show flags (ModeWidgets, SelectionOutline, Selection).
+- `SetViewLocation` / `SetViewRotation`, then `Invalidate` + `Viewport->Draw()` + `FlushRenderingCommands()`. We do this 4 times so temporal AA and exposure settle.
+- `GetViewportScreenShot(Viewport, Bitmap, CropRect)` (`UnrealClient.h:922`). Force alpha to 255, then restore everything with `ON_SCOPE_EXIT`.
+- Aspect: crop the viewport to the requested aspect and widen `ViewFOV` so the crop spans the requested horizontal FOV: `vpFov = 2·atan(tan(fov/2)·vpW/cropW)`. Resize with `FImageUtils::ImageResize`, save with `FImageUtils::SaveImageByExtension(Path, FImageView(FColor*, W, H))`.
+- Top-down: pitch −89.9 with yaw 0 gives **image top = +X, right = +Y**. `ExportHeightPreview` uses the same orientation.
+
 ### Already provided by Epic — reuse, don't rebuild
 `EditorToolset/Source/EditorToolset/Private/EditorAppToolset.h`:
 - `CaptureViewport(TOptional<FTransform> CaptureTransform, TOptional<FViewportAnnotationConfig>, bool bShowUI)` → `FViewportCapture { FToolsetImage Image; CameraLocation; ... }`
