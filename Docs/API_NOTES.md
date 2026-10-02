@@ -196,6 +196,14 @@ Source: `LandscapeEditorDetailCustomization_NewLandscape.cpp:1145` `OnCreateButt
 - **Writing:** `TAlphamapAccessor<false>(Info, LayerInfo)`, then `SetEditLayer(guid)`, then `GetDataFast` / `SetData(X1,Y1,X2,Y2, uint8*, ELandscapeLayerPaintingRestriction::None)`. This handles weightmap allocation (`SetAlphaData`) and calls `RequestWeightmapUpdate`. **`FAlphamapAccessor` is deprecated in 5.7.**
 - Exclude the visibility (holes) layer with `UE::Landscape::IsVisibilityLayer(Info)`.
 
+### Foliage and PCG (Phase 7)
+- **Foliage:** `AInstancedFoliageActor::AddInstances(WorldContext, FoliageType, Transforms)` is a UFUNCTION but **not exported** (no `FOLIAGE_API`), so it can't be linked from C++. Its logic is reproduced from exported functions: `AInstancedFoliageActor::Get(World, bCreateIfNone, PersistentLevel, Location)` (the World Partition cell foliage actor), then `IFA->AddFoliageType(Type, &Info)` and `FFoliageInfo::AddInstances(Type, TArray<const FFoliageInstance*>)`. Removal: `ForEachFoliageInfo`, `FFoliageInfo::GetInstancesOverlappingBox`, `RemoveInstances(indices, bRebuildTree)`.
+- Foliage Type asset: `NewObject<UFoliageType_InstancedStaticMesh>(Package, Name, RF_Public|RF_Standalone|RF_Transactional)`, then `SetStaticMesh` and `FAssetRegistryModule::AssetCreated`.
+- Paint weight at a point: `ULandscapeComponent::GetLayerWeightAtLocation(WorldPos, LayerInfo)`. The component is found via `Info->XYtoComponentMap` and the floor of local XY / ComponentSizeQuads.
+- **PCG:** Epic's `UPCGToolset` has **no export macro**, so it can't be called from our C++. Use the native API: `UPCGGraph::AddNodeOfType` / `AddEdge`, and `UPCGComponent::SetGraph`, `Seed`, `Generate(bForce)` (asynchronous), `Cleanup(bRemoveComponents)`, `bGenerated`.
+- Spawning `APCGVolume` with real bounds (copied from `PCGToolset.cpp:336`): `UCubeBuilder` with X/Y/Z in cm, then `UActorFactory::CreateBrushForVolumeActor(Volume, Builder)`, then on the brush component `ReregisterComponent` and `SetCollisionEnabled(NoCollision)`.
+- Range filters (`UPCGAttributeFilteringRangeSettings`) need `FPCGMetadataTypesConstantStruct` thresholds. Hand-building graphs in C++ is fiddly, so the forest graph is authored with Epic's PCGToolset instead.
+
 ### Writing heights — original plan notes
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:
 ```cpp

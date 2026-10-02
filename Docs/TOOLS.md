@@ -10,7 +10,7 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 6._
+_Last updated: Phase 7._
 
 ---
 
@@ -245,3 +245,36 @@ call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapePaintTools", "tool_
 ] } }
 ```
 "Sand near water" = a height rule, e.g. `{"layerName":"Sand","maxHeightM": waterLevel + 5}`.
+
+---
+
+## `AIWorldBuilderToolsets.FoliageScatterTools` (C++, foliage instances)
+Real foliage (instanced static meshes via `AInstancedFoliageActor`, one per World Partition cell). One undo step per call.
+A Foliage Type asset `FT_<Mesh>` is created per mesh in `foliageFolder` (reused if it exists) — **save all** afterwards.
+Collision on placed instances comes from the Foliage Type (edit it to make trees block the player).
+
+### `ScatterFoliage(meshPaths, excludeAreas, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, densityPerHectare = 200, minSlopeDeg = 0, maxSlopeDeg = 30, minHeightM, maxHeightM, layerName = "none", minLayerWeight = 0.5, minScale = 0.8, maxScale = 1.2, bAlignToNormal = false, sinkM = 0, seed = 1, foliageFolder = "/Game/Landscape/Foliage", landscapeName = "auto")`
+Jittered grid (one candidate per `sqrt(10000/density)` m cell) → rejected if inside an `excludeAreas` circle, off the
+landscape, outside the height or slope range, or below `minLayerWeight` of `layerName`. Meshes are picked at random.
+`excludeAreas` is required (`[]` for none): `[{"xM":600,"yM":0,"radiusM":120}]`. Returns placed counts per type and
+`rejected` counts per reason. Cap: 2 million candidates per call.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.FoliageScatterTools", "tool_name": "ScatterFoliage", "arguments": {
+  "meshPaths": ["/Engine/BasicShapes/Cone.Cone"], "excludeAreas": [{"xM":600,"yM":0,"radiusM":120}],
+  "densityPerHectare": 300, "maxSlopeDeg": 30, "maxHeightM": 120, "layerName": "Grass", "minScale": 3, "maxScale": 6 } }
+```
+### `RemoveFoliage(centerXM, centerYM, radiusM, meshPaths)` — `meshPaths: []` = all foliage.
+### `ListFoliage()` — instance counts per foliage type (loaded foliage actors).
+
+---
+
+## `AIWorldBuilderToolsets.PCGWorldTools` (C++, PCG orchestration)
+Graphs are the stored recipe; volumes apply them to regions. Build/edit graphs and override graph parameters with
+**Epic's `PCGToolset`** (`CreateGraph`, `AddNode`, `ConnectNodePins`, `SetGraphInstanceParams`).
+### `ListPCGGraphs(folder = "auto")` — `/Game` + `/AIWorldBuilder` by default.
+### `ListPCGVolumes()` — label, graph, seed, bounds, generated.
+### `SpawnPCGVolume(graphPath, centerXM, centerYM, sizeXM, sizeYM, seed = 42, label = "auto", bGenerate = true)`
+Volume covers the region and the full terrain height (±100 m margin). Generation is asynchronous (completes over the
+next frames). One undo step.
+### `GeneratePCG(volumeLabel, seed = -1)` — regenerate (optionally with a new seed).
+### `CleanupPCG(volumeLabel, bDeleteVolume = false)`

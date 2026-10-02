@@ -1,10 +1,12 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "ToolsetRegistry/UToolsetRegistry.h"
+#include "FoliageScatterTools.h"
 #include "LandscapeCreateTools.h"
 #include "LandscapeInspectTools.h"
 #include "LandscapePaintTools.h"
 #include "LandscapeSculptTools.h"
+#include "PCGWorldTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WorldCaptureTools.h"
 
@@ -40,6 +42,8 @@ private:
 			UWorldCaptureTools::StaticClass(),
 			ULandscapeCreateTools::StaticClass(),
 			ULandscapePaintTools::StaticClass(),
+			UFoliageScatterTools::StaticClass(),
+			UPCGWorldTools::StaticClass(),
 		};
 	}
 };

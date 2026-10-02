@@ -100,3 +100,21 @@ Check that Claude actually opens the PNGs and describes/fixes what it sees.
 
 **Claude Code (plan test):** "Auto-paint the volcano and mountains realistically, then capture views to check the result."
 Watch: does it list layers first, create Layer Infos if missing, choose sensible thresholds from GetHeightStats, and look at captures?
+
+## Phase 7 — Foliage and PCG
+
+Meshes: a tree pack from Fab/Megascans, or `/Engine/BasicShapes/Cone.Cone` (scale 3-6) as a stand-in pine.
+
+**Inspector:**
+1. `ScatterFoliage` (TOOLS.md example) → instances placed, `rejected` counts sensible; FT_Cone asset created; Ctrl+Z removes them.
+2. `RemoveFoliage` `{"centerXM":0,"centerYM":0,"radiusM":100,"meshPaths":[]}` → clearing; `ListFoliage` counts drop.
+
+**Ready-made PCG graph (Claude in UE + Epic's PCGToolset):**
+"Using the PCG toolset, create a PCG graph at /Game/PCG/PCG_ForestScatter that samples the landscape surface (about 0.03 points per m²),
+keeps points on slopes under 30° and below a maximum height, randomizes rotation and scale, prunes overlaps, and spawns /Engine/BasicShapes/Cone.Cone
+(or my tree mesh). Expose density, max slope and max height as graph parameters. Then use AI World Builder's SpawnPCGVolume to apply it over the
+volcano's lower slopes and capture a view."
+→ graph builds and compiles; volume spawns and generates; captures show it. Copy the finished graph into the plugin (Content/PCG) to ship it.
+
+**Claude Code (plan test):** "Add a dense pine forest on the lower volcano slopes, keep a clearing around the village, and no trees in the crater.
+Then capture views." Walk through it in PIE and check performance (stat fps / stat unit).
