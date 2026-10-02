@@ -185,6 +185,17 @@ Source: `LandscapeEditorDetailCustomization_NewLandscape.cpp:1145` `OnCreateButt
 - 16-bit PNG write: `FImageUtils::SaveImageByExtension(Path, FImageView(uint16*, W, H, ERawImageFormat::G16))`.
 - Our refactor: `LandscapeEditPipeline.h/.cpp` (RunSculpt, SplitIntoTiles, AccumulateTileResult, RenderMergedHeights, CanEditLandscape) is shared by the sculpt, generate and import tools.
 
+### Painting weights (Phase 6)
+- **Layer Info creation** (same steps as the editor's "+" button, `LandscapeEditorDetailCustomization_TargetLayers.cpp:2348`):
+  1. `UE::Landscape::GetLayerInfoObjectPackageName(Name, Folder, OutObjectName)` gives a unique `<Name>_LayerInfo[_N]`.
+  2. `UE::Landscape::CreateTargetLayerInfo(Name, Folder, ObjectName)` (`LandscapeUtils.h`) duplicates the project's default Layer Info template if one is set, marks the package dirty and notifies the asset registry. **It doesn't save.**
+  3. `Landscape->AddTargetLayer` / `UpdateTargetLayer(Name, FLandscapeTargetLayerSettings(Info))`, then `Info->CreateTargetLayerSettingsFor(Info)` and `UpdateLayerInfoMap`.
+- **Material layer names:** `ALandscapeProxy::RetrieveTargetLayerNamesFromMaterials(bIncludeVisibilityLayer)`. **`GetLayersFromMaterial` is deprecated in 5.8.** Target layers now live on the proxy (`GetTargetLayers()` → `TMap<FName, FLandscapeTargetLayerSettings>`), and `EditorLayerSettings` is deprecated.
+- **Weight blending** (5.7+): `ULandscapeLayerInfoObject::BlendMethod` is one of `ELandscapeTargetLayerBlendMethod` {None (**the default**), FinalWeightBlending (legacy), PremultipliedAlphaBlending ("Advanced", works per edit layer, with a `BlendGroup`)}. It replaces `bNoWeightBlend`. Set it with `SetBlendMethod(Method, bModify)`.
+- **Weights in edit layers** (`LandscapeEditLayersWeightmaps.usf`): per edit layer and target layer, blending is additive by default. With premultiplied blending, `Final = Prev·(1 − groupSum) + alpha·Current/max(groupSum,1)`, so a layer whose weights sum to 1 fully overrides the layers below.
+- **Writing:** `TAlphamapAccessor<false>(Info, LayerInfo)`, then `SetEditLayer(guid)`, then `GetDataFast` / `SetData(X1,Y1,X2,Y2, uint8*, ELandscapeLayerPaintingRestriction::None)`. This handles weightmap allocation (`SetAlphaData`) and calls `RequestWeightmapUpdate`. **`FAlphamapAccessor` is deprecated in 5.7.**
+- Exclude the visibility (holes) layer with `UE::Landscape::IsVisibilityLayer(Info)`.
+
 ### Writing heights — original plan notes
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:
 ```cpp

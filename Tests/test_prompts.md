@@ -86,3 +86,17 @@ Check that Claude actually opens the PNGs and describes/fixes what it sees.
    Expect: CreateLandscape (maxHeightM sized for the mountains) → GenerateTerrain regions → ApplyShape/Flatten for the basin → captures to check.
 2. Separately: "Create an 8 km × 8 km landscape with rolling hills." → tiles (≥ 4) and still responsive; watch memory in Task Manager.
 3. Only after both work: try larger (e.g. 16 km at 2 m spacing). 50 km needs the region workflow (not supported yet).
+
+## Phase 6 — Painting terrain layers
+
+**Pre-check (done 2026-10-02):** Claude in UE built `/Game/Landscape/M_Terrain` (Grass/Rock/Dirt/Snow LandscapeLayerBlend) with Epic's MaterialTools and assigned it; it could not create Layer Infos or paint → covered by this phase.
+
+**Inspector:**
+1. `ListPaintLayers` `{}` → Grass, Rock, Dirt, Snow `bInMaterial: true`, `bHasLayerInfo: false`.
+2. `CreateLayerInfos` `{"layerNames":[]}` → 4 assets in /Game/Landscape/LayerInfos, blend Advanced. Save all. Landscape mode → Paint shows the 4 layers with their Layer Infos.
+3. `PaintLayer` `{"layerName":"Dirt","centerXM":0,"centerYM":0,"radiusM":60}` → dirt patch; Ctrl+Z undoes.
+4. `PaintByRules` with the TOOLS.md example → grass base, rock on steep volcano/mountain sides, snow on peaks.
+5. `ExportHeightPreview` + `CaptureOrbit` → slope map red areas ≈ rock in the render.
+
+**Claude Code (plan test):** "Auto-paint the volcano and mountains realistically, then capture views to check the result."
+Watch: does it list layers first, create Layer Infos if missing, choose sensible thresholds from GetHeightStats, and look at captures?

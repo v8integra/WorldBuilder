@@ -10,7 +10,7 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 5._
+_Last updated: Phase 6._
 
 ---
 
@@ -209,3 +209,39 @@ round-trips `ExportHeightmap`) or `Range` (0 = `minHeightM`, 65535 = `maxHeightM
 ### `ExportHeightmap(filePath = "auto", centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, landscapeName = "auto")`
 Final heights (all visible edit layers), one pixel per sample, Native encoding, ≤ 8193 per side. `"auto"`/relative paths
 go to `Saved/AIWorldBuilder/Heightmaps/`. Returns `filePath`, size, region, height range and an `encoding` formula.
+
+---
+
+## `AIWorldBuilderToolsets.LandscapePaintTools` (C++, paint layers)
+Paint is written to the **`AI Paint`** edit layer (separate from "AI Sculpt"); every call is one undo step (per tile on
+big areas). Layers need a **Layer Info** asset — `CreateLayerInfos` makes them. Default weight blending is
+**Advanced** (premultiplied alpha: layers share 100 % and respect edit layers); 5.8's own default for new Layer Infos is
+"None" (painting one layer doesn't reduce the others).
+
+### `ListPaintLayers(landscapeName = "auto")`
+`layers[]`: `name`, `bInMaterial`, `bHasLayerInfo`, `layerInfoPath`, `blendMethod` (Advanced | Legacy | None); `materialPath`.
+
+### `CreateLayerInfos(layerNames, folderPath = "/Game/Landscape/LayerInfos", blendMethod = Advanced, bUpdateExisting = true, landscapeName = "auto")`
+`layerNames: []` = every layer of the landscape material. Creates `<Layer>_LayerInfo` assets, assigns them as target
+layers, sets the blend method (also on existing ones if `bUpdateExisting`). **Save all afterwards** to keep the assets.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapePaintTools", "tool_name": "CreateLayerInfos", "arguments": { "layerNames": [] } }
+```
+
+### `PaintLayer(layerName, centerXM, centerYM, radiusM, strength = 1, falloff = Smooth, landscapeName = "auto")`
+Brush: other layers are scaled down by the same amount the target layer gains.
+
+### `PaintByRules(rules, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, edgeNoise = 0.3, edgeBlendM = 20, seed = 1, landscapeName = "auto")`
+Rules apply **in order**, each painting over the previous where it matches; list a base layer first. Rule fields:
+`layerName`, `minHeightM`, `maxHeightM` (default unlimited), `minSlopeDeg` (0), `maxSlopeDeg` (90), `heightBlendM` (10),
+`slopeBlendDeg` (4), `strength` (1). Heights/slopes come from the exact merged terrain; `edgeNoise` makes transitions
+wander naturally. Writes complete normalized weights, so re-running replaces earlier AI paint in the area.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapePaintTools", "tool_name": "PaintByRules", "arguments": { "rules": [
+  {"layerName":"Grass"},
+  {"layerName":"Dirt","minSlopeDeg":18,"maxSlopeDeg":35},
+  {"layerName":"Rock","minSlopeDeg":35},
+  {"layerName":"Snow","minHeightM":300,"heightBlendM":20}
+] } }
+```
+"Sand near water" = a height rule, e.g. `{"layerName":"Sand","maxHeightM": waterLevel + 5}`.

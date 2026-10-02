@@ -3,6 +3,7 @@
 #include "ToolsetRegistry/UToolsetRegistry.h"
 #include "LandscapeCreateTools.h"
 #include "LandscapeInspectTools.h"
+#include "LandscapePaintTools.h"
 #include "LandscapeSculptTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WorldCaptureTools.h"
@@ -38,6 +39,7 @@ private:
 			ULandscapeSculptTools::StaticClass(),
 			UWorldCaptureTools::StaticClass(),
 			ULandscapeCreateTools::StaticClass(),
+			ULandscapePaintTools::StaticClass(),
 		};
 	}
 };

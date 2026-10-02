@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "LandscapeEditTypes.h"
 #include "LandscapeSculptTools.h"
 
 class ALandscape;
+class ULandscapeEditLayerBase;
 
 /**
  * Shared landscape write path used by every tool that changes terrain heights (sculpt, generate, import).
@@ -98,4 +100,17 @@ namespace AIWorldBuilder::EditPipeline
 	 * tiling as needed. The region must be loaded.
 	 */
 	bool RenderMergedHeights(ALandscape* Landscape, const FIntRect& InclusiveRect, TArray<uint16>& OutValues, FString& OutError);
+
+	/**
+	 * Inclusive landscape sample rectangle covering a world area (cm), clipped to the landscape.
+	 * Fails if it doesn't overlap, exceeds MaxSamplesPerSide, or touches unloaded World Partition components.
+	 */
+	bool ResolveSampleRect(ALandscape* Landscape, const FBox2D& AreaCm, FIntRect& OutInclusiveRect, FString& OutError);
+
+	/**
+	 * Finds the named edit layer or creates it on top of the stack (call inside a transaction).
+	 * Fails if it is locked, hidden or has zero alpha for TargetType.
+	 */
+	const ULandscapeEditLayerBase* GetOrCreateEditLayer(ALandscape* Landscape, FName LayerName, ELandscapeToolTargetType TargetType,
+		bool& bOutCreated, FString& OutError);
 }

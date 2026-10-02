@@ -437,4 +437,93 @@ namespace AIWorldBuilder::EditPipeline
 		}
 		return true;
 	}
+
+	bool ResolveSampleRect(ALandscape* Landscape, const FBox2D& AreaCm, FIntRect& OutInclusiveRect, FString& OutError)
+	{
+		ULandscapeInfo* Info = Landscape ? Landscape->GetLandscapeInfo() : nullptr;
+		if (!Info)
+		{
+			OutError = TEXT("Landscape has no landscape info.");
+			return false;
+		}
+		const FTransform LandscapeToWorld = Landscape->LandscapeActorToWorld();
+		double MinLX = TNumericLimits<double>::Max(), MinLY = TNumericLimits<double>::Max();
+		double MaxLX = TNumericLimits<double>::Lowest(), MaxLY = TNumericLimits<double>::Lowest();
+		for (const FVector2D& Corner : { AreaCm.Min, AreaCm.Max, FVector2D(AreaCm.Min.X, AreaCm.Max.Y), FVector2D(AreaCm.Max.X, AreaCm.Min.Y) })
+		{
+			const FVector L = LandscapeToWorld.InverseTransformPosition(FVector(Corner.X, Corner.Y, 0.0));
+			MinLX = FMath::Min(MinLX, L.X); MaxLX = FMath::Max(MaxLX, L.X);
+			MinLY = FMath::Min(MinLY, L.Y); MaxLY = FMath::Max(MaxLY, L.Y);
+		}
+		const FIntRect Extent = LandscapeUtils::GetCompleteExtent(Landscape);
+		const FIntRect Rect(
+			FMath::Max(FMath::FloorToInt32(MinLX), Extent.Min.X), FMath::Max(FMath::FloorToInt32(MinLY), Extent.Min.Y),
+			FMath::Min(FMath::CeilToInt32(MaxLX), Extent.Max.X), FMath::Min(FMath::CeilToInt32(MaxLY), Extent.Max.Y));
+		if (Rect.Min.X > Rect.Max.X || Rect.Min.Y > Rect.Max.Y)
+		{
+			OutError = FString::Printf(TEXT("The area does not overlap landscape '%s'. Use ListLandscapes to see its bounds."), *LandscapeUtils::GetDisplayName(Landscape));
+			return false;
+		}
+		const int32 Width = Rect.Max.X - Rect.Min.X + 1, Height = Rect.Max.Y - Rect.Min.Y + 1;
+		if (Width > MaxSamplesPerSide || Height > MaxSamplesPerSide)
+		{
+			OutError = FString::Printf(TEXT("The area is %d x %d samples; the limit per call is %d x %d. Use a smaller area."), Width, Height, MaxSamplesPerSide, MaxSamplesPerSide);
+			return false;
+		}
+		const int32 CSQ = FMath::Max(Info->ComponentSizeQuads, 1);
+		int32 Missing = 0, Total = 0;
+		for (int32 KY = FMath::FloorToInt32(double(Rect.Min.Y) / CSQ); KY <= FMath::FloorToInt32(double(FMath::Max(Rect.Max.Y - 1, Rect.Min.Y)) / CSQ); ++KY)
+		{
+			for (int32 KX = FMath::FloorToInt32(double(Rect.Min.X) / CSQ); KX <= FMath::FloorToInt32(double(FMath::Max(Rect.Max.X - 1, Rect.Min.X)) / CSQ); ++KX)
+			{
+				++Total;
+				Missing += Info->XYtoComponentMap.Contains(FIntPoint(KX, KY)) ? 0 : 1;
+			}
+		}
+		if (Missing > 0)
+		{
+			OutError = FString::Printf(TEXT("%d of %d landscape components in this area are not loaded. In World Partition, load that region (World Partition window: select the cells, right-click, Load) and try again."), Missing, Total);
+			return false;
+		}
+		OutInclusiveRect = Rect;
+		return true;
+	}
+
+	const ULandscapeEditLayerBase* GetOrCreateEditLayer(ALandscape* Landscape, FName LayerName, ELandscapeToolTargetType TargetType, bool& bOutCreated, FString& OutError)
+	{
+		bOutCreated = false;
+		int32 LayerIndex = Landscape->GetLayerIndex(LayerName);
+		if (LayerIndex == INDEX_NONE)
+		{
+			LayerIndex = Landscape->CreateLayer(LayerName);
+			if (LayerIndex == INDEX_NONE)
+			{
+				OutError = FString::Printf(TEXT("Couldn't create the '%s' edit layer. The landscape may already have the maximum number of edit layers; remove one in Landscape mode and try again."), *LayerName.ToString());
+				return nullptr;
+			}
+			bOutCreated = true;
+		}
+		const ULandscapeEditLayerBase* Layer = Landscape->GetEditLayerConst(LayerIndex);
+		if (!Layer)
+		{
+			OutError = FString::Printf(TEXT("Couldn't access the '%s' edit layer."), *LayerName.ToString());
+			return nullptr;
+		}
+		if (Layer->IsLocked())
+		{
+			OutError = FString::Printf(TEXT("The '%s' edit layer is locked. Unlock it in Landscape mode (Edit Layers panel) and try again."), *LayerName.ToString());
+			return nullptr;
+		}
+		if (!Layer->IsVisible())
+		{
+			OutError = FString::Printf(TEXT("The '%s' edit layer is hidden, so changes would not show. Make it visible in Landscape mode and try again."), *LayerName.ToString());
+			return nullptr;
+		}
+		if (FMath::IsNearlyZero(Layer->GetAlphaForTargetType(TargetType)))
+		{
+			OutError = FString::Printf(TEXT("The '%s' edit layer's alpha is 0, so changes would not show. Set it to 1 in Landscape mode."), *LayerName.ToString());
+			return nullptr;
+		}
+		return Layer;
+	}
 }
