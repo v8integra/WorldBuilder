@@ -16,6 +16,7 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"Foliage",
 			"ImageCore",
 			"Landscape",
+			"LandscapeEditor",
 			"RenderCore",
 			"RHI",
 			"ToolsetRegistry",

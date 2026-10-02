@@ -10,7 +10,7 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 4._
+_Last updated: Phase 5._
 
 ---
 
@@ -176,3 +176,36 @@ and `slopeMapPath` (green 0° → yellow-green 10° → yellow 20° → orange 3
 ```json
 call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldCaptureTools", "tool_name": "ExportHeightPreview", "arguments": {} }
 ```
+
+---
+
+## `AIWorldBuilderToolsets.LandscapeCreateTools` (C++, create / generate / import / export)
+`GenerateTerrain` and `ImportHeightmap` use the same write path as the sculpt tools ("AI Sculpt" layer, undo, clip check,
+collision verify) and return `FWorldBuilderSculptResult`. Areas bigger than 4097 samples per side are split into
+tiles, **one undo step per tile**. "Region" arguments: `centerXM`, `centerYM`, `sizeXM`, `sizeYM`; sizes 0 = whole landscape.
+
+### `CreateLandscape(sizeXKm, sizeYKm, centerXM = 0, centerYM = 0, baseHeightM = 0, maxHeightM = 256, sampleSpacingM = 1, quadsPerSection = 63, sectionsPerComponent = 2, worldPartitionGridSize = 2, materialPath = "auto", label = "auto")`
+Flat landscape at the nearest valid size (whole components, ≤ 8191 quads / 256 components per side). `maxHeightM` sets
+Z scale (`ScaleZ = maxHeightM × 100 / 256`) — pick it for the tallest planned terrain. In World Partition levels the
+landscape is split into streaming proxies (`worldPartitionGridSize` components each). One undo step. Save the level after.
+`materialPath`: asset path, `"auto"` (copy an existing landscape's material) or `"none"`.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeCreateTools", "tool_name": "CreateLandscape", "arguments": { "sizeXKm": 4, "sizeYKm": 4, "maxHeightM": 600 } }
+```
+
+### `GenerateTerrain(preset, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, baseHeightM = 0, amplitudeM = 150, wavelengthM = 800, seed = 1, erosionIterations = 0, erosionTalusDeg = 35, edgeBlendM = 100, blendMode = Replace, bAllowClipping = false, landscapeName = "auto")`
+`preset`: RollingHills | Mountains | Islands | Canyons | Plains. Heights = `baseHeightM` + preset (0..`amplitudeM`;
+Islands dips ~15 % below base at the region edge; Plains ±10 %). `edgeBlendM` blends a region into its surroundings.
+Erosion runs only when the region is a single tile (≤ 4 km at 1 m).
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.LandscapeCreateTools", "tool_name": "GenerateTerrain", "arguments": { "preset": "Mountains", "centerXM": 0, "centerYM": 1000, "sizeXM": 4000, "sizeYM": 2000, "amplitudeM": 450, "erosionIterations": 40 } }
+```
+
+### `ImportHeightmap(filePath, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, encoding = Native, minHeightM = 0, maxHeightM = 256, blendMode = Replace, edgeBlendM = 0, bFlipY = false, bAllowClipping = false, landscapeName = "auto")`
+16-bit `.png`, `.r16` or `.raw` (little-endian); files named `*_x0_y0.*` are stitched as a tiled set. Resampled onto the
+region; pixel columns along +X, rows along +Y. `encoding`: `Native` (Unreal landscape values of the target landscape,
+round-trips `ExportHeightmap`) or `Range` (0 = `minHeightM`, 65535 = `maxHeightM`).
+
+### `ExportHeightmap(filePath = "auto", centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, landscapeName = "auto")`
+Final heights (all visible edit layers), one pixel per sample, Native encoding, ≤ 8193 per side. `"auto"`/relative paths
+go to `Saved/AIWorldBuilder/Heightmaps/`. Returns `filePath`, size, region, height range and an `encoding` formula.

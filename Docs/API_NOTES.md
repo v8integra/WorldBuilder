@@ -159,6 +159,7 @@ World Z (cm) = `GetLocalHeight(H) * ActorScale.Z + ActorLocation.Z`. This matche
 - **Avoid `FLandscapeEditDataInterface` for reads.** `FLandscapeTextureDataInfo`'s constructor calls `Texture->Modify(bShouldDirtyPackage)` and `Source.LockMip()` (read-write). On destruction it clears `RF_Transactional` and updates the texture hash. If we ever need texture-accurate reads, wrap them in `FLandscapeDoNotDirtyScope`.
 - `ULandscapeComponent::GetHeightmap(FGuid())` with an invalid GUID returns the final merged heightmap. `FLandscapeEditDataInterface(Info, FGuid(), false)` therefore reads final heights (and has the same dirtying caveat).
 - Bounds: `ULandscapeInfo::GetCompleteBounds()` and `GetCompleteLandscapeExtent()` cover all World Partition proxies, loaded or not. `GetLoadedBounds()` and `GetLandscapeExtent()` (which iterates `XYtoComponentMap`) cover loaded data only.
+  - ⚠️ **Bug found in Phase 5:** in World Partition, the "complete" functions enumerate **actor descriptors**, and those only exist for **saved** actors (`LandscapeEdit.cpp:4717`, `Landscape.cpp:7199`). A landscape created or re-gridded since the last save returns **empty bounds and extent** (0 × 0 m, 0 components). **Always use `LandscapeUtils::GetCompleteBounds` / `GetCompleteExtent`**, which union the complete result with the loaded result.
 
 ### Writing heights — implemented path (Phase 3)
 Verified in `LandscapeEditLayers.cpp`, `LandscapeEditLayer.cpp`, `LandscapeEdModeTools.h`, `LandscapeEditLayersHeightmaps.usf`:
@@ -171,6 +172,18 @@ Verified in `LandscapeEditLayers.cpp`, `LandscapeEditLayer.cpp`, `LandscapeEdMod
 - **After writing:** `ALandscape::ForceUpdateLayersContent()`, which is `UpdateLayersContent(bWaitForStreaming=true, bSkipMonitor=true, bFlushRender=true)`. This merges synchronously and updates collision, so the next tool call and `SampleHeight` see the result.
 - `ForceUpdateLayersContent(bool)` is deprecated in 5.7. Use the no-argument version.
 - **Name clash:** a global `::EBlendMode` (material blend mode) exists, so don't name our own enum `EBlendMode` in any namespace that might be `using`-ed.
+
+### Creating landscapes (Phase 5)
+Source: `LandscapeEditorDetailCustomization_NewLandscape.cpp:1145` `OnCreateButtonClicked`.
+- **Non-region path (what we use):** `World->SpawnActor<ALandscape>(Location, Rotation)`, set `LandscapeMaterial`, `SetActorRelativeScale3D`, `StaticLightingLOD = DivideAndRoundUp(CeilLogTwo(SizeX*SizeY/(2048*2048)+1), 2)`, then
+  `Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, SectionsPerComponent, QuadsPerSection, {FGuid() → heights}, HeightmapFileName, {FGuid() → layers}, ELandscapeImportAlphamapType, TArrayView<const FLandscapeLayer>())`, then
+  `Info->UpdateLayerInfoMap(Landscape)` and `ULandscapeSubsystem::ChangeGridSize(Info, GridSizeInComponents)` (it splits into streaming proxies when `IsGridBased()`). The editor wraps all of this in one `FScopedTransaction`.
+- **Region path** (World Partition, landscape larger than `WorldPartitionRegionSize`, default 16 components): it needs a saved map, creates `ALocationVolume` regions (`LandscapeRegionUtils`, which is **private**), adds components region by region, and saves and unloads proxies. It's **not undoable**. This is needed for truly huge maps such as 50 km. Not implemented yet.
+- UI limits (`LandscapeEditorObject.h:840`): at most 256 components and ≤ 8191 quads per side. Defaults: `WorldPartitionGridSize = 2`, `WorldPartitionRegionSize = 16`.
+- Valid `QuadsPerSection`: 7, 15, 31, 63, 127, 255. Sections per component: 1 or 2. Size = components × quadsPerComponent + 1.
+- File import: `FLandscapeImportHelper` (`LandscapeEditor/Public/LandscapeImportHelper.h`), via `GetHeightmapImportDescriptor(Path, bSingleFile, bFlipY, Desc, Msg)` and `GetHeightmapImportData(Desc, 0, Data, Msg)`. Use `bSingleFile=false` with `ExtractCoordinates()` for `_x0_y0` tile sets. Results are `ELandscapeImportResult` {Success, Warning, Error}.
+- 16-bit PNG write: `FImageUtils::SaveImageByExtension(Path, FImageView(uint16*, W, H, ERawImageFormat::G16))`.
+- Our refactor: `LandscapeEditPipeline.h/.cpp` (RunSculpt, SplitIntoTiles, AccumulateTileResult, RenderMergedHeights, CanEditLandscape) is shared by the sculpt, generate and import tools.
 
 ### Writing heights — original plan notes
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:

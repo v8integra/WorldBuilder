@@ -50,7 +50,7 @@ namespace
 
 		if (ULandscapeInfo* Info = Landscape->GetLandscapeInfo())
 		{
-			const FIntRect Extent = Info->GetCompleteLandscapeExtent();
+			const FIntRect Extent = LandscapeUtils::GetCompleteExtent(Landscape);
 			if (Extent.Min.X <= Extent.Max.X)
 			{
 				S.ResolutionX = Extent.Width() + 1;

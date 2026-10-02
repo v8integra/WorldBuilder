@@ -176,4 +176,66 @@ bool FAIWorldBuilderGeometryTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAIWorldBuilderGenerationTest, "AIWorldBuilder.Core.TerrainMath.Generation",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAIWorldBuilderGenerationTest::RunTest(const FString& Parameters)
+{
+	// Presets stay within their documented ranges.
+	const double A = 100.0;
+	for (ETerrainPreset Preset : { ETerrainPreset::RollingHills, ETerrainPreset::Mountains, ETerrainPreset::Canyons })
+	{
+		bool bInRange = true;
+		for (int32 I = 0; I < 400; ++I)
+		{
+			const FVector2D P(I * 0.137, I * 0.071);
+			const double H = PresetHeight(Preset, P, FVector2D(0.5), A, 7);
+			bInRange &= H >= -1e-6 && H <= A + 1e-6;
+		}
+		TestTrue(FString::Printf(TEXT("preset %d in 0..A"), int32(Preset)), bInRange);
+	}
+	bool bPlainsSmall = true;
+	for (int32 I = 0; I < 400; ++I)
+	{
+		bPlainsSmall &= FMath::Abs(PresetHeight(ETerrainPreset::Plains, FVector2D(I * 0.2, I * 0.3), FVector2D(0.5), A, 7)) <= 0.1 * A + 1e-6;
+	}
+	TestTrue(TEXT("plains stay low"), bPlainsSmall);
+
+	// Islands: land in the middle, sea floor at the region border.
+	double CentreSum = 0.0, EdgeSum = 0.0;
+	for (int32 I = 0; I < 50; ++I)
+	{
+		const FVector2D P(I * 0.31, I * 0.17);
+		CentreSum += PresetHeight(ETerrainPreset::Islands, P, FVector2D(0.5, 0.5), A, 3);
+		EdgeSum += PresetHeight(ETerrainPreset::Islands, P, FVector2D(0.0, 0.0), A, 3);
+	}
+	TestTrue(TEXT("island centre is land"), CentreSum / 50.0 > 0.3 * A);
+	TestTrue(TEXT("island edge is sea floor"), EdgeSum / 50.0 < 0.0);
+
+	// Thermal erosion: conserves mass and reduces the steepest slope of a spike.
+	const int32 N = 21;
+	TArray<double> Grid;
+	Grid.Init(0.0, N * N);
+	Grid[10 * N + 10] = 1000.0;
+	auto MaxStep = [&]()
+	{
+		double M = 0.0;
+		for (int32 Y = 0; Y < N; ++Y)
+		{
+			for (int32 X = 0; X + 1 < N; ++X)
+			{
+				M = FMath::Max(M, FMath::Abs(Grid[Y * N + X] - Grid[Y * N + X + 1]));
+			}
+		}
+		return M;
+	};
+	const double Before = MaxStep();
+	ThermalErosion(Grid, N, N, 100.0, 30.0, 50);
+	double Total = 0.0;
+	for (double V : Grid) { Total += V; }
+	TestTrue(TEXT("erosion conserves mass"), FMath::IsNearlyEqual(Total, 1000.0, 1e-6));
+	TestTrue(TEXT("erosion reduces steepest step"), MaxStep() < Before * 0.5);
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS

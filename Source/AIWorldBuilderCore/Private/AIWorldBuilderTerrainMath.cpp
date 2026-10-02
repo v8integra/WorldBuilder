@@ -326,6 +326,110 @@ namespace AIWorldBuilder::TerrainMath
 		return Best;
 	}
 
+	// ---------------------------------------------------------------- procedural terrain
+
+	double PresetHeight(ETerrainPreset Preset, const FVector2D& P, const FVector2D& RegionUV, double Amplitude, int32 Seed)
+	{
+		switch (Preset)
+		{
+		case ETerrainPreset::Plains:
+			return Amplitude * 0.1 * FBM(P, 4, Seed);
+
+		case ETerrainPreset::RollingHills:
+			return Amplitude * (0.5 + 0.5 * FBM(P, 5, Seed));
+
+		case ETerrainPreset::Mountains:
+		{
+			// Broad uplift plus sharp ridged ranges, strongest where the uplift is high.
+			const double Uplift = 0.5 + 0.5 * FBM(P * 0.5, 3, Seed + 11);
+			const double Ridges = FMath::Pow(Ridged(P, 6, Seed), 2.0);
+			return Amplitude * FMath::Clamp(0.25 * Uplift + 0.75 * Ridges * SmoothStep(0.2, 0.7, Uplift), 0.0, 1.0);
+		}
+
+		case ETerrainPreset::Islands:
+		{
+			// Land fades to sea floor towards the region border, with a noisy coastline.
+			const FVector2D Centered = (RegionUV - FVector2D(0.5)) * 2.0;
+			const double Dist = Centered.Size() + 0.25 * FBM(P * 0.7, 3, Seed + 23);
+			const double Land = 1.0 - SmoothStep(0.45, 0.95, Dist);
+			const double Relief = 0.55 + 0.45 * FBM(P, 5, Seed);
+			return Amplitude * (Land * Relief - 0.15 * (1.0 - Land));
+		}
+
+		case ETerrainPreset::Canyons:
+		default:
+		{
+			// Terraced plateau cut by winding channels (ridged noise lines become canyon floors).
+			const double Plateau = 0.75 + 0.25 * FBM(P * 2.0, 3, Seed + 5);
+			const double Channel = SmoothStep(0.72, 0.92, Ridged(P * 0.8, 3, Seed));
+			double H = FMath::Lerp(Plateau, 0.08, Channel);
+			const double Steps = 6.0;
+			const double T = H * Steps;
+			H = (FMath::FloorToDouble(T) + SmoothStep(0.75, 1.0, FMath::Frac(T))) / Steps;
+			return Amplitude * FMath::Clamp(H, 0.0, 1.0);
+		}
+		}
+	}
+
+	void ThermalErosion(TArray<double>& Grid, int32 Width, int32 Height, double SpacingCm, double TalusDegrees, int32 Iterations, double Rate)
+	{
+		if (Width < 2 || Height < 2 || Grid.Num() != Width * Height || Iterations <= 0)
+		{
+			return;
+		}
+		const double MaxDiff = FMath::Tan(FMath::DegreesToRadians(FMath::Clamp(TalusDegrees, 1.0, 89.0))) * SpacingCm;
+		const int32 DX[4] = { 1, -1, 0, 0 };
+		const int32 DY[4] = { 0, 0, 1, -1 };
+		TArray<double> Delta;
+		for (int32 Iter = 0; Iter < Iterations; ++Iter)
+		{
+			Delta.Init(0.0, Grid.Num());
+			for (int32 Y = 0; Y < Height; ++Y)
+			{
+				for (int32 X = 0; X < Width; ++X)
+				{
+					const int32 I = Y * Width + X;
+					// Total excess over the talus to all lower neighbours, then share it out proportionally.
+					double Excess[4] = { 0, 0, 0, 0 };
+					double TotalExcess = 0.0, MaxExcess = 0.0;
+					for (int32 N = 0; N < 4; ++N)
+					{
+						const int32 NX = X + DX[N], NY = Y + DY[N];
+						if (NX < 0 || NX >= Width || NY < 0 || NY >= Height)
+						{
+							continue;
+						}
+						const double Diff = Grid[I] - Grid[NY * Width + NX];
+						if (Diff > MaxDiff)
+						{
+							Excess[N] = Diff - MaxDiff;
+							TotalExcess += Excess[N];
+							MaxExcess = FMath::Max(MaxExcess, Excess[N]);
+						}
+					}
+					if (TotalExcess <= 0.0)
+					{
+						continue;
+					}
+					// Move at most half the largest excess so neighbours never overshoot each other.
+					const double Moved = Rate * 0.5 * MaxExcess;
+					Delta[I] -= Moved;
+					for (int32 N = 0; N < 4; ++N)
+					{
+						if (Excess[N] > 0.0)
+						{
+							Delta[(Y + DY[N]) * Width + (X + DX[N])] += Moved * Excess[N] / TotalExcess;
+						}
+					}
+				}
+			}
+			for (int32 I = 0; I < Grid.Num(); ++I)
+			{
+				Grid[I] += Delta[I];
+			}
+		}
+	}
+
 	namespace
 	{
 		struct FSlopeStop { double Degrees; FColor Color; const TCHAR* Name; };

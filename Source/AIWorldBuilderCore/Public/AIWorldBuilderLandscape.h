@@ -55,8 +55,17 @@ namespace AIWorldBuilder
 		 */
 		AIWORLDBUILDERCORE_API ALandscape* Resolve(UWorld* World, const FString& Name, const FVector2D* PointCm, FString& OutError);
 
-		/** Full world bounds (cm), including World Partition regions that are not loaded. */
+		/**
+		 * Full world bounds (cm): saved World Partition proxies (loaded or not) plus everything currently loaded,
+		 * so landscapes created or extended since the last save are included. Always use this, not ULandscapeInfo::GetCompleteBounds.
+		 */
 		AIWORLDBUILDERCORE_API FBox GetCompleteBounds(const ALandscape* Landscape);
+
+		/**
+		 * Full extent in landscape sample coordinates (inclusive Min..Max vertices), with the same saved + loaded rule.
+		 * Invalid (Min > Max) if the landscape has no components. Always use this, not ULandscapeInfo::GetCompleteLandscapeExtent.
+		 */
+		AIWORLDBUILDERCORE_API FIntRect GetCompleteExtent(const ALandscape* Landscape);
 
 		/** Horizontal distance between height samples (cm). */
 		AIWORLDBUILDERCORE_API double GetSampleSpacingCm(const ALandscape* Landscape);

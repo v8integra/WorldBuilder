@@ -99,6 +99,24 @@ namespace AIWorldBuilder::TerrainMath
 	 */
 	AIWORLDBUILDERCORE_API void BoxBlur(TArray<double>& Grid, int32 Width, int32 Height, int32 RadiusSamples, int32 Passes);
 
+	// ---------------------------------------------------------------- procedural terrain
+
+	enum class ETerrainPreset : uint8 { RollingHills, Mountains, Islands, Canyons, Plains };
+
+	/**
+	 * Height (relative to the base level, same units as Amplitude) of a procedural preset.
+	 * @param P         World position divided by the feature wavelength.
+	 * @param RegionUV  Position within the generated region, 0..1 on each axis (Islands uses it for the coastline mask).
+	 * Ranges: RollingHills/Mountains/Canyons 0..Amplitude, Plains ~±0.1 Amplitude, Islands about -0.15..1 Amplitude (sea floor below 0).
+	 */
+	AIWORLDBUILDERCORE_API double PresetHeight(ETerrainPreset Preset, const FVector2D& P, const FVector2D& RegionUV, double Amplitude, int32 Seed);
+
+	/**
+	 * Thermal erosion: wherever the slope to a neighbour exceeds TalusDegrees, material slides downhill.
+	 * Conserves total height. Grid is Width x Height heights with SpacingCm between samples (same units as heights).
+	 */
+	AIWORLDBUILDERCORE_API void ThermalErosion(TArray<double>& Grid, int32 Width, int32 Height, double SpacingCm, double TalusDegrees, int32 Iterations, double Rate = 0.5);
+
 	// ---------------------------------------------------------------- preview colours
 
 	/** Slope colour ramp: green (flat) > yellow-green > yellow > orange > red > purple (55 degrees and steeper). */

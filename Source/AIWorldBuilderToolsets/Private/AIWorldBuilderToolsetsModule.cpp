@@ -1,6 +1,7 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "ToolsetRegistry/UToolsetRegistry.h"
+#include "LandscapeCreateTools.h"
 #include "LandscapeInspectTools.h"
 #include "LandscapeSculptTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
@@ -36,6 +37,7 @@ private:
 			ULandscapeInspectTools::StaticClass(),
 			ULandscapeSculptTools::StaticClass(),
 			UWorldCaptureTools::StaticClass(),
+			ULandscapeCreateTools::StaticClass(),
 		};
 	}
 };

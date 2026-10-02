@@ -77,9 +77,29 @@ namespace AIWorldBuilder
 			}
 			if (const ULandscapeInfo* Info = Landscape->GetLandscapeInfo())
 			{
-				return Info->GetCompleteBounds();
+				// In World Partition, GetCompleteBounds only sees *saved* proxies (actor descriptors), so a landscape
+				// created or extended since the last save would be missing. Union with what is loaded.
+				FBox Bounds = Info->GetCompleteBounds();
+				Bounds += Info->GetLoadedBounds();
+				return Bounds;
 			}
 			return Landscape->GetCompleteBounds();
+		}
+
+		FIntRect GetCompleteExtent(const ALandscape* Landscape)
+		{
+			FIntRect Extent(MAX_int32, MAX_int32, MIN_int32, MIN_int32);
+			if (const ULandscapeInfo* Info = Landscape ? Landscape->GetLandscapeInfo() : nullptr)
+			{
+				// Same World Partition caveat as GetCompleteBounds: include loaded (possibly unsaved) components.
+				Extent = Info->GetCompleteLandscapeExtent();
+				FIntRect Loaded;
+				if (Info->GetLandscapeExtent(Loaded))
+				{
+					Extent.Union(Loaded);
+				}
+			}
+			return Extent;
 		}
 
 		double GetSampleSpacingCm(const ALandscape* Landscape)
