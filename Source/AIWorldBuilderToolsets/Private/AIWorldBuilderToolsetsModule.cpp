@@ -6,6 +6,7 @@
 #include "LandscapeInspectTools.h"
 #include "LandscapePaintTools.h"
 #include "LandscapeSculptTools.h"
+#include "MeshConversionTools.h"
 #include "PCGWorldTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WorldCaptureTools.h"
@@ -44,6 +45,7 @@ private:
 			ULandscapePaintTools::StaticClass(),
 			UFoliageScatterTools::StaticClass(),
 			UPCGWorldTools::StaticClass(),
+			UMeshConversionTools::StaticClass(),
 		};
 	}
 };

@@ -54,7 +54,7 @@ struct FWorldBuilderPCGResult
 	TArray<FWorldBuilderPCGVolumeInfo> Volumes;
 };
 
-/// Place and run PCG graphs over areas of the world, in meters: find graphs, spawn a PCG volume over a region with a graph and seed, generate, and clean up. The graph is the stored recipe; regenerate any time. To build or edit graphs and override graph parameters, use Epic's PCGToolset (CreateGraph, AddNode, SetGraphInstanceParams on the volume).
+/// Place and run PCG graphs over areas of the world, in meters: find graphs, spawn a PCG volume over a region with a graph and seed, generate, and clean up. The graph is the stored recipe; regenerate any time. Volumes generate on demand (never automatically on level load). To build or edit graphs and override graph parameters, use Epic's PCGToolset (CreateGraph, AddNode, SetGraphInstanceParams on the volume). Static mesh spawners need static meshes: convert skeletal trees (Megaplants) first with MeshConversionTools.ConvertSkeletalToStaticMesh, and keep densities low for heavy trees.
 UCLASS(BlueprintType, Hidden)
 class UPCGWorldTools : public UToolsetDefinition
 {

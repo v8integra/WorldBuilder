@@ -118,3 +118,11 @@ volcano's lower slopes and capture a view."
 
 **Claude Code (plan test):** "Add a dense pine forest on the lower volcano slopes, keep a clearing around the village, and no trees in the crater.
 Then capture views." Walk through it in PIE and check performance (stat fps / stat unit).
+
+### Phase 7b — Megaplants, conversion and safety (after the 2026-10-02 GPU-hang crashes)
+Prereq: enable the **Procedural Vegetation Editor** plugin (Megaplant master materials live there).
+1. `ConvertSkeletalToStaticMesh` on `Tree_Hornbeam_01_B` (not yet converted) → `SM_Tree_Hornbeam_01_B` created & saved, Nanite on; call again → reused.
+2. `ScatterFoliage` with a skeletal path (e.g. Tree_Baltic_Pine_Sapling_01_A), densityPerHectare 80, a ~300 m region → converts/reuses, places trees.
+3. `ScatterFoliage` over the whole map at densityPerHectare 2000 → refused by maxInstances, nothing placed.
+4. `SpawnPCGVolume` → in Details the PCG component's Generation Trigger = Generate On Demand; save, reopen the level → no regeneration on load.
+5. Claude Code: "Plant a hornbeam forest using the Megaplant trees in the forest area" → it should convert/reuse meshes, use modest density, capture to check.

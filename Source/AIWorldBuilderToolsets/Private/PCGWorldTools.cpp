@@ -198,6 +198,9 @@ FWorldBuilderPCGResult UPCGWorldTools::SpawnPCGVolume(const FString& GraphPath, 
 	Component->Modify();
 	Component->SetGraph(Graph);
 	Component->Seed = Seed;
+	// Generate only when asked: a heavy graph set to "Generate on Load" regenerates every time the level opens,
+	// and if it overloads the GPU the level crashes on every open. Output generated on demand is saved with the level.
+	Component->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
 	if (bGenerate)
 	{
 		Component->Generate(/*bForce=*/true);

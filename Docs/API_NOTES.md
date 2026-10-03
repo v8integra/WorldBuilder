@@ -204,6 +204,12 @@ Source: `LandscapeEditorDetailCustomization_NewLandscape.cpp:1145` `OnCreateButt
 - Spawning `APCGVolume` with real bounds (copied from `PCGToolset.cpp:336`): `UCubeBuilder` with X/Y/Z in cm, then `UActorFactory::CreateBrushForVolumeActor(Volume, Builder)`, then on the brush component `ReregisterComponent` and `SetCollisionEnabled(NoCollision)`.
 - Range filters (`UPCGAttributeFilteringRangeSettings`) need `FPCGMetadataTypesConstantStruct` thresholds. Hand-building graphs in C++ is fiddly, so the forest graph is authored with Epic's PCGToolset instead.
 
+### Skeletal → static conversion and GPU safety (Phase 7b)
+- **The 2026-10-02 crashes** were GPU hangs (`DXGI_ERROR_DEVICE_HUNG`, with breadcrumbs in `RenderVirtualShadowMaps(Nanite)`) on an RTX 3070, after a dense PCG forest was generated. PCG volumes default to **`GenerateOnLoad`**, so the level re-generated the forest and hung **every time it was opened**, which looked like level corruption. Fix: `SpawnPCGVolume` sets `UPCGComponent::GenerationTrigger = GenerateOnDemand`, and `ScatterFoliage` has a `maxInstances` cap.
+- **Megaplants** (Fab/Quixel, made with Epic's **Procedural Vegetation Editor**): each tree is a `USkeletalMesh` built from instanced branch skeletal meshes, with `PVE_*` graph assets. Their master materials live in `/ProceduralVegetationEditor/...`, so **that plugin must be enabled** or the materials fail to load.
+- **"Make Static Mesh"** = `IMeshUtilities::ConvertMeshesToStaticMesh(TArray<UMeshComponent*>, RootTransform, PackageName)` (module `MeshUtilities`). It needs `SkinnedComponent->MeshObject` (a registered render object) and `IsVisible()`. We register a transient `USkeletalMeshComponent` in a private `FPreviewScene`, then `FlushRenderingCommands()` before converting. Then `GetNaniteSettings`/`SetNaniteSettings` (direct `NaniteSettings` access is deprecated in 5.7) and `UEditorLoadingAndSavingUtils::SavePackages`. About 574 MB estimated build memory per Hornbeam tree.
+- An alternative for later: `NaniteAssemblyEditorUtils` (`UNaniteAssemblyStaticMeshBuilder::BeginNewStaticMeshAssemblyBuild` / `AddAssemblyParts` / `FinishAssemblyBuild`) can build static **Nanite assemblies** (instanced parts) instead of one merged mesh, which is lighter. For wind animation, use PCG's `PCGSkinnedMeshSpawner` (instanced skinned meshes).
+
 ### Writing heights — original plan notes
 Recommended: **`FHeightmapAccessor<false>`** (`LandscapeEdit.h:361`), which is the same path the editor sculpt brushes use:
 ```cpp

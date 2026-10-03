@@ -2,8 +2,10 @@
 
 #include "AIWorldBuilderCore.h"
 #include "AIWorldBuilderLandscape.h"
+#include "MeshConversionTools.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Editor.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -64,7 +66,7 @@ namespace
 	 * Resolves a path to a foliage type: an existing Foliage Type asset, or a static mesh for which a
 	 * FT_<Mesh> asset is found or created in Folder.
 	 */
-	UFoliageType* ResolveFoliageType(const FString& Path, const FString& Folder, bool& bOutCreated, FString& OutError)
+	UFoliageType* ResolveFoliageType(const FString& Path, const FString& Folder, bool& bOutCreated, FString& OutConversionNote, FString& OutError)
 	{
 		bOutCreated = false;
 		if (UFoliageType* Existing = LoadObject<UFoliageType>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet))
@@ -74,7 +76,22 @@ namespace
 		UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 		if (!Mesh)
 		{
-			OutError = FString::Printf(TEXT("'%s' is not a static mesh or foliage type asset. Use a full path like /Game/Trees/SM_Pine.SM_Pine (AssetTools can search)."), *Path);
+			// Skeletal meshes (e.g. Megaplant trees) are converted once, like "Make Static Mesh", then reused.
+			if (USkeletalMesh* Skeletal = LoadObject<USkeletalMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet))
+			{
+				bool bConverted = false;
+				Mesh = MeshConversion::EnsureStaticMesh(Skeletal, TEXT("same"), /*bEnableNanite=*/true, /*bSave=*/true, /*bOverwrite=*/false, bConverted, OutError);
+				if (!Mesh)
+				{
+					return nullptr;
+				}
+				OutConversionNote = FString::Printf(TEXT("%s skeletal mesh %s as %s (no wind animation)."),
+					bConverted ? TEXT("Converted") : TEXT("Reused conversion of"), *Skeletal->GetName(), *Mesh->GetPathName());
+			}
+		}
+		if (!Mesh)
+		{
+			OutError = FString::Printf(TEXT("'%s' is not a static mesh, skeletal mesh or foliage type asset. Use a full path like /Game/Trees/SM_Pine.SM_Pine (AssetTools can search)."), *Path);
 			return nullptr;
 		}
 
@@ -127,7 +144,7 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 	double CenterXM, double CenterYM, double SizeXM, double SizeYM, double DensityPerHectare,
 	double MinSlopeDeg, double MaxSlopeDeg, double MinHeightM, double MaxHeightM,
 	const FString& LayerName, double MinLayerWeight, double MinScale, double MaxScale,
-	bool bAlignToNormal, double SinkM, int32 Seed, const FString& FoliageFolder, const FString& LandscapeName)
+	bool bAlignToNormal, double SinkM, int32 Seed, int32 MaxInstances, const FString& FoliageFolder, const FString& LandscapeName)
 {
 	FWorldBuilderFoliageResult Result;
 	UWorld* World = GetEditorWorld();
@@ -154,6 +171,11 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 	if ((SizeXM > 0.0) != (SizeYM > 0.0) || SizeXM < 0.0 || SizeYM < 0.0)
 	{
 		Result.Message = TEXT("Give both SizeXM and SizeYM (greater than 0), or leave both at 0 for the whole landscape.");
+		return Result;
+	}
+	if (MaxInstances <= 0)
+	{
+		Result.Message = TEXT("MaxInstances must be greater than 0.");
 		return Result;
 	}
 	if (MinScale <= 0.0 || MaxScale < MinScale)
@@ -292,23 +314,47 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 	Result.Rejected.Add(TEXT("excluded"), RejExcluded);
 	Result.Rejected.Add(TEXT("noGround"), RejNoGround);
 
-	FScopedTransaction Transaction(LOCTEXT("ScatterFoliage", "AI: Scatter Foliage"));
-	TArray<FString> CreatedTypes;
-	for (int32 M = 0; M < MeshPaths.Num(); ++M)
+	// Safety cap: very dense foliage of heavy meshes can hang the GPU (and make the level crash on open).
+	int32 Accepted = 0;
+	for (const TArray<FTransform>& Transforms : PerMesh)
+	{
+		Accepted += Transforms.Num();
+	}
+	if (Accepted > MaxInstances)
+	{
+		Result.Message = FString::Printf(TEXT("Not placed: %d instances passed the rules, more than MaxInstances (%d). Lower DensityPerHectare, use a smaller region, ")
+			TEXT("or raise MaxInstances if you are sure the meshes are light enough (heavy trees such as Megaplants can hang the GPU)."), Accepted, MaxInstances);
+		return Result;
+	}
+
+	// Resolve foliage types first. Skeletal meshes are converted here (slow, saved immediately), outside the undo step.
+	TArray<UFoliageType*> Types;
+	TArray<FString> CreatedTypes, ConversionNotes;
+	for (const FString& Path : MeshPaths)
 	{
 		bool bCreated = false;
-		FString Error;
-		UFoliageType* Type = ResolveFoliageType(MeshPaths[M], Folder, bCreated, Error);
+		FString Note, Error;
+		UFoliageType* Type = ResolveFoliageType(Path, Folder, bCreated, Note, Error);
 		if (!Type)
 		{
-			Transaction.Cancel();
 			Result.Message = Error;
 			return Result;
 		}
+		Types.Add(Type);
 		if (bCreated)
 		{
 			CreatedTypes.Add(Type->GetPathName());
 		}
+		if (!Note.IsEmpty())
+		{
+			ConversionNotes.Add(Note);
+		}
+	}
+
+	FScopedTransaction Transaction(LOCTEXT("ScatterFoliage", "AI: Scatter Foliage"));
+	for (int32 M = 0; M < MeshPaths.Num(); ++M)
+	{
+		UFoliageType* Type = Types[M];
 
 		// Same grouping as AInstancedFoliageActor::AddInstances: each instance goes to the foliage actor
 		// owning its location (one per World Partition cell).
@@ -347,10 +393,11 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 	}
 
 	Result.bSuccess = true;
-	Result.Message = FString::Printf(TEXT("Placed %d instance(s) from %d candidates over %.0f x %.0f m (rejected: %d slope, %d height, %d layer, %d excluded, %d no ground).%s Save all to keep them."),
+	Result.Message = FString::Printf(TEXT("Placed %d instance(s) from %d candidates over %.0f x %.0f m (rejected: %d slope, %d height, %d layer, %d excluded, %d no ground).%s%s Save all to keep them."),
 		Result.InstanceCount, Result.CandidateCount, CmToMeters(AreaCm.GetSize().X), CmToMeters(AreaCm.GetSize().Y),
 		RejSlope, RejHeight, RejLayer, RejExcluded, RejNoGround,
-		CreatedTypes.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Created foliage type(s): %s."), *FString::Join(CreatedTypes, TEXT(", "))));
+		CreatedTypes.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Created foliage type(s): %s."), *FString::Join(CreatedTypes, TEXT(", "))),
+		ConversionNotes.IsEmpty() ? TEXT("") : *(TEXT(" ") + FString::Join(ConversionNotes, TEXT(" "))));
 	return Result;
 }
 

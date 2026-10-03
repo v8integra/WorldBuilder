@@ -253,7 +253,9 @@ Real foliage (instanced static meshes via `AInstancedFoliageActor`, one per Worl
 A Foliage Type asset `FT_<Mesh>` is created per mesh in `foliageFolder` (reused if it exists) — **save all** afterwards.
 Collision on placed instances comes from the Foliage Type (edit it to make trees block the player).
 
-### `ScatterFoliage(meshPaths, excludeAreas, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, densityPerHectare = 200, minSlopeDeg = 0, maxSlopeDeg = 30, minHeightM, maxHeightM, layerName = "none", minLayerWeight = 0.5, minScale = 0.8, maxScale = 1.2, bAlignToNormal = false, sinkM = 0, seed = 1, foliageFolder = "/Game/Landscape/Foliage", landscapeName = "auto")`
+### `ScatterFoliage(meshPaths, excludeAreas, centerXM = 0, centerYM = 0, sizeXM = 0, sizeYM = 0, densityPerHectare = 200, minSlopeDeg = 0, maxSlopeDeg = 30, minHeightM, maxHeightM, layerName = "none", minLayerWeight = 0.5, minScale = 0.8, maxScale = 1.2, bAlignToNormal = false, sinkM = 0, seed = 1, maxInstances = 50000, foliageFolder = "/Game/Landscape/Foliage", landscapeName = "auto")`
+`meshPaths` may be static meshes, Foliage Types or **skeletal meshes** (e.g. Megaplant trees — converted once to `SM_<Name>`, no wind).
+**Safety:** if more than `maxInstances` pass the rules, nothing is placed. Megaplant trees are millions of triangles: start at 50–150 / ha on small regions.
 Jittered grid (one candidate per `sqrt(10000/density)` m cell) → rejected if inside an `excludeAreas` circle, off the
 landscape, outside the height or slope range, or below `minLayerWeight` of `layerName`. Meshes are picked at random.
 `excludeAreas` is required (`[]` for none): `[{"xM":600,"yM":0,"radiusM":120}]`. Returns placed counts per type and
@@ -274,7 +276,20 @@ Graphs are the stored recipe; volumes apply them to regions. Build/edit graphs a
 ### `ListPCGGraphs(folder = "auto")` — `/Game` + `/AIWorldBuilder` by default.
 ### `ListPCGVolumes()` — label, graph, seed, bounds, generated.
 ### `SpawnPCGVolume(graphPath, centerXM, centerYM, sizeXM, sizeYM, seed = 42, label = "auto", bGenerate = true)`
-Volume covers the region and the full terrain height (±100 m margin). Generation is asynchronous (completes over the
+Volume covers the region and the full terrain height (±100 m margin). **Generation trigger = Generate on Demand** (never on level load,
+so a heavy graph cannot crash the level on open; generated output is saved with the level). Generation is asynchronous (completes over the
 next frames). One undo step.
 ### `GeneratePCG(volumeLabel, seed = -1)` — regenerate (optionally with a new seed).
 ### `CleanupPCG(volumeLabel, bDeleteVolume = false)`
+
+---
+
+## `AIWorldBuilderToolsets.MeshConversionTools` (C++)
+### `ConvertSkeletalToStaticMesh(skeletalMeshPaths, destinationFolder = "same", bEnableNanite = true, bOverwrite = false, bSave = true)`
+Same as the Skeletal Mesh Editor's **Make Static Mesh** (reference pose), without the dialog: creates `SM_<Name>` (reused
+if it exists), enables Nanite, saves. Use before putting skeletal trees (Megaplants) into PCG graphs; `ScatterFoliage`
+does it automatically. ~0.5 GB memory per Megaplant tree while converting. Converted meshes have no wind animation.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.MeshConversionTools", "tool_name": "ConvertSkeletalToStaticMesh", "arguments": {
+  "skeletalMeshPaths": ["/Game/Megaplant_Library/Tree_Hornbeam/Tree_Hornbeam_01/Tree_Hornbeam_01_A.Tree_Hornbeam_01_A"] } }
+```
