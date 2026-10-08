@@ -9,6 +9,7 @@
 #include "MeshConversionTools.h"
 #include "PCGWorldTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
+#include "WaterTools.h"
 #include "WorldCaptureTools.h"
 
 class FAIWorldBuilderToolsetsModule : public IModuleInterface
@@ -46,6 +47,7 @@ private:
 			UFoliageScatterTools::StaticClass(),
 			UPCGWorldTools::StaticClass(),
 			UMeshConversionTools::StaticClass(),
+			UWaterTools::StaticClass(),
 		};
 	}
 };

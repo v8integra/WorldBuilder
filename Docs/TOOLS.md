@@ -10,7 +10,10 @@ Every result has `bSuccess` and `message`; on failure `message` says why and wha
 Optional `landscapeName` arguments take the Outliner label; omit it (default `"auto"`) when the level has one landscape
 (point-based tools then pick the landscape containing the point).
 
-_Last updated: Phase 7._
+**Start here:** `WorldBuilderDiagnosticsToolset.DescribeWorld`, then read the **AIWorldBuilder workflow** agent skill
+(`ToolsetRegistry.AgentSkillToolset` → `ListSkills` / `GetSkills`) for the recommended build process.
+
+_Last updated: Phase 8 (all plan phases implemented)._
 
 ---
 
@@ -43,6 +46,30 @@ Plugin and level diagnostics. Call this first in a session.
 call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset", "tool_name": "GetPluginStatus", "arguments": {} }
 → {"returnValue":{"bSuccess":true,"message":"AI World Builder 0.1.0 loaded. Level 'Lvl_FirstPerson' has 0 landscape(s); World Partition enabled.","version":"0.1.0","levelName":"Lvl_FirstPerson","landscapeCount":0,"bWorldPartitionEnabled":true}}
 ```
+
+### `DescribeWorld()`
+Orientation at the start of a session. `message` is a plain-text summary; structured fields: `landscapes[]` (`name`,
+bounds, `sampleSpacingM`, `minHeightM`/`maxHeightM` found by a 48 × 48 scan, `minPossibleHeightM`/`maxPossibleHeightM`,
+`materialPath`, `editLayers`, `paintLayers` with "(no layer info)" marks), `foliage[]` (type, mesh, count),
+`pcgVolumes[]`, `lighting` (sun pitch/yaw/intensity, sky light, sky atmosphere, height fog, clouds, post process volumes),
+`playerStartsM`, `actorClasses` (top 20), `totalActorCount`. Loaded World Partition data only.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset", "tool_name": "DescribeWorld", "arguments": {} }
+```
+
+### `TraceGround(xM, yM)`
+Line trace straight down on the **Pawn** collision channel (what blocks a player). Returns `bHit`, `hitLocationM`,
+`hitActor`, `hitComponentClass`, `bHitLandscape`, `surfaceSlopeDeg`, `bWalkable` (≤ 44.8°, the default walkable floor
+angle) and `landscapeHeightM` for comparison (e.g. a tree above the ground). Use to verify collision after sculpting.
+Play-in-Editor itself is started/stopped with Epic's `EditorToolset.EditorAppToolset.StartPIE` / `StopPIE`.
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset", "tool_name": "TraceGround", "arguments": { "xM": 0, "yM": 0 } }
+```
+
+### Agent skill: "AIWorldBuilder workflow"
+Python `@agent_skill` (`Content/Python/aiworldbuilder/skills/world_building.py`), served by Epic's `AgentSkillToolset`.
+Workflow inspect → plan → create/sculpt → capture/review → paint → scatter → verify, with golden rules (real terrain,
+meters, undo layers, look at captures, density limits for heavy trees).
 
 ---
 
@@ -292,4 +319,28 @@ does it automatically. ~0.5 GB memory per Megaplant tree while converting. Conve
 ```json
 call_tool { "toolset_name": "AIWorldBuilderToolsets.MeshConversionTools", "tool_name": "ConvertSkeletalToStaticMesh", "arguments": {
   "skeletalMeshPaths": ["/Game/Megaplant_Library/Tree_Hornbeam/Tree_Hornbeam_01/Tree_Hornbeam_01_A.Tree_Hornbeam_01_A"] } }
+```
+
+---
+
+## `AIWorldBuilderToolsets.WaterTools` (C++, Epic Water plugin)
+**Always use these instead of spawning Water Body actors directly.** Water bodies are spawned through the editor's Water
+actor factories (project water materials, waves, spline defaults, auto-created Water Zone) with **Affects Landscape
+switched off before the editor's actor-added handler runs**, so no landscape Water brush / "Water" edit layer is created
+(that path crashes 5.8: `LandscapeEditLayers.cpp` `GetLayerUpdateFlagPerMode() == 0`). Shape the ground with the sculpt
+tools first; these add the water surface. Each call is one undo step. Messages warn if any existing water body still
+affects the landscape. Save All afterwards.
+
+| Tool | Use |
+|---|---|
+| `CreateOcean(seaLevelM = 0, label = "auto")` | Sea filling the Water Zone (enlarged to 1.5 × all landscapes). One per level. |
+| `CreateLake(outlineM, centerXM, centerYM, radiusM, waterLevelM, label)` | Lakes/ponds: `outlineM: []` = 16-point circle. Warns if the basin floor isn't below the water level. |
+| `CreateRiver(pointsM, widthM = 15, waterDepthM = 1.5, flowSpeed = 1, label)` | Same points as `CarvePath`, upstream first; surface = ground + depth; warns on uphill segments. |
+| `CreateWaterfall(topXM, topYM, bottomXM, bottomYM, widthM = 8, poolRadiusM = 12, waterDepthM = 1, label)` | Steep fast river over an existing drop (≥ 2 m) + plunge-pool lake. |
+| `CreateCustomWater(centerXM, centerYM, waterLevelM, sizeXM, sizeYM, yawDeg = 0, label)` | Free-standing water plane (no water zone): pools, fountains, hot springs, moats, underground/cave water. |
+| `ListWaterBodies()` / `RemoveWaterBody(label)` | Manage water bodies. |
+
+```json
+call_tool { "toolset_name": "AIWorldBuilderToolsets.WaterTools", "tool_name": "CreateRiver", "arguments": {
+  "pointsM": [{"x":-900,"y":300},{"x":-200,"y":100},{"x":600,"y":-400}], "widthM": 18, "waterDepthM": 1.5 } }
 ```

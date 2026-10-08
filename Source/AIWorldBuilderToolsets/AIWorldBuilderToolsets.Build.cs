@@ -24,6 +24,7 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"RHI",
 			"ToolsetRegistry",
 			"UnrealEd",
+			"Water",
 		});
 	}
 }

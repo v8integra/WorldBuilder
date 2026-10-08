@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "0.1.0",
+	"VersionName": "1.0.0",
 	"FriendlyName": "AI World Builder",
 	"Description": "MCP toolsets that let an AI agent build real worlds: sculpt and paint landscapes, scatter foliage with PCG, and capture views of the result.",
 	"Category": "Editor",
@@ -44,6 +44,10 @@
 		},
 		{
 			"Name": "PCG",
+			"Enabled": true
+		},
+		{
+			"Name": "Water",
 			"Enabled": true
 		}
 	]

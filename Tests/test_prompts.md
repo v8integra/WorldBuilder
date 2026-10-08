@@ -126,3 +126,26 @@ Prereq: enable the **Procedural Vegetation Editor** plugin (Megaplant master mat
 3. `ScatterFoliage` over the whole map at densityPerHectare 2000 → refused by maxInstances, nothing placed.
 4. `SpawnPCGVolume` → in Details the PCG component's Generation Trigger = Generate On Demand; save, reopen the level → no regeneration on load.
 5. Claude Code: "Plant a hornbeam forest using the Megaplant trees in the forest area" → it should convert/reuse meshes, use modest density, capture to check.
+
+## Phase 8 — Workflow tools and polish
+
+**Inspector:**
+1. `GetPluginStatus` → version **1.0.0**.
+2. `DescribeWorld` `{}` on TestWorld → message lists the landscape (size, terrain range, limits, material, edit layers incl. AI Sculpt / AI Paint, paint layers), foliage counts, PCG volumes, lighting, player starts.
+3. `TraceGround` on open ground → `bHitLandscape: true`, `bWalkable: true`; inside the forest at a tree → hits the tree (or landscape if foliage has no collision); on a cliff → `bWalkable: false`.
+4. `ToolsetRegistry.AgentSkillToolset` → `ListSkills` includes **AIWorldBuilderWorkflowSkill**; `GetSkills` returns its instructions.
+
+**Claude Code (plan end-to-end test, new empty level):**
+"Build a 4 km volcanic island: a central volcano with a crater, beaches, a jungle on the lower slopes, a flattened village site on the east side, and a river from the highlands to the sea. Show me screenshots when you're done."
+Expect: DescribeWorld → skill → CreateLandscape (maxHeightM sized) → GenerateTerrain Islands → ApplyShape Volcano → Flatten village → CarvePath river → captures/review → paint (sand/grass/rock) → ScatterFoliage with village + crater exclusions → TraceGround checks → final captures. Then PIE walk.
+
+## Phase 9 — Water (after the 2026-10-08 water-brush crashes)
+
+Prereq: Save All. Remove any water bodies created earlier with generic tools (`ListWaterBodies` warns about ones that affect the landscape).
+1. `CarvePath` a river bed, then `CreateRiver` with the same points → river inside its banks; no "Water" edit layer appears in Landscape mode; no crash after 30 s.
+2. `ApplyShape` Crater (or Flatten) a basin, `CreateLake` `{"outlineM":[],"centerXM":..,"centerYM":..,"radiusM":80,"waterLevelM":..}`.
+3. `CreateOcean` `{"seaLevelM":0}` on an island map → sea around the island, dry land above 0 m.
+4. `CreateWaterfall` over a cliff (make one with ApplyShape Mesa) → falling water + pool.
+5. `CreateCustomWater` small pool → visible water plane at the given height.
+6. Ctrl+Z each; `RemoveWaterBody`. Save, reopen → water persists, no crash.
+**Claude Code:** "Add water to the volcano island: ocean at sea level, fill the river channel, and a small lake in the highland basin."
