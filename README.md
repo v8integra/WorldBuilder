@@ -61,6 +61,7 @@ Agents should start with `AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset.
 | `MeshConversionTools` | Convert skeletal meshes (e.g. Megaplants) to static meshes for foliage/PCG |
 | `WaterTools` | Oceans, lakes, rivers, waterfalls, custom/underground water (Epic Water plugin, crash-safe) |
 | `WorldCaptureTools` | Viewport captures (view, look-at, orbit, top-down) and exact height/slope maps (PNG files) |
+| `aiworldbuilder...GameDesignTools` (Python) | Game project memory: design doc, decision log, task board, asset wishlist, genre templates |
 | `aiworldbuilder...WorldBuilderInfoTools` (Python) | `ping` |
 
 ## Safety notes

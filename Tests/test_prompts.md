@@ -149,3 +149,16 @@ Prereq: Save All. Remove any water bodies created earlier with generic tools (`L
 5. `CreateCustomWater` small pool → visible water plane at the given height.
 6. Ctrl+Z each; `RemoveWaterBody`. Save, reopen → water persists, no crash.
 **Claude Code:** "Add water to the volcano island: ocean at sea level, fill the river channel, and a small lake in the highland basin."
+
+## Phase 10 — Game design interview and project memory
+
+Prereq: restart the editor (Python only, no C++ build). Python tool argument names stay snake_case in JSON (e.g. `task_id`), unlike the camelCase C++ tools.
+1. `list_toolsets` → includes `aiworldbuilder.toolsets.game_design.GameDesignTools`; `ListSkills` → includes the game design interview skill.
+2. `get_project_memory` `{}` → "No game project yet…".
+3. `get_genre_template` `{"genre":"ark"}` → survival template JSON; `{"genre":"racing"}` → generic.
+4. `start_game_project` `{"name":"Test","genre":"survival","pitch":"Test pitch"}` → `<Project>/AIGameBuilder/project.json` + `GameDesign.md` created. Calling it again → refused.
+5. `seed_plan_from_template` `{}` → 37 tasks, 10 assets. Again → 0 added.
+6. `record_decision` twice on the same topic (once `ai_default`, once `user`) → second replaces the first; `list_decisions` shows only the latest.
+7. `update_task` `{"task_id":"T-001","status":"done","notes":"ok"}`, `update_asset` `{"asset_id":"A-002","status":"placeholder","path":"/Engine/BasicShapes/Cone"}` → reflected in `GameDesign.md`.
+8. Delete the `AIGameBuilder` folder after the manual tests.
+**Claude Code:** "I want to make a survival game. Interview me." → asks the must-ask questions in small batches with recommendations, records answers and AI defaults, writes the design doc, seeds the plan, lists the AI defaults and most useful assets. New session: "Let's continue my game." → resumes from `get_project_memory` without re-interviewing.

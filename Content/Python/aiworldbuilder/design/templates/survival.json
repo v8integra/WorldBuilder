@@ -1,0 +1,137 @@
+{
+  "genre": "survival",
+  "description": "Open-world survival: gather resources, craft tools, build shelter, manage hunger/thirst/temperature, survive creatures and the environment (e.g. Ark, Rust, Valheim, The Forest).",
+  "must_ask": [
+    {
+      "id": "pitch",
+      "question": "In one or two sentences, what is your game about? What should players feel?",
+      "options": [],
+      "recommendation": "Free answer; the AI turns it into pillars."
+    },
+    {
+      "id": "setting",
+      "question": "Where and when does it take place?",
+      "options": ["Prehistoric world with dinosaurs/megafauna", "Fantasy wilderness (magic, mythical creatures)", "Post-apocalyptic ruins", "Alien planet (sci-fi)", "Realistic modern wilderness"],
+      "recommendation": "Match the assets you have; fantasy wilderness is the most flexible."
+    },
+    {
+      "id": "tone",
+      "question": "What tone and difficulty?",
+      "options": ["Harsh & realistic (death matters)", "Adventurous (challenging but forgiving)", "Cozy (relaxed building and exploring)", "Horror (dread, darkness, scarce resources)"],
+      "recommendation": "Adventurous"
+    },
+    {
+      "id": "players",
+      "question": "Who plays together?",
+      "options": ["Solo only", "Solo + small co-op (2-8 friends)", "Larger servers, PvE (10-50)", "Larger servers with PvP"],
+      "recommendation": "Solo + small co-op (systems are multiplayer-ready either way)"
+    },
+    {
+      "id": "threat",
+      "question": "What should be the main source of danger?",
+      "options": ["Creatures and predators", "The environment (cold, hunger, storms)", "Other players", "Story enemies and bosses", "A mix"],
+      "recommendation": "Creatures plus environment"
+    },
+    {
+      "id": "art_style",
+      "question": "What visual style, and which assets do you already have (or plan to get)?",
+      "options": ["Realistic (Megascans / Fab realistic packs)", "Stylized / painterly", "Low-poly", "Not sure yet: start with placeholders"],
+      "recommendation": "Whatever matches your assets; placeholders are fine to start."
+    },
+    {
+      "id": "scope",
+      "question": "How big should the first playable version be?",
+      "options": ["Small: 2 km map, ~5 hours of play", "Medium: 4 km map, ~20 hours", "Large: 8 km map, 50+ hours"],
+      "recommendation": "Small first; grow after the core loop is fun."
+    }
+  ],
+  "ask_when_relevant": [
+    "Taming or riding creatures?",
+    "Base raiding / structure damage by players?",
+    "A story, quests or bosses — or pure sandbox?",
+    "Seasons, or a fixed climate?",
+    "Hardcore options (permadeath, item decay)?",
+    "Monetization (premium, free with cosmetics) and target stores?"
+  ],
+  "defaults": [
+    {"topic": "Platform", "choice": "Windows PC first; keyboard + mouse and gamepad", "rationale": "Largest survival audience; consoles later."},
+    {"topic": "Perspective", "choice": "Third person with a first-person toggle (V)", "rationale": "Shows the character and gear; first person for precise building."},
+    {"topic": "Controls", "choice": "WASD move, Space jump, Shift sprint, C crouch, E interact, Tab inventory, B build menu, 1-0 hotbar, LMB use/attack, RMB aim/block, V camera", "rationale": "Genre standard."},
+    {"topic": "Day/night cycle", "choice": "60 real minutes per day (40 day / 20 night); nights darker and more dangerous", "rationale": "Long enough to build, short enough to feel."},
+    {"topic": "Vital stats", "choice": "Health 100, Stamina 100 (regen 10/s), Hunger 100 (empty in ~90 min), Thirst 100 (empty in ~60 min); empty hunger/thirst deals 1 dmg/s", "rationale": "Mid-range genre values; tunable per difficulty."},
+    {"topic": "Temperature", "choice": "Comfort 10-30 °C; colder at night, at altitude and in snow; clothing and fires adjust it", "rationale": "Uses world-builder height and paint layers."},
+    {"topic": "Inventory", "choice": "30 slots + 10-slot hotbar; stacks: resources 100, food 20, tools/weapons 1; no weight limit", "rationale": "Simple to learn; weight can be added later."},
+    {"topic": "Death & respawn", "choice": "Drop a loot bag at death (lasts 30 min); respawn at your bed or a random spawn zone", "rationale": "Adventurous tone: losses hurt but are recoverable."},
+    {"topic": "Starting kit", "choice": "Nothing; craft by hand: stone axe, stone pick, torch, campfire", "rationale": "Classic first-minutes loop."},
+    {"topic": "Resource tiers", "choice": "Wood, stone, fiber, flint → hide, meat, berries → metal ore, coal → advanced materials", "rationale": "Clear progression; matches harvestable foliage and rocks."},
+    {"topic": "Crafting", "choice": "Hand crafting for basics; stations for tiers: campfire (cooking), workbench (tools/building), forge (metal)", "rationale": "Stations create goals and base layouts."},
+    {"topic": "Building", "choice": "Snap pieces: foundation, wall, doorway, door, window, floor/ceiling, roof, stairs; tiers thatch → wood → stone → metal; needs foundation support", "rationale": "Familiar Ark/Rust-style building."},
+    {"topic": "Creatures", "choice": "Passive (deer, rabbits), skittish (birds), aggressive (wolves, bears); spawned by biome; more predators at night", "rationale": "Simple behaviours cover the core loop."},
+    {"topic": "Saving", "choice": "Autosave every 5 minutes and on quit; one world save per world", "rationale": "Protects progress."},
+    {"topic": "Multiplayer model", "choice": "Listen-server co-op first, dedicated server later; all systems replicated", "rationale": "Decided: multiplayer-ready from day one."},
+    {"topic": "HUD", "choice": "Minimal: vital bars bottom-left, hotbar bottom-centre, compass top; inventory/crafting as full-screen menus", "rationale": "Clean screen; genre standard."},
+    {"topic": "Difficulty", "choice": "Normal by default; Easy/Hard scale stat drain, creature damage and resource yield", "rationale": "One set of systems, three experiences."}
+  ],
+  "milestones": [
+    {"milestone": "M1 Foundation", "phase": "11", "tasks": [
+      "Create runtime game module and project settings (game mode, default maps)",
+      "Player character with third/first-person camera and Enhanced Input",
+      "Interaction system (look-at + E) with prompt UI",
+      "Build the starter world with the world-building tools (map size from scope decision)",
+      "Placeholder character and grey-box assets"]},
+    {"milestone": "M2 Items & inventory", "phase": "12", "tasks": [
+      "Item data definitions for the starting resource tier",
+      "Inventory + hotbar components (replicated)",
+      "World pickups and drops",
+      "Inventory UI (placeholder style)"]},
+    {"milestone": "M3 Survival", "phase": "13", "tasks": [
+      "Vital stats component (health, stamina, hunger, thirst, temperature)",
+      "Eating, drinking (including from water bodies)",
+      "Damage, death bag and respawn",
+      "Vital-stats HUD"]},
+    {"milestone": "M4 Gathering", "phase": "14", "tasks": [
+      "Make scattered trees, rocks and bushes harvestable",
+      "Tool requirements, yields and regrowth",
+      "Gathering feedback (hit effects, sounds placeholders)"]},
+    {"milestone": "M5 Crafting", "phase": "15", "tasks": [
+      "Recipe data for tier-1 tools, campfire, torch",
+      "Crafting menu",
+      "Crafting stations: campfire, workbench"]},
+    {"milestone": "M6 Building", "phase": "16", "tasks": [
+      "Snap building pieces (thatch/wood tier)",
+      "Placement preview and support rules",
+      "Doors, storage boxes, bed (respawn point)"]},
+    {"milestone": "M7 First playable", "phase": "16", "tasks": [
+      "Playtest the gather-craft-build-survive loop for one in-game day",
+      "Balance pass on stats, yields and recipes",
+      "Review with the user and adjust the design doc"]},
+    {"milestone": "M8 Creatures & combat", "phase": "17-18", "tasks": [
+      "Wildlife: passive, skittish, aggressive behaviours",
+      "Biome-based spawning from world data",
+      "Melee and ranged weapons, armor, loot"]},
+    {"milestone": "M9 World, saving & UI", "phase": "19-21", "tasks": [
+      "Day/night, weather and temperature by biome/altitude",
+      "Save/load world and players, autosave",
+      "Main menu, pause, settings, death screen"]},
+    {"milestone": "M10 Polish & co-op", "phase": "22-24", "tasks": [
+      "Audio ambience, footsteps, UI sounds; VFX for fire, water, hits",
+      "Listen-server co-op and joining",
+      "Automated smoke tests and performance check on target hardware"]},
+    {"milestone": "M11 Release", "phase": "25", "tasks": [
+      "Package for Windows",
+      "Store asset kit (screenshots, trailer path, description draft)",
+      "Release checklist (user handles store accounts and submission)"]}
+  ],
+  "asset_needs": [
+    {"name": "Player character", "category": "Character", "purpose": "The player (with run/jump/gather animations)", "placeholder": "Engine mannequin"},
+    {"name": "Trees (2-4 types)", "category": "Foliage", "purpose": "Wood resource and forests", "placeholder": "Engine cone/cylinder"},
+    {"name": "Rocks (3+ sizes)", "category": "Environment", "purpose": "Stone/flint resource nodes", "placeholder": "Engine sphere"},
+    {"name": "Bushes / berry plants", "category": "Foliage", "purpose": "Fiber and food", "placeholder": "Engine sphere (small)"},
+    {"name": "Landscape textures (grass, dirt, rock, snow, sand)", "category": "Materials", "purpose": "Terrain painting", "placeholder": "Solid colours (already working)"},
+    {"name": "Tools & weapons (axe, pick, spear, bow)", "category": "Props", "purpose": "Held items", "placeholder": "Engine shapes"},
+    {"name": "Building pieces (foundation, wall, roof, door)", "category": "Building", "purpose": "Player bases", "placeholder": "Engine cubes"},
+    {"name": "Creatures (deer, wolf, bear...)", "category": "Character", "purpose": "Wildlife", "placeholder": "Engine mannequin / shapes"},
+    {"name": "Item icons", "category": "UI", "purpose": "Inventory and crafting", "placeholder": "Generated text icons"},
+    {"name": "Sounds (ambience, footsteps, UI)", "category": "Audio", "purpose": "Atmosphere and feedback", "placeholder": "Silence / engine sounds"}
+  ]
+}

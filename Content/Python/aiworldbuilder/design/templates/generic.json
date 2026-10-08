@@ -1,0 +1,29 @@
+{
+  "genre": "generic",
+  "description": "Fallback for genres without a dedicated template yet. The AI interviews broadly, then proposes defaults from genre conventions it knows and records them as AI defaults.",
+  "must_ask": [
+    {"id": "pitch", "question": "In one or two sentences, what is your game about? What should players feel?", "options": [], "recommendation": "Free answer."},
+    {"id": "genre_mix", "question": "Which games is it most like (name 1-3), and what would you change about them?", "options": [], "recommendation": "Free answer; this sets the genre conventions the AI follows."},
+    {"id": "perspective", "question": "How is it viewed and played?", "options": ["First person", "Third person", "Top-down / isometric", "Side-scrolling 2.5D", "Strategy camera"], "recommendation": "Whatever the reference games use."},
+    {"id": "players", "question": "Who plays together?", "options": ["Solo", "Local/online co-op", "Competitive multiplayer", "Massively multiplayer"], "recommendation": "Solo or small co-op first."},
+    {"id": "art_style", "question": "What visual style, and which assets do you have?", "options": ["Realistic", "Stylized", "Low-poly", "Pixel/retro", "Placeholders for now"], "recommendation": "Match your assets."},
+    {"id": "scope", "question": "How big should the first playable version be?", "options": ["A single level / 30 minutes", "A small world / a few hours", "A large world / 20+ hours"], "recommendation": "Small first."}
+  ],
+  "ask_when_relevant": ["Story or sandbox?", "Progression system (levels, skills, gear)?", "Monetization and target stores?"],
+  "defaults": [
+    {"topic": "Platform", "choice": "Windows PC first; keyboard + mouse and gamepad", "rationale": "Broadest starting point."},
+    {"topic": "Saving", "choice": "Autosave plus manual save slots", "rationale": "Protects progress."},
+    {"topic": "Multiplayer model", "choice": "All systems replication-ready; solo first", "rationale": "Decided: multiplayer-ready from day one."},
+    {"topic": "Menus", "choice": "Main menu, pause, settings (graphics, audio, controls)", "rationale": "Every game needs them."}
+  ],
+  "milestones": [
+    {"milestone": "M1 Foundation", "phase": "11", "tasks": ["Runtime game module, game mode and maps", "Player character, camera and input", "Starter world or level"]},
+    {"milestone": "M2 Core loop", "phase": "12+", "tasks": ["Build the core gameplay loop with placeholder assets", "First playtest and review with the user"]},
+    {"milestone": "M3 Content & polish", "phase": "19-22", "tasks": ["UI, audio, VFX", "Save/load", "Balance"]},
+    {"milestone": "M4 Release", "phase": "24-25", "tasks": ["Playtest & QA", "Package and release checklist"]}
+  ],
+  "asset_needs": [
+    {"name": "Player character", "category": "Character", "purpose": "The player", "placeholder": "Engine mannequin"},
+    {"name": "Environment art", "category": "Environment", "purpose": "The world", "placeholder": "Engine shapes and solid colours"}
+  ]
+}

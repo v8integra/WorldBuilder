@@ -2,8 +2,10 @@
 
 from toolset_registry.registration import Registration
 
+from aiworldbuilder.toolsets import game_design
 from aiworldbuilder.toolsets import info
 
 registration = Registration([
     info.WorldBuilderInfoTools,
+    game_design.GameDesignTools,
 ])

@@ -344,3 +344,26 @@ affects the landscape. Save All afterwards.
 call_tool { "toolset_name": "AIWorldBuilderToolsets.WaterTools", "tool_name": "CreateRiver", "arguments": {
   "pointsM": [{"x":-900,"y":300},{"x":-200,"y":100},{"x":600,"y":-400}], "widthM": 18, "waterDepthM": 1.5 } }
 ```
+
+## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
+Memory for building a whole game across sessions, stored in the game project (not in Content):
+`<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like
+`D-001` (decisions), `T-001` (tasks), `A-001` (assets). Agent skill: **AIGameBuilder game design interview**
+(ask / decide / adjust policy, interview flow, resuming).
+
+| Tool | Use |
+|---|---|
+| `get_project_memory()` | Start of every session: game, sections written, decisions, task progress and next tasks, asset status. |
+| `get_genre_template(genre)` | Must-ask questions (options + recommendation), ask-when-relevant topics, AI defaults with rationale, milestones, asset needs. Templates: `survival` (aliases ark/rust/valheim…), `generic` (fallback). |
+| `start_game_project(name, genre, pitch, overwrite = false)` | Create the memory. Refuses if one exists unless `overwrite`. |
+| `seed_plan_from_template(genre = project genre)` | Add template milestones/tasks and asset needs (skips duplicates). |
+| `write_design_section(section, content)` / `read_design_doc(section = all)` | Design document (markdown). Sections: overview, setting, player_experience, systems, world, progression, multiplayer, art_audio, ui_controls, platforms, scope (others allowed). |
+| `record_decision(topic, choice, source = "user", rationale, affects)` | `source`: `user` or `ai_default`. Same topic again supersedes the old decision. |
+| `list_decisions(source)` | Active decisions, optionally only `user` / `ai_default`. |
+| `add_tasks(milestone, titles, phase)` / `update_task(task_id, status, notes)` / `list_tasks(status, milestone)` | Task board; status `todo`, `doing`, `done`, `blocked`. |
+| `add_asset_need(name, category, purpose, placeholder)` / `update_asset(asset_id, status, path, notes)` / `list_asset_wishlist(status)` | Asset wishlist; status `needed`, `placeholder`, `provided`. |
+
+```json
+call_tool { "toolset_name": "aiworldbuilder.toolsets.game_design.GameDesignTools", "tool_name": "record_decision",
+  "arguments": { "topic": "Day/night cycle", "choice": "45 minutes per day", "source": "user" } }
+```
