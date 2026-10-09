@@ -10,10 +10,13 @@ public class AIWorldBuilderToolsets : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"AIGameBuilderRuntime",
 			"AIWorldBuilderCore",
 			"CoreUObject",
 			"Engine",
 			"AssetRegistry",
+			"EngineSettings",
+			"EnhancedInput",
 			"Foliage",
 			"ImageCore",
 			"Landscape",

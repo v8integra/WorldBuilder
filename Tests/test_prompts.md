@@ -162,3 +162,17 @@ Prereq: restart the editor (Python only, no C++ build). Python tool argument nam
 7. `update_task` `{"task_id":"T-001","status":"done","notes":"ok"}`, `update_asset` `{"asset_id":"A-002","status":"placeholder","path":"/Engine/BasicShapes/Cone"}` → reflected in `GameDesign.md`.
 8. Delete the `AIGameBuilder` folder after the manual tests.
 **Claude Code:** "I want to make a survival game. Interview me." → asks the must-ask questions in small batches with recommendations, records answers and AI defaults, writes the design doc, seeds the plan, lists the AI defaults and most useful assets. New session: "Let's continue my game." → resumes from `get_project_memory` without re-interviewing.
+
+## Phase 11 — Game foundation (runtime module)
+
+Prereq: C++ build (new runtime module; the plugin is no longer editor-only). Open a level with a landscape (e.g. TestWorld) and Save All first.
+1. `GetGameFoundationStatus` `{}` → reports the current (First Person template) game mode and player starts.
+2. `SetupGameFoundation` `{"perspective":"ThirdPerson"}` → creates `/Game/AIGameBuilder/Core/BP_AGB_*` and `Input/IA_AGB_*`, `IMC_AGB_Default`; message names the previous game mode; character uses SKM_Manny_Simple + ABP_Unarmed.
+3. `PlacePlayerStart` `{"xM":..,"yM":..,"yawDeg":0}` on flat ground → one player start standing on the terrain.
+4. `SpawnInteractableLight` a few meters in front of it.
+5. Play (PIE): mannequin animates; WASD/mouse; Space jumps; hold Shift sprints (faster); C crouches; V switches to first person and back (own body hidden in first person); looking at the lamp within 2.5 m shows "[E] Turn off light"; E toggles it.
+6. Co-op check: Play options → Number of Players 2, Net Mode "Play As Listen Server". In the client window: sprint is smooth (no rubber-banding), the lamp toggled by one player changes for both, camera switch on one player makes their character turn with the camera in the other window.
+7. `SetupGameFoundation` `{"perspective":"FirstPerson","characterMeshPath":"none"}` → Play: placeholder cylinder body, starts in first person. Then `{"perspective":"ThirdPerson"}` → "auto" brings the mannequin back.
+8. `SetStartupMap` `{"mapPath":"current"}` → Project Settings > Maps & Modes shows the level for both maps.
+**Claude Code:** "Continue my game." (after Phase 10's interview) → sets up the foundation from the Perspective decision, places a player start near the planned start, marks M1 tasks done, asks you to playtest.
+

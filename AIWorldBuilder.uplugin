@@ -3,19 +3,24 @@
 	"Version": 1,
 	"VersionName": "1.0.0",
 	"FriendlyName": "AI World Builder",
-	"Description": "MCP toolsets that let an AI agent build real worlds: sculpt and paint landscapes, scatter foliage with PCG, and capture views of the result.",
+	"Description": "MCP toolsets that let an AI agent build real worlds (sculpt and paint landscapes, foliage, PCG, water) and whole games on a replication-ready runtime framework (AI Game Builder).",
 	"Category": "Editor",
 	"CreatedBy": "",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
-	"EditorOnly": true,
+	"EditorOnly": false,
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": true,
 	"Installed": false,
 	"Modules": [
+		{
+			"Name": "AIGameBuilderRuntime",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
 		{
 			"Name": "AIWorldBuilderCore",
 			"Type": "Editor",
@@ -48,6 +53,10 @@
 		},
 		{
 			"Name": "Water",
+			"Enabled": true
+		},
+		{
+			"Name": "EnhancedInput",
 			"Enabled": true
 		}
 	]

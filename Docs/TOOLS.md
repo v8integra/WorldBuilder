@@ -345,6 +345,24 @@ call_tool { "toolset_name": "AIWorldBuilderToolsets.WaterTools", "tool_name": "C
   "pointsM": [{"x":-900,"y":300},{"x":-200,"y":100},{"x":600,"y":-400}], "widthM": 18, "waterDepthM": 1.5 } }
 ```
 
+## `AIWorldBuilderToolsets.GameFoundationTools` (C++, game foundation)
+Sets up a game on the plugin's runtime module **AIGameBuilderRuntime** (ships with the game; replication-ready):
+`AAGBGameMode`, `AAGBCharacter` (third/first-person camera switchable with V, Enhanced Input, sprint predicted through
+saved moves, crouch, interaction), `AAGBPlayerController`, `AAGBHUD` (crosshair + "[E] prompt" placeholder),
+`UAGBInteractionComponent` / `UAGBInteractableComponent` / `IAGBInteractable` (server-validated use), and
+`AAGBInteractableLight` (example). Tools create editable Blueprints on top of these classes.
+
+| Tool | Use |
+|---|---|
+| `SetupGameFoundation(perspective = "ThirdPerson", characterMeshPath = "auto", animBlueprintPath = "auto", folder = "/Game/AIGameBuilder/Core", bSetProjectDefault = true, bAllowCameraToggle = true)` | Creates/updates `BP_AGB_GameMode`, `BP_AGB_Character`, `BP_AGB_PlayerController` and `Input/IA_AGB_*` + `IMC_AGB_Default` (kept if they exist), sets the project default game mode and the open level's override, switches the project to Enhanced Input if needed, saves the assets. Mesh "auto" = UE mannequin if present, else placeholder body; "none" = placeholder. |
+| `PlacePlayerStart(xM, yM, yawDeg = 0, bReplaceExisting = true)` | Player start on the ground (player collision trace); warns if too steep. |
+| `SpawnInteractableLight(xM, yM, label = "auto")` | Lamp post toggled with E (replicated): interaction test/example. |
+| `SetStartupMap(mapPath = "current", bGameDefault = true, bEditorStartup = true)` | Game Default Map / Editor Startup Map (level must be saved). |
+| `GetGameFoundationStatus()` | Project/level game mode, startup maps, player starts, Enhanced Input, character Blueprint, model and camera. |
+
+Default bindings: WASD / left stick move, mouse / right stick look, Space / A jump, Shift / L3 sprint, C / B crouch,
+E / X interact, V / View camera. Edit `IMC_AGB_Default` to rebind; SetupGameFoundation keeps existing input assets.
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

@@ -65,6 +65,22 @@ not a developer: they give prompts and supply assets; you do everything else, st
   they cost (extra milestones) before adding them.
 - For terrain and world layout, follow the "AIWorldBuilder workflow" skill.
 
+## Game foundation (milestone M1)
+
+- `AIWorldBuilderToolsets.GameFoundationTools.SetupGameFoundation(perspective)` creates the game mode, player character
+  and controller Blueprints (in /Game/AIGameBuilder/Core) on the plugin's replication-ready runtime classes, plus
+  Enhanced Input assets, and makes them the project and level defaults. Take the perspective from the "Perspective"
+  decision. It reports the previous game mode: mention it to the user. Run it again to change perspective or model.
+- Character model: the UE mannequin is used automatically if the project has it, otherwise a placeholder body. When the
+  user provides a character, pass `characterMeshPath` (and `animBlueprintPath` if "auto" finds none) and update the
+  "Player character" asset on the wishlist.
+- `PlacePlayerStart(x, y, yaw)` on walkable ground near the intended start (use `TraceGround` first), and
+  `SetStartupMap("current")` once the starting level is saved.
+- `SpawnInteractableLight` near the start proves interaction works (look at it, press E). Gameplay objects of later
+  phases are interactable the same way (UAGBInteractableComponent / IAGBInteractable).
+- Ask the user to Play (PIE): walk, look, jump, sprint (Shift), crouch (C), switch camera (V), use the lamp (E).
+  For a co-op check: Play > Number of Players 2, Net Mode "Play As Listen Server".
+
 ---
 
 # Things the user must do themselves

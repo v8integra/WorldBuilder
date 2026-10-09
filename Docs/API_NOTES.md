@@ -275,3 +275,28 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
 6. Non-edit-layer landscapes no longer exist (5.7+), and `FAlphamapAccessor` plus weight-adjust flags are deprecated.
 7. Default Z scale (100) limits heights to about ±256 m. Tools must warn and suggest a larger ScaleZ.
 8. The test project is Blueprint-only. To compile our C++ modules, the project needs a C++ target (Phase 1 adds a stub game module), or the plugin must be built separately.
+
+## 7. Game framework (Phase 11, runtime module `AIGameBuilderRuntime`)
+
+- Plugin is no longer `EditorOnly`; the runtime module is `Type: Runtime`, the world-building modules stay `Editor`.
+- **Enhanced Input in C++:** `UInputMappingContext::MapKey(Action, Key)` returns `FEnhancedActionKeyMapping&`; add
+  modifiers to `.Modifiers` (outer = the mapping context so they save with it). `UInputModifierSwizzleAxis` defaults to
+  YXZ; `UInputModifierNegate` has public `bX/bY/bZ`. Keys: `EKeys::Mouse2D`, `Gamepad_Left2D`, `Gamepad_Right2D`.
+  Add the context in `APawn::NotifyControllerChanged` via `ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()`.
+  Mouse look: Negate Y, `AddControllerPitchInput(Y)` (legacy input scales still apply: `bEnableLegacyInputScales`).
+- **Sprint prediction:** `FSavedMove_Character` (custom flag `FLAG_Custom_0`, override `Clear`, `GetCompressedFlags`,
+  `CanCombineWith`, `SetMoveFor`, `PrepMoveFor`), `FNetworkPredictionData_Client_Character::AllocateNewMove`,
+  `UCharacterMovementComponent::UpdateFromCompressedFlags` + `GetMaxSpeed`; allocate `ClientPredictionData` in
+  `GetPredictionData_Client() const` with a const_cast (engine pattern). Don't copy saved moves (copy ctor not exported).
+- **Camera mode is replicated:** first person uses controller yaw, third person orients to movement; the server must
+  rotate the same way or other players see the wrong facing.
+- **Project settings:** `UGameMapsSettings::GameDefaultMap` and `GlobalDefaultGameMode` are private: use the static
+  setters, then `GetMutableDefault<UGameMapsSettings>()->TryUpdateDefaultConfigFile()`. `EditorStartupMap` is public.
+  Input classes: `UInputSettings::SetDefaultInputComponentClass` / `SetDefaultPlayerInputClass`.
+- **Blueprints from C++:** `FKismetEditorUtilities::CreateBlueprint(Parent, CreatePackage(path), Name, BPTYPE_Normal,
+  UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass())`, `CompileBlueprint`, then set values on
+  `GeneratedClass->GetDefaultObject()` (`Modify()` first) and save. `UBlueprint::GeneratedClass` is
+  `TSubclassOf<UObject>`: use `.Get()` when assigning to `TSubclassOf<APawn>` etc.
+- Appearance is data (`BodyMesh`, `BodyAnimClass`) applied in `OnConstruction`, so tools never edit inherited component
+  templates. `UAnimBlueprint::TargetSkeleton` matches the mesh skeleton (mannequin: ABP_Unarmed ↔ SKM_Manny_Simple).
+
