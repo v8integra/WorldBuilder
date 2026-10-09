@@ -299,4 +299,14 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   `TSubclassOf<UObject>`: use `.Get()` when assigning to `TSubclassOf<APawn>` etc.
 - Appearance is data (`BodyMesh`, `BodyAnimClass`) applied in `OnConstruction`, so tools never edit inherited component
   templates. `UAnimBlueprint::TargetSkeleton` matches the mesh skeleton (mannequin: ABP_Unarmed ↔ SKM_Manny_Simple).
+- **Inventory (Phase 12):** slots are a replicated `TArray<FAGBItemStack>` (item asset pointers replicate by path).
+  Clients change contents only through Server RPCs on their **own** inventory component (the RPC needs a connection
+  owner), passing the source/target components (replicated components are net-addressable).
+- **Canvas HUD hit boxes** still work with Enhanced Input: `AddHitBox` each `DrawHUD`, `NotifyHitBoxClick` fires from
+  `APlayerController::InputKey` when `bEnableClickEvents` is on; hover (`NotifyHitBoxBeginCursorOver`) is computed in
+  `AHUD::PostRender` from the mouse position. Use `FInputModeGameAndUI` + `SetShowMouseCursor(true)` while open.
+- **Input upgrades:** existing `IMC_AGB_Default` assets get only the missing actions mapped (`CreateDefaultInput(Factory,
+  &Existing)`); at runtime an incomplete set gets a transient supplementary mapping context.
+- `UBlueprint::GetBlueprintFromClass(Class)` instead of `ClassGeneratedBy`. Item ids are found through the asset
+  registry tag of the `AssetRegistrySearchable` `ItemId` property.
 

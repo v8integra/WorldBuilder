@@ -44,6 +44,22 @@ struct AIGAMEBUILDERRUNTIME_API FAGBInputSet
 	/** Switch between third and first person. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> ToggleCamera;
+
+	/** Open/close the inventory screen. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> Inventory;
+
+	/** Drop one of the selected hotbar item (or the hovered stack in the inventory screen). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> Drop;
+
+	/** Axis1D: value = hotbar slot number 1-10 (keys 1-0). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> HotbarSelect;
+
+	/** Axis1D: +1 next / -1 previous hotbar slot (mouse wheel, d-pad). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> HotbarCycle;
 };
 
 namespace AGBInput
@@ -54,7 +70,12 @@ namespace AGBInput
 	/**
 	 * Builds the default survival-style bindings (keyboard + mouse and gamepad):
 	 * WASD / left stick move, mouse / right stick look, Space / A jump, Shift / L3 sprint, C / B crouch,
-	 * E / X interact, V / View camera.
+	 * E / X interact, V / View camera, Tab / Y inventory, Q / d-pad down drop, 1-0 hotbar, wheel / d-pad left-right cycle.
+	 * With Existing, only its missing actions are created and mapped into its mapping context (upgrades older sets
+	 * without touching the user's bindings).
 	 */
-	AIGAMEBUILDERRUNTIME_API FAGBInputSet CreateDefaultInput(FObjectFactory Factory);
+	AIGAMEBUILDERRUNTIME_API FAGBInputSet CreateDefaultInput(FObjectFactory Factory, const FAGBInputSet* Existing = nullptr);
+
+	/** Whether every action and the mapping context are set. */
+	AIGAMEBUILDERRUNTIME_API bool IsComplete(const FAGBInputSet& Set);
 }

@@ -176,3 +176,16 @@ Prereq: C++ build (new runtime module; the plugin is no longer editor-only). Ope
 8. `SetStartupMap` `{"mapPath":"current"}` → Project Settings > Maps & Modes shows the level for both maps.
 **Claude Code:** "Continue my game." (after Phase 10's interview) → sets up the foundation from the Perspective decision, places a player start near the planned start, marks M1 tasks done, asks you to playtest.
 
+## Phase 12 — Items and inventory
+
+Prereq: C++ build, then run `SetupGameFoundation` `{"perspective":"ThirdPerson"}` again → message says `IMC_AGB_Default` was kept and bindings were added for the new actions.
+1. `CreateItem` `{"itemId":"wood","displayName":"Wood","category":"Resource","maxStack":100,"weight":0.5,"description":"Chopped from trees.","meshPath":"auto","iconPath":"auto","equipSlot":"None","tags":["Fuel"],"stats":[]}` → `/Game/AIGameBuilder/Items/DA_Item_wood`.
+2. Also: `stone` (Resource, 100, 1.0), `berries` (Food, 20, 0.1, stats `[{"name":"Hunger","value":10}]`), `stone_axe` (Tool, 1, 2.5, equipSlot `MainHand`, meshPath e.g. `/Engine/BasicShapes/Cylinder`), `leather_cap` (Armor, 1, 0.5, equipSlot `Head`).
+3. `ListItems` `{}` → 5 items. Calling `CreateItem` again with the same id updates it (no duplicate).
+4. `SpawnItemPickup` wood x25, stone x10, berries x5 and the axe near the player start; `SetStartingItems` `{"items":[{"itemId":"berries","count":3}]}`.
+5. Play: berries are on the hotbar at start. Walk to a pickup: "[E] Pick up Wood (25)"; E → it goes to the inventory (or tops up hotbar stacks). The axe goes to the hotbar; select its slot (1-0 or wheel) → held in the right hand (cylinder placeholder).
+6. Tab: inventory screen with cursor, look locked. Click a stack then another slot → moves; onto the same item → merges; onto a different item → swaps; Shift+click → half. Leather cap only fits the Head slot. Q over a stack → dropped in front of the player as a pickup. Tab closes.
+7. Q in game drops one of the selected hotbar item.
+8. Co-op (2 players, listen server): each player has their own inventory; a pickup taken by one disappears for both; dropped items appear for both; the other player sees the held axe.
+**Claude Code:** "Create the starting resource items from the design (wood, stone, fiber, flint, berries) and a stone axe; scatter some pickups near the start." → uses ItemTools, then marks the M2 tasks.
+

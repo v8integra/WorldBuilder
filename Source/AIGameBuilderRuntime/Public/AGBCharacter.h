@@ -2,11 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "AGBDefaultInput.h"
+#include "AGBItemTypes.h"
 #include "GameFramework/Character.h"
 
 #include "AGBCharacter.generated.h"
 
 class UAGBCharacterMovementComponent;
+class UAGBInventoryComponent;
+class UInputMappingContext;
 class UAGBInteractionComponent;
 class UAnimInstance;
 class UCameraComponent;
@@ -75,6 +78,48 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Input")
 	FAGBInputSet Input;
 
+	/** Backpack (30 slots by default). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	TObjectPtr<UAGBInventoryComponent> Inventory;
+
+	/** Quick slots 1-0; the selected one is held in the hand (MainHand items). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	TObjectPtr<UAGBInventoryComponent> Hotbar;
+
+	/** Worn gear: Head, Chest, Legs, Feet. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	TObjectPtr<UAGBInventoryComponent> Equipment;
+
+	/** Shows the selected MainHand item in the right hand. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	TObjectPtr<UStaticMeshComponent> HeldItem;
+
+	/** Hand socket the held item attaches to (UE mannequin: hand_r). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	FName HandSocket = TEXT("hand_r");
+
+	/** Items the player spawns with (server gives them at the start). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	TArray<FAGBItemStack> StartingItems;
+
+	/** Gives items to the player: tops up hotbar stacks, then the inventory, then free hotbar slots. Returns how many fit. Server only. */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Items")
+	int32 GiveItem(UAGBItemDefinition* Item, int32 Count = 1);
+
+	/** Total of an item across hotbar and inventory. */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
+	int32 CountItem(const UAGBItemDefinition* Item) const;
+
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Items")
+	void SelectHotbarSlot(int32 SlotIndex);
+
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
+	int32 GetSelectedHotbarSlot() const { return SelectedHotbarSlot; }
+
+	/** The stack in the selected hotbar slot (may be empty). */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
+	FAGBItemStack GetSelectedItem() const;
+
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Camera")
 	void SetCameraMode(EAGBCameraMode NewMode);
 
@@ -110,10 +155,27 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerSetCameraMode(EAGBCameraMode NewMode);
 
+	UPROPERTY(ReplicatedUsing = OnRep_SelectedHotbarSlot, BlueprintReadOnly, Category = "AI Game Builder|Items")
+	int32 SelectedHotbarSlot = 0;
+
+	UFUNCTION()
+	void OnRep_SelectedHotbarSlot();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSelectHotbarSlot(int32 SlotIndex);
+
+	UFUNCTION()
+	void UpdateHeldItem();
+
 private:
+	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */
+	UPROPERTY(Transient)
+	TObjectPtr<UInputMappingContext> SupplementContext;
+
 	void ApplyAppearance();
 	void ApplyCameraMode();
 	void EnsureInput();
+	void GiveStartingItems();
 
 	void OnMove(const FInputActionValue& Value);
 	void OnLook(const FInputActionValue& Value);
@@ -122,4 +184,8 @@ private:
 	void OnCrouchToggle(const FInputActionValue& Value);
 	void OnInteract(const FInputActionValue& Value);
 	void OnToggleCamera(const FInputActionValue& Value);
+	void OnToggleInventory(const FInputActionValue& Value);
+	void OnDrop(const FInputActionValue& Value);
+	void OnHotbarSelect(const FInputActionValue& Value);
+	void OnHotbarCycle(const FInputActionValue& Value);
 };

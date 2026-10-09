@@ -1,7 +1,9 @@
 #include "AGBCharacter.h"
 
 #include "AGBCharacterMovementComponent.h"
+#include "AGBGameFramework.h"
 #include "AGBInteractionComponent.h"
+#include "AGBInventoryComponent.h"
 #include "AIGameBuilderRuntime.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -56,6 +58,24 @@ AAGBCharacter::AAGBCharacter(const FObjectInitializer& ObjectInitializer)
 
 	Interaction = CreateDefaultSubobject<UAGBInteractionComponent>(TEXT("Interaction"));
 
+	Inventory = CreateDefaultSubobject<UAGBInventoryComponent>(TEXT("Inventory"));
+	Inventory->NumSlots = 30;
+
+	Hotbar = CreateDefaultSubobject<UAGBInventoryComponent>(TEXT("Hotbar"));
+	Hotbar->NumSlots = 10;
+	Hotbar->DisplayName = NSLOCTEXT("AIGameBuilder", "Hotbar", "Hotbar");
+
+	Equipment = CreateDefaultSubobject<UAGBInventoryComponent>(TEXT("Equipment"));
+	Equipment->SlotTypes = { EAGBEquipSlot::Head, EAGBEquipSlot::Chest, EAGBEquipSlot::Legs, EAGBEquipSlot::Feet };
+	Equipment->NumSlots = Equipment->SlotTypes.Num();
+	Equipment->DisplayName = NSLOCTEXT("AIGameBuilder", "Equipment", "Equipment");
+
+	HeldItem = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeldItem"));
+	HeldItem->SetupAttachment(GetMesh(), HandSocket);
+	HeldItem->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HeldItem->SetCanEverAffectNavigation(false);
+	HeldItem->SetVisibility(false);
+
 	ApplyCameraMode();
 }
 
@@ -81,8 +101,94 @@ void AAGBCharacter::BeginPlay()
 	if (HasAuthority())
 	{
 		CameraMode = DefaultCameraMode;
+		GiveStartingItems();
 	}
 	ApplyCameraMode();
+	Hotbar->OnInventoryChanged.AddDynamic(this, &AAGBCharacter::UpdateHeldItem);
+	UpdateHeldItem();
+}
+
+void AAGBCharacter::GiveStartingItems()
+{
+	for (const FAGBItemStack& Stack : StartingItems)
+	{
+		if (!Stack.IsEmpty())
+		{
+			GiveItem(Stack.Item, Stack.Count);
+		}
+	}
+}
+
+int32 AAGBCharacter::GiveItem(UAGBItemDefinition* Item, int32 Count)
+{
+	if (!Item || Count <= 0)
+	{
+		return 0;
+	}
+	int32 Added = Hotbar->AddItem(Item, Count, /*bOnlyExistingStacks=*/true);
+	Added += Inventory->AddItem(Item, Count - Added);
+	Added += Hotbar->AddItem(Item, Count - Added);
+	return Added;
+}
+
+int32 AAGBCharacter::CountItem(const UAGBItemDefinition* Item) const
+{
+	return Hotbar->CountItem(Item) + Inventory->CountItem(Item);
+}
+
+FAGBItemStack AAGBCharacter::GetSelectedItem() const
+{
+	return Hotbar->GetSlot(SelectedHotbarSlot);
+}
+
+void AAGBCharacter::SelectHotbarSlot(int32 SlotIndex)
+{
+	const int32 NumSlots = Hotbar->GetNumSlots() > 0 ? Hotbar->GetNumSlots() : Hotbar->NumSlots;
+	if (NumSlots <= 0)
+	{
+		return;
+	}
+	SelectedHotbarSlot = FMath::Clamp(SlotIndex, 0, NumSlots - 1);
+	UpdateHeldItem();
+	if (!HasAuthority())
+	{
+		ServerSelectHotbarSlot(SelectedHotbarSlot);
+	}
+}
+
+void AAGBCharacter::ServerSelectHotbarSlot_Implementation(int32 SlotIndex)
+{
+	SelectHotbarSlot(SlotIndex);
+}
+
+void AAGBCharacter::OnRep_SelectedHotbarSlot()
+{
+	UpdateHeldItem();
+}
+
+void AAGBCharacter::UpdateHeldItem()
+{
+	const FAGBItemStack Stack = GetSelectedItem();
+	UStaticMesh* HeldMesh = (!Stack.IsEmpty() && Stack.Item->EquipSlot == EAGBEquipSlot::MainHand) ? Stack.Item->WorldMesh.LoadSynchronous() : nullptr;
+
+	// In the hand socket when the model has one; beside the placeholder body otherwise.
+	FTransform Offset = HeldMesh ? Stack.Item->HeldOffset : FTransform::Identity;
+	if (HeldMesh)
+	{
+		Offset.SetScale3D(Offset.GetScale3D() * Stack.Item->WorldMeshScale);
+	}
+	if (GetMesh()->DoesSocketExist(HandSocket))
+	{
+		HeldItem->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, HandSocket);
+	}
+	else
+	{
+		HeldItem->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Offset.AddToTranslation(FVector(35.0, 30.0, 0.0));
+	}
+	HeldItem->SetStaticMesh(HeldMesh);
+	HeldItem->SetRelativeTransform(Offset);
+	HeldItem->SetVisibility(HeldMesh != nullptr);
 }
 
 void AAGBCharacter::ApplyAppearance()
@@ -128,6 +234,7 @@ void AAGBCharacter::ApplyCameraMode()
 	// Hide the own body from the owning player in first person (it still casts shadows).
 	GetMesh()->SetOwnerNoSee(bFirstPerson);
 	PlaceholderBody->SetOwnerNoSee(bFirstPerson);
+	HeldItem->SetOwnerNoSee(bFirstPerson);
 }
 
 void AAGBCharacter::SetCameraMode(EAGBCameraMode NewMode)
@@ -172,15 +279,29 @@ bool AAGBCharacter::IsSprinting() const
 
 void AAGBCharacter::EnsureInput()
 {
-	if (Input.MappingContext)
+	if (AGBInput::IsComplete(Input))
 	{
 		return;
 	}
-	// No input assets assigned: build the default bindings as transient objects.
-	Input = AGBInput::CreateDefaultInput([this](UClass* Class, const FString& AssetName) -> UObject*
+	auto TransientFactory = [this](UClass* Class, const FString& AssetName) -> UObject*
 	{
 		return NewObject<UObject>(this, Class, MakeUniqueObjectName(this, Class, FName(*AssetName)), RF_Transient);
-	});
+	};
+	if (!Input.MappingContext)
+	{
+		// No input assets assigned: build the default bindings as transient objects.
+		Input = AGBInput::CreateDefaultInput(TransientFactory);
+		return;
+	}
+
+	// An older input set without some actions: map the missing ones in a separate runtime context.
+	UE_LOG(LogAIGameBuilder, Warning, TEXT("%s: input assets are missing newer actions; using defaults for them. Run SetupGameFoundation again to add them to the assets."), *GetName());
+	FAGBInputSet Missing = Input;
+	Missing.MappingContext = nullptr;
+	FAGBInputSet Filled = AGBInput::CreateDefaultInput(TransientFactory, &Missing);
+	SupplementContext = Filled.MappingContext;
+	Filled.MappingContext = Input.MappingContext;
+	Input = Filled;
 }
 
 void AAGBCharacter::NotifyControllerChanged()
@@ -195,6 +316,10 @@ void AAGBCharacter::NotifyControllerChanged()
 		{
 			EnsureInput();
 			Subsystem->AddMappingContext(Input.MappingContext, 0);
+			if (SupplementContext)
+			{
+				Subsystem->AddMappingContext(SupplementContext, 0);
+			}
 		}
 	}
 }
@@ -240,6 +365,62 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	if (Input.ToggleCamera)
 	{
 		EnhancedInput->BindAction(Input.ToggleCamera, ETriggerEvent::Started, this, &AAGBCharacter::OnToggleCamera);
+	}
+	if (Input.Inventory)
+	{
+		EnhancedInput->BindAction(Input.Inventory, ETriggerEvent::Started, this, &AAGBCharacter::OnToggleInventory);
+	}
+	if (Input.Drop)
+	{
+		EnhancedInput->BindAction(Input.Drop, ETriggerEvent::Started, this, &AAGBCharacter::OnDrop);
+	}
+	if (Input.HotbarSelect)
+	{
+		EnhancedInput->BindAction(Input.HotbarSelect, ETriggerEvent::Started, this, &AAGBCharacter::OnHotbarSelect);
+	}
+	if (Input.HotbarCycle)
+	{
+		EnhancedInput->BindAction(Input.HotbarCycle, ETriggerEvent::Started, this, &AAGBCharacter::OnHotbarCycle);
+	}
+}
+
+void AAGBCharacter::OnToggleInventory(const FInputActionValue& Value)
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (AAGBHUD* HUD = PlayerController ? PlayerController->GetHUD<AAGBHUD>() : nullptr)
+	{
+		HUD->ToggleInventory();
+	}
+}
+
+void AAGBCharacter::OnDrop(const FInputActionValue& Value)
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	AAGBHUD* HUD = PlayerController ? PlayerController->GetHUD<AAGBHUD>() : nullptr;
+	if (HUD && HUD->IsInventoryOpen())
+	{
+		HUD->DropHoveredSlot();
+		return;
+	}
+	Inventory->RequestDropItem(Hotbar, SelectedHotbarSlot, 1);
+}
+
+void AAGBCharacter::OnHotbarSelect(const FInputActionValue& Value)
+{
+	const int32 SlotNumber = FMath::RoundToInt(Value.Get<float>());
+	if (SlotNumber >= 1)
+	{
+		SelectHotbarSlot(SlotNumber - 1);
+	}
+}
+
+void AAGBCharacter::OnHotbarCycle(const FInputActionValue& Value)
+{
+	const float Direction = Value.Get<float>();
+	const int32 NumSlots = Hotbar->GetNumSlots();
+	if (NumSlots > 0 && FMath::Abs(Direction) > 0.1f)
+	{
+		SelectHotbarSlot((SelectedHotbarSlot + (Direction > 0.f ? 1 : -1) + NumSlots) % NumSlots);
 	}
 }
 
@@ -302,4 +483,5 @@ void AAGBCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AAGBCharacter, CameraMode);
+	DOREPLIFETIME(AAGBCharacter, SelectedHotbarSlot);
 }

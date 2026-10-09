@@ -81,6 +81,17 @@ not a developer: they give prompts and supply assets; you do everything else, st
 - Ask the user to Play (PIE): walk, look, jump, sprint (Shift), crouch (C), switch camera (V), use the lamp (E).
   For a co-op check: Play > Number of Players 2, Net Mode "Play As Listen Server".
 
+## Items and inventory (milestone M2)
+
+- `AIWorldBuilderToolsets.ItemTools.CreateItem` for every item in the design (ids: lowercase_with_underscores, never
+  renamed later). Follow the decisions for stack sizes and weights (survival default: resources 100, food 20,
+  tools/weapons 1). Tools, weapons and torches are `MainHand`; clothing uses Head/Chest/Legs/Feet. Put numbers other
+  systems need into `stats` (food: Hunger/Thirst; weapons: Damage) and roles into `tags` (Tool.Axe, Tool.Pickaxe, Fuel).
+- Use the user's meshes and icons when provided (wishlist), placeholders otherwise ("auto"); update the wishlist.
+- `SpawnItemPickup` a few of each near the start for testing; `SetStartingItems` from the "Starting kit" decision.
+- After a plugin update adds input actions, run `SetupGameFoundation` again (it keeps the user's bindings).
+- Playtest: pick up (E), hotbar 1-0 / wheel, Tab inventory (click to move, Shift+click half, Q drop), held tool.
+
 ---
 
 # Things the user must do themselves

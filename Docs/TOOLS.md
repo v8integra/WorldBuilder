@@ -363,6 +363,25 @@ saved moves, crouch, interaction), `AAGBPlayerController`, `AAGBHUD` (crosshair 
 Default bindings: WASD / left stick move, mouse / right stick look, Space / A jump, Shift / L3 sprint, C / B crouch,
 E / X interact, V / View camera. Edit `IMC_AGB_Default` to rebind; SetupGameFoundation keeps existing input assets.
 
+## `AIWorldBuilderToolsets.ItemTools` (C++, items and inventory)
+Items are data assets (`UAGBItemDefinition`, `DA_Item_<itemId>`): id, name, description, category, stack size, weight,
+icon, world mesh, equip slot, tags and named stats. The player character has three replicated, server-authoritative
+`UAGBInventoryComponent`s: **Inventory** (30), **Hotbar** (10; the selected MainHand item is held in `hand_r`) and
+**Equipment** (Head, Chest, Legs, Feet). `AAGBItemPickup` is an item stack on the ground (E picks it up).
+Placeholder UI (canvas): hotbar always visible, Tab opens the inventory screen (click to pick up / place, Shift+click
+half, Q drops the hovered stack). Q in game drops one of the selected hotbar item; 1-0 / mouse wheel select.
+
+| Tool | Use |
+|---|---|
+| `CreateItem(itemId, displayName, category, maxStack, weight, description, meshPath, iconPath, equipSlot, tags, stats, folder = "/Game/AIGameBuilder/Items")` | Create or update (same id) an item; saved. `meshPath`/`iconPath`: path, "auto" (keep) or "none". `stats`: `[{"name":"Hunger","value":25}]`. |
+| `ListItems(category = "all")` | Items with their settings. |
+| `SpawnItemPickup(itemId, count, xM, yM)` | Pickup on the ground. |
+| `SetStartingItems(items)` | `[{"itemId":"torch","count":1}]` on the game's character Blueprint (`[]` = nothing). |
+
+Categories: Resource, Food, Tool, Weapon, Armor, Placeable, Consumable, Misc. Equip slots: None, MainHand, Head, Chest,
+Legs, Feet. Re-running `SetupGameFoundation` adds the new input actions (Inventory, Drop, HotbarSelect, HotbarCycle) to
+an existing `IMC_AGB_Default` without changing the user's bindings.
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

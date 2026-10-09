@@ -1,5 +1,7 @@
 #include "GameFoundationTools.h"
 
+#include "GameToolUtils.h"
+
 #include "AGBCharacter.h"
 #include "AGBDefaultInput.h"
 #include "AGBGameFramework.h"
@@ -93,22 +95,7 @@ namespace
 	/** Reuses existing input assets (so the user's rebinds survive); creates the defaults otherwise. */
 	FAGBInputSet LoadOrCreateInput(const FString& InputFolder, TArray<UPackage*>& Dirty, TArray<FString>& Assets)
 	{
-		if (UInputMappingContext* Existing = FindAsset<UInputMappingContext>(InputFolder, MappingContextName))
-		{
-			FAGBInputSet Set;
-			Set.MappingContext = Existing;
-			Set.Move = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Move"));
-			Set.Look = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Look"));
-			Set.Jump = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Jump"));
-			Set.Sprint = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Sprint"));
-			Set.Crouch = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Crouch"));
-			Set.Interact = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Interact"));
-			Set.ToggleCamera = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_ToggleCamera"));
-			Assets.Add(Existing->GetPathName() + TEXT(" (kept, with its actions)"));
-			return Set;
-		}
-
-		return AGBInput::CreateDefaultInput([&](UClass* Class, const FString& AssetName) -> UObject*
+		auto Factory = [&](UClass* Class, const FString& AssetName) -> UObject*
 		{
 			// Reuse an existing asset of the right class; if the name is taken by something else, use a free name.
 			FString Name = AssetName;
@@ -128,7 +115,37 @@ namespace
 			Asset->Modify();
 			Dirty.AddUnique(Asset->GetPackage());
 			return Asset;
-		});
+		};
+
+		UInputMappingContext* Existing = FindAsset<UInputMappingContext>(InputFolder, MappingContextName);
+		if (!Existing)
+		{
+			return AGBInput::CreateDefaultInput(Factory);
+		}
+
+		// Keep the existing context and actions (the user's rebinds survive); add actions from newer versions.
+		FAGBInputSet Set;
+		Set.MappingContext = Existing;
+		Set.Move = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Move"));
+		Set.Look = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Look"));
+		Set.Jump = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Jump"));
+		Set.Sprint = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Sprint"));
+		Set.Crouch = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Crouch"));
+		Set.Interact = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Interact"));
+		Set.ToggleCamera = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_ToggleCamera"));
+		Set.Inventory = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Inventory"));
+		Set.Drop = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Drop"));
+		Set.HotbarSelect = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_HotbarSelect"));
+		Set.HotbarCycle = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_HotbarCycle"));
+		if (AGBInput::IsComplete(Set))
+		{
+			Assets.Add(Existing->GetPathName() + TEXT(" (kept, with its actions)"));
+			return Set;
+		}
+		Existing->Modify();
+		Dirty.AddUnique(Existing->GetPackage());
+		Assets.Add(Existing->GetPathName() + TEXT(" (kept; added bindings for new actions)"));
+		return AGBInput::CreateDefaultInput(Factory, &Set);
 	}
 
 	/** First asset of a class under /Game whose name is in the preference list (in list order). */
@@ -182,41 +199,6 @@ namespace
 			}
 		}
 		return nullptr;
-	}
-
-	/** Where a standing player lands at a point: traced on the player's collision channel from above all landscapes. */
-	bool TraceGround(UWorld* World, double XM, double YM, FHitResult& OutHit)
-	{
-		double TopCm = 1000000.0, BottomCm = -1000000.0;
-		FBox AllBounds(ForceInit);
-		for (ALandscape* Landscape : LandscapeUtils::GetAllLandscapes(World))
-		{
-			AllBounds += LandscapeUtils::GetCompleteBounds(Landscape);
-		}
-		if (AllBounds.IsValid)
-		{
-			TopCm = AllBounds.Max.Z + 50000.0;
-			BottomCm = AllBounds.Min.Z - 50000.0;
-		}
-		const FVector2D PointCm = FVector2D(XM, YM) * CmPerMeter;
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(AIGameBuilderGroundTrace), /*bTraceComplex=*/false);
-		return World->LineTraceSingleByChannel(OutHit, FVector(PointCm.X, PointCm.Y, TopCm), FVector(PointCm.X, PointCm.Y, BottomCm), ECC_Pawn, Params);
-	}
-
-	FString UniqueLabel(UWorld* World, const FString& Requested, const FString& Fallback)
-	{
-		const FString Base = IsAuto(Requested) ? Fallback : Requested;
-		TSet<FString> Used;
-		for (TActorIterator<AActor> It(World); It; ++It)
-		{
-			Used.Add(It->GetActorLabel());
-		}
-		FString Label = Base;
-		for (int32 Index = 2; Used.Contains(Label); ++Index)
-		{
-			Label = FString::Printf(TEXT("%s_%d"), *Base, Index);
-		}
-		return Label;
 	}
 
 	bool UsesEnhancedInput()
@@ -485,7 +467,7 @@ FGameFoundationResult UGameFoundationTools::PlacePlayerStart(double XM, double Y
 	}
 
 	FHitResult Hit;
-	if (!TraceGround(World, XM, YM, Hit))
+	if (!GameToolUtils::TraceGround(World, XM, YM, Hit))
 	{
 		return Fail(FString::Printf(TEXT("No ground at (%.1f, %.1f) m: nothing with collision there (unloaded World Partition region, or outside the landscape)."), XM, YM));
 	}
@@ -517,7 +499,7 @@ FGameFoundationResult UGameFoundationTools::PlacePlayerStart(double XM, double Y
 	// Stand the capsule on the ground, with a little clearance.
 	const double HalfHeight = Start->GetCapsuleComponent() ? Start->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 92.0;
 	Start->SetActorLocation(Hit.ImpactPoint + FVector(0.0, 0.0, HalfHeight + 5.0));
-	Start->SetActorLabel(UniqueLabel(World, TEXT("auto"), TEXT("PlayerStart_AGB")));
+	Start->SetActorLabel(GameToolUtils::UniqueLabel(World, TEXT("auto"), TEXT("PlayerStart_AGB")));
 
 	FGameFoundationResult R;
 	FillStatus(World, R);
@@ -537,7 +519,7 @@ FGameFoundationResult UGameFoundationTools::SpawnInteractableLight(double XM, do
 		return Fail(TEXT("No level is open in the editor."));
 	}
 	FHitResult Hit;
-	if (!TraceGround(World, XM, YM, Hit))
+	if (!GameToolUtils::TraceGround(World, XM, YM, Hit))
 	{
 		return Fail(FString::Printf(TEXT("No ground at (%.1f, %.1f) m."), XM, YM));
 	}
@@ -550,7 +532,7 @@ FGameFoundationResult UGameFoundationTools::SpawnInteractableLight(double XM, do
 	{
 		return Fail(TEXT("Could not spawn the light."));
 	}
-	Light->SetActorLabel(UniqueLabel(World, Label, TEXT("AGB_InteractableLight")));
+	Light->SetActorLabel(GameToolUtils::UniqueLabel(World, Label, TEXT("AGB_InteractableLight")));
 
 	FGameFoundationResult R;
 	R.bSuccess = true;

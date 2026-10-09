@@ -3,6 +3,7 @@
 #include "ToolsetRegistry/UToolsetRegistry.h"
 #include "FoliageScatterTools.h"
 #include "GameFoundationTools.h"
+#include "ItemTools.h"
 #include "LandscapeCreateTools.h"
 #include "LandscapeInspectTools.h"
 #include "LandscapePaintTools.h"
@@ -50,6 +51,7 @@ private:
 			UMeshConversionTools::StaticClass(),
 			UWaterTools::StaticClass(),
 			UGameFoundationTools::StaticClass(),
+			UItemTools::StaticClass(),
 		};
 	}
 };
