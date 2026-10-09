@@ -92,6 +92,18 @@ not a developer: they give prompts and supply assets; you do everything else, st
 - After a plugin update adds input actions, run `SetupGameFoundation` again (it keeps the user's bindings).
 - Playtest: pick up (E), hotbar 1-0 / wheel, Tab inventory (click to move, Shift+click half, Q drop), held tool.
 
+## Survival stats (milestone M3)
+
+- `AIWorldBuilderToolsets.SurvivalTools.SetupSurvival(difficulty)` from the "Difficulty" decision, then adjust with
+  `SetVitalStat` (use `minutesToEmpty` for drains) to match the "Vital stats" decision; `SetTemperatureRules` for the
+  climate (sea level = the ocean/sea level used for WaterTools; base temperature from the setting: tropical ~26,
+  temperate ~16, cold ~5); `SetSurvivalRules` for death (death bag, respawn delay) and fall damage.
+- Food items restore vitals through stats with the vital's name (`Hunger`, `Thirst`, `Health`, `Stamina`); negative
+  values hurt (raw meat: Health -5). Clothing: `Insulation` / `Cooling` stats in degrees.
+- Water bodies are drinkable automatically. Add custom stats only when the design needs them (Oxygen, Sanity...).
+- Playtest: bars, eating (left click / E in inventory), drinking at water, fall damage, cold at altitude, death bag
+  and respawn. Shorten drain times for testing, then restore with SetupSurvival.
+
 ---
 
 # Things the user must do themselves

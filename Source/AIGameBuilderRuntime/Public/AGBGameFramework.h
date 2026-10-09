@@ -17,6 +17,9 @@ class AIGAMEBUILDERRUNTIME_API AAGBGameMode : public AGameModeBase
 
 public:
 	AAGBGameMode();
+
+	/** Respawns a player after a delay (at a player start; beds come with building). */
+	void ScheduleRespawn(AController* Controller, float DelaySeconds);
 };
 
 /** Player controller for AI Game Builder games (menus and input modes are added in later phases). */
@@ -53,6 +56,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void DropHoveredSlot();
 
+	/** Uses (eats/drinks) the item under the mouse (inventory screen open). */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
+	void UseHoveredSlot();
+
 	virtual void DrawHUD() override;
 	virtual void NotifyHitBoxClick(FName BoxName) override;
 	virtual void NotifyHitBoxBeginCursorOver(FName BoxName) override;
@@ -80,5 +87,7 @@ private:
 	void DrawSlot(UAGBInventoryComponent* Inventory, int32 InventoryIndex, int32 SlotIndex, float X, float Y, float Size, bool bSelected, const FString& EmptyLabel);
 	void DrawHotbar(class AAGBCharacter* Character, float Scale);
 	void DrawInventoryScreen(class AAGBCharacter* Character, float Scale);
+	void DrawVitals(class AAGBCharacter* Character, float Scale);
+	void DrawDeathScreen(float Scale);
 	void DrawFrame(float X, float Y, float W, float H, float Thickness, const FLinearColor& Color);
 };

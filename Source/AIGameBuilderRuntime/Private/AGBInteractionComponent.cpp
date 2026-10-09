@@ -1,6 +1,8 @@
 #include "AGBInteractionComponent.h"
 
 #include "AGBInteractable.h"
+#include "AGBVitalsComponent.h"
+#include "Engine/OverlapResult.h"
 #include "AIGameBuilderRuntime.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
@@ -10,6 +12,9 @@ namespace
 {
 	/** Extra distance the server allows over InteractionRange (latency and bounds differences). */
 	constexpr float ServerRangeTolerance = 150.f;
+
+	/** Collision profile of Water plugin bodies (UWaterRuntimeSettings default). */
+	const FName WaterCollisionProfile = TEXT("WaterBodyCollision");
 }
 
 UAGBInteractionComponent::UAGBInteractionComponent()
@@ -83,6 +88,12 @@ void UAGBInteractionComponent::UpdateFocus()
 				NewPrompt = IAGBInteractable::Execute_GetInteractionPrompt(Interactable, Pawn);
 			}
 		}
+
+		bFocusingWater = !NewFocus && CanDrink() && IsWaterInView(ViewLocation, End, Eyes);
+		if (bFocusingWater)
+		{
+			NewPrompt = NSLOCTEXT("AIGameBuilder", "DrinkWater", "Drink water");
+		}
 	}
 
 	FocusedPrompt = NewPrompt;
@@ -93,8 +104,71 @@ void UAGBInteractionComponent::UpdateFocus()
 	}
 }
 
+bool UAGBInteractionComponent::CanDrink() const
+{
+	const UAGBVitalsComponent* Vitals = GetOwner()->FindComponentByClass<UAGBVitalsComponent>();
+	return Vitals && !Vitals->IsDead() && Vitals->HasStat(UAGBVitalsComponent::ThirstStat);
+}
+
+bool UAGBInteractionComponent::IsWaterInView(const FVector& ViewLocation, const FVector& End, const FVector& Eyes) const
+{
+	// Water bodies ignore visibility traces but overlap the Pawn channel, so a multi trace on it reports the
+	// water surface before the ground below it.
+	TArray<FHitResult> Hits;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBWaterTrace), /*bTraceComplex=*/false, GetOwner());
+	GetWorld()->LineTraceMultiByChannel(Hits, ViewLocation, End, ECC_Pawn, Params);
+	for (const FHitResult& Hit : Hits)
+	{
+		const UPrimitiveComponent* Component = Hit.GetComponent();
+		if (Component && Component->GetCollisionProfileName() == WaterCollisionProfile && FVector::Dist(Hit.ImpactPoint, Eyes) <= InteractionRange)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UAGBInteractionComponent::IsWaterNear() const
+{
+	const APawn* Pawn = GetPawn();
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBWaterNear), /*bTraceComplex=*/false, Pawn);
+	GetWorld()->OverlapMultiByChannel(Overlaps, Pawn->GetPawnViewLocation(), FQuat::Identity, ECC_Pawn,
+		FCollisionShape::MakeSphere(InteractionRange + ServerRangeTolerance), Params);
+	return Overlaps.ContainsByPredicate([](const FOverlapResult& Overlap)
+	{
+		return Overlap.GetComponent() && Overlap.GetComponent()->GetCollisionProfileName() == WaterCollisionProfile;
+	});
+}
+
+void UAGBInteractionComponent::DrinkWater()
+{
+	// Server: validate that water is actually within reach.
+	if (CanDrink() && IsWaterNear())
+	{
+		GetOwner()->FindComponentByClass<UAGBVitalsComponent>()->DrinkWater();
+	}
+}
+
+void UAGBInteractionComponent::ServerDrinkWater_Implementation()
+{
+	DrinkWater();
+}
+
 void UAGBInteractionComponent::Interact()
 {
+	if (!FocusedActor.IsValid() && bFocusingWater)
+	{
+		if (GetOwner()->HasAuthority())
+		{
+			DrinkWater();
+		}
+		else
+		{
+			ServerDrinkWater();
+		}
+		return;
+	}
 	AActor* Target = FocusedActor.Get();
 	if (!Target)
 	{

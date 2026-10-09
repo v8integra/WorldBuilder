@@ -43,6 +43,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
 	FText GetFocusedPrompt() const { return FocusedPrompt; }
 
+	/** Looking at water the player can drink from (lakes, rivers, ocean...: any Water plugin body). */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
+	bool IsFocusingWater() const { return bFocusingWater; }
+
+	/** Whether something can be used right now (an interactable or drinkable water). */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
+	bool HasFocus() const { return FocusedActor.IsValid() || bFocusingWater; }
+
 	/** Uses the focused interactable (call on the owning client or the server). */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Interaction")
 	void Interact();
@@ -56,11 +64,19 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerInteract(AActor* Target);
 
+	UFUNCTION(Server, Reliable)
+	void ServerDrinkWater();
+
 private:
 	APawn* GetPawn() const;
 	void UpdateFocus();
 	void InteractWith(AActor* Target);
+	void DrinkWater();
+	bool CanDrink() const;
+	bool IsWaterInView(const FVector& ViewLocation, const FVector& End, const FVector& Eyes) const;
+	bool IsWaterNear() const;
 
 	TWeakObjectPtr<AActor> FocusedActor;
 	FText FocusedPrompt;
+	bool bFocusingWater = false;
 };

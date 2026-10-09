@@ -309,4 +309,12 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   &Existing)`); at runtime an incomplete set gets a transient supplementary mapping context.
 - `UBlueprint::GetBlueprintFromClass(Class)` instead of `ClassGeneratedBy`. Item ids are found through the asset
   registry tag of the `AssetRegistrySearchable` `ItemId` property.
+- **Water for drinking (Phase 13):** Water plugin bodies use collision profile `WaterBodyCollision` (QueryOnly; Pawn,
+  WorldDynamic, PhysicsBody overlap; **Visibility and Camera ignore**). So visibility traces pass through water: detect it
+  with `LineTraceMultiByChannel(ECC_Pawn)` (overlaps before the blocking ground) and on the server with
+  `OverlapMultiByChannel(ECC_Pawn)`, matching the profile name. No Water module dependency needed.
+- **Death:** `DetachFromControllerPendingDestroy` → `APlayerController::OnUnPossess` switches the view target to the
+  controller; call `SetViewTarget(body)` again to keep a death camera. `ACharacter::Landed` runs before the landing
+  velocity is cleared (fall damage from `Velocity.Z`). Respawn with `AGameModeBase::RestartPlayer` on a timer.
+- Non-ASCII characters in `TEXT()` literals: build them from code points (e.g. `TCHAR(0x00B0)`), not source text.
 

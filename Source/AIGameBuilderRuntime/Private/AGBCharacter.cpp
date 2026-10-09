@@ -4,6 +4,10 @@
 #include "AGBGameFramework.h"
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
+#include "AGBLootBag.h"
+#include "AGBSurvivalConfig.h"
+#include "AGBVitalsComponent.h"
+#include "GameFramework/PlayerState.h"
 #include "AIGameBuilderRuntime.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -70,6 +74,8 @@ AAGBCharacter::AAGBCharacter(const FObjectInitializer& ObjectInitializer)
 	Equipment->NumSlots = Equipment->SlotTypes.Num();
 	Equipment->DisplayName = NSLOCTEXT("AIGameBuilder", "Equipment", "Equipment");
 
+	Vitals = CreateDefaultSubobject<UAGBVitalsComponent>(TEXT("Vitals"));
+
 	HeldItem = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeldItem"));
 	HeldItem->SetupAttachment(GetMesh(), HandSocket);
 	HeldItem->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -105,7 +111,152 @@ void AAGBCharacter::BeginPlay()
 	}
 	ApplyCameraMode();
 	Hotbar->OnInventoryChanged.AddDynamic(this, &AAGBCharacter::UpdateHeldItem);
+	Vitals->OnDied.AddDynamic(this, &AAGBCharacter::HandleDeath);
 	UpdateHeldItem();
+}
+
+bool AAGBCharacter::IsDead() const
+{
+	return Vitals && Vitals->IsDead();
+}
+
+AAGBHUD* AAGBCharacter::GetAGBHUD() const
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	return PlayerController ? PlayerController->GetHUD<AAGBHUD>() : nullptr;
+}
+
+float AAGBCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	const float Applied = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	if (Applied > 0.f && HasAuthority())
+	{
+		Vitals->ApplyDamage(Applied, DamageCauser ? FString::Printf(TEXT("Killed by %s"), *DamageCauser->GetName()) : FString(TEXT("Killed")));
+	}
+	return Applied;
+}
+
+void AAGBCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	if (HasAuthority())
+	{
+		// Velocity is still the falling velocity here.
+		const UAGBSurvivalConfig* Rules = Vitals->GetConfig();
+		const float SpeedMs = static_cast<float>(-GetCharacterMovement()->Velocity.Z / 100.0);
+		if (SpeedMs > Rules->FallDamageMinSpeed && Rules->FallDamagePerSpeed > 0.f)
+		{
+			Vitals->ApplyDamage((SpeedMs - Rules->FallDamageMinSpeed) * Rules->FallDamagePerSpeed, TEXT("Fell"));
+		}
+	}
+}
+
+void AAGBCharacter::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+	if (HasAuthority())
+	{
+		Vitals->ModifyStat(UAGBVitalsComponent::StaminaStat, -Vitals->GetConfig()->JumpStaminaCost);
+	}
+}
+
+bool AAGBCharacter::CanJumpInternal_Implementation() const
+{
+	return !IsDead() && Super::CanJumpInternal_Implementation();
+}
+
+void AAGBCharacter::RequestUseItem(UAGBInventoryComponent* From, int32 SlotIndex)
+{
+	if (HasAuthority())
+	{
+		UseItemNow(From, SlotIndex);
+	}
+	else
+	{
+		ServerUseItem(From, SlotIndex);
+	}
+}
+
+void AAGBCharacter::ServerUseItem_Implementation(UAGBInventoryComponent* From, int32 SlotIndex)
+{
+	UseItemNow(From, SlotIndex);
+}
+
+void AAGBCharacter::UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex)
+{
+	if (!From || From->GetOwner() != this || IsDead())
+	{
+		return;
+	}
+	const FAGBItemStack Stack = From->GetSlot(SlotIndex);
+	if (Stack.IsEmpty())
+	{
+		return;
+	}
+	const bool bConsumable = Stack.Item->Category == EAGBItemCategory::Food || Stack.Item->Category == EAGBItemCategory::Consumable;
+	if (!bConsumable)
+	{
+		OnItemUsed.Broadcast(Stack.Item);
+		return;
+	}
+	if (Vitals->TryStartUse())
+	{
+		Vitals->ApplyItemEffects(Stack.Item);
+		From->RemoveFromSlot(SlotIndex, 1);
+	}
+}
+
+void AAGBCharacter::HandleDeath(const FString& Cause)
+{
+	// Everyone: ragdoll and stop moving.
+	GetCharacterMovement()->DisableMovement();
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (GetMesh()->GetSkeletalMeshAsset())
+	{
+		GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+		GetMesh()->SetSimulatePhysics(true);
+	}
+	else
+	{
+		PlaceholderBody->SetCollisionProfileName(TEXT("PhysicsActor"));
+		PlaceholderBody->SetSimulatePhysics(true);
+	}
+	HeldItem->SetVisibility(false);
+	GetMesh()->SetOwnerNoSee(false);
+	PlaceholderBody->SetOwnerNoSee(false);
+	if (AAGBHUD* HUD = GetAGBHUD(); HUD && HUD->IsInventoryOpen())
+	{
+		HUD->ToggleInventory();
+	}
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+	const UAGBSurvivalConfig* Rules = Vitals->GetConfig();
+	if (Rules->bDropItemsOnDeath)
+	{
+		const FString PlayerName = GetPlayerState() ? GetPlayerState()->GetPlayerName() : GetName();
+		AAGBLootBag::CreateFrom(GetWorld(), { Inventory, Hotbar, Equipment }, GetActorLocation() - FVector(0.0, 0.0, CapsuleHalfHeight), PlayerName, Rules->LootBagLifetimeMinutes * 60.f);
+	}
+	else
+	{
+		Inventory->ClearAll();
+		Hotbar->ClearAll();
+		Equipment->ClearAll();
+	}
+
+	AController* OwningController = Controller;
+	if (AAGBGameMode* GameMode = GetWorld()->GetAuthGameMode<AAGBGameMode>())
+	{
+		GameMode->ScheduleRespawn(OwningController, Rules->RespawnDelaySeconds);
+	}
+	DetachFromControllerPendingDestroy();
+	if (APlayerController* PlayerController = Cast<APlayerController>(OwningController))
+	{
+		PlayerController->SetViewTarget(this); // Keep watching the body until respawn (unpossess switches away).
+	}
+	SetLifeSpan(FMath::Max(30.f, Rules->RespawnDelaySeconds + 10.f));
 }
 
 void AAGBCharacter::GiveStartingItems()
@@ -125,9 +276,11 @@ int32 AAGBCharacter::GiveItem(UAGBItemDefinition* Item, int32 Count)
 	{
 		return 0;
 	}
+	// Top up existing stacks first (hotbar, then backpack), then fill free hotbar slots, then the backpack.
 	int32 Added = Hotbar->AddItem(Item, Count, /*bOnlyExistingStacks=*/true);
-	Added += Inventory->AddItem(Item, Count - Added);
+	Added += Inventory->AddItem(Item, Count - Added, /*bOnlyExistingStacks=*/true);
 	Added += Hotbar->AddItem(Item, Count - Added);
+	Added += Inventory->AddItem(Item, Count - Added);
 	return Added;
 }
 
@@ -382,6 +535,20 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	{
 		EnhancedInput->BindAction(Input.HotbarCycle, ETriggerEvent::Started, this, &AAGBCharacter::OnHotbarCycle);
 	}
+	if (Input.UseItem)
+	{
+		EnhancedInput->BindAction(Input.UseItem, ETriggerEvent::Started, this, &AAGBCharacter::OnUseItem);
+	}
+}
+
+void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
+{
+	const AAGBHUD* HUD = GetAGBHUD();
+	if (HUD && HUD->IsInventoryOpen())
+	{
+		return; // The mouse button is clicking the inventory screen.
+	}
+	RequestUseItem(Hotbar, SelectedHotbarSlot);
 }
 
 void AAGBCharacter::OnToggleInventory(const FInputActionValue& Value)
@@ -468,6 +635,12 @@ void AAGBCharacter::OnCrouchToggle(const FInputActionValue& Value)
 
 void AAGBCharacter::OnInteract(const FInputActionValue& Value)
 {
+	AAGBHUD* HUD = GetAGBHUD();
+	if (HUD && HUD->IsInventoryOpen())
+	{
+		HUD->UseHoveredSlot(); // E in the inventory screen eats/uses the hovered item.
+		return;
+	}
 	Interaction->Interact();
 }
 

@@ -3,6 +3,9 @@
 #include "AGBCharacter.h"
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
+#include "AGBSurvivalConfig.h"
+#include "AGBVitalsComponent.h"
+#include "TimerManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Texture2D.h"
@@ -20,6 +23,7 @@ namespace
 	const FLinearColor SelectedColor(1.f, 0.8f, 0.2f, 1.f);
 	const FLinearColor HeldColor(0.3f, 0.8f, 1.f, 1.f);
 	const FLinearColor LabelColor(1.f, 1.f, 1.f, 0.45f);
+	constexpr TCHAR DegreeSign = 0x00B0;
 
 	UAGBInventoryComponent* InventoryByIndex(const AAGBCharacter* Character, int32 Index)
 	{
@@ -49,6 +53,24 @@ AAGBGameMode::AAGBGameMode()
 	DefaultPawnClass = AAGBCharacter::StaticClass();
 	PlayerControllerClass = AAGBPlayerController::StaticClass();
 	HUDClass = AAGBHUD::StaticClass();
+}
+
+void AAGBGameMode::ScheduleRespawn(AController* Controller, float DelaySeconds)
+{
+	if (!Controller)
+	{
+		return;
+	}
+	TWeakObjectPtr<AController> WeakController = Controller;
+	FTimerHandle Handle;
+	GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this, WeakController]()
+	{
+		AController* Player = WeakController.Get();
+		if (Player && !Player->GetPawn())
+		{
+			RestartPlayer(Player);
+		}
+	}), FMath::Max(0.1f, DelaySeconds), false);
 }
 
 FString AAGBHUD::GetInteractKeyName() const
@@ -160,6 +182,82 @@ void AAGBHUD::NotifyHitBoxEndCursorOver(FName BoxName)
 	{
 		Hovered = FSlotRef();
 	}
+}
+
+void AAGBHUD::UseHoveredSlot()
+{
+	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
+	if (Character && Hovered.IsValid())
+	{
+		Character->RequestUseItem(Hovered.Inventory.Get(), Hovered.Slot);
+	}
+}
+
+void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
+{
+	const UAGBVitalsComponent* Vitals = Character->Vitals;
+	if (!Vitals)
+	{
+		return;
+	}
+	UFont* Font = GEngine->GetSmallFont();
+	const float Width = 220.f * Scale;
+	const float Height = 14.f * Scale;
+	const float Gap = 6.f * Scale;
+	const float X = 24.f * Scale;
+	float Y = Canvas->ClipY - 24.f * Scale;
+
+	// Temperature line at the bottom, bars stacked above it.
+	const float Air = Vitals->GetAirTemperature();
+	const FVector2D Comfort = Vitals->GetComfortRange();
+	const TCHAR* Feeling = Air < Comfort.X ? TEXT("  Cold!") : (Air > Comfort.Y ? TEXT("  Hot!") : TEXT(""));
+	const FLinearColor TemperatureColor = Air < Comfort.X ? FLinearColor(0.5f, 0.8f, 1.f) : (Air > Comfort.Y ? FLinearColor(1.f, 0.5f, 0.3f) : TextColor);
+	float TextW = 0.f, TextH = 0.f;
+	const FString Temperature = FString::Printf(TEXT("%.0f %sC%s"), Air, *FString(1, &DegreeSign), Feeling);
+	GetTextSize(Temperature, TextW, TextH, Font, Scale);
+	Y -= TextH;
+	DrawText(Temperature, TemperatureColor, X, Y, Font, Scale);
+	Y -= Gap;
+
+	const TArray<FAGBStatConfig>& Stats = Vitals->GetConfig()->Stats;
+	for (int32 Index = Stats.Num() - 1; Index >= 0; --Index)
+	{
+		const FAGBStatConfig& Stat = Stats[Index];
+		if (!Stat.bShowOnHUD)
+		{
+			continue;
+		}
+		Y -= Height;
+		const float Fraction = FMath::Clamp(Vitals->GetFraction(Stat.Id), 0.f, 1.f);
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f), X, Y, Width, Height);
+		DrawRect(Stat.Color, X + 2.f, Y + 2.f, (Width - 4.f) * Fraction, Height - 4.f);
+		const FString Label = FString::Printf(TEXT("%s  %.0f"), *Stat.DisplayName.ToString(), Vitals->GetValue(Stat.Id));
+		GetTextSize(Label, TextW, TextH, Font, Scale * 0.9f);
+		DrawText(Label, TextColor, X + 6.f, Y + (Height - TextH) * 0.5f, Font, Scale * 0.9f);
+		Y -= Gap;
+	}
+}
+
+void AAGBHUD::DrawDeathScreen(float Scale)
+{
+	const APlayerController* PlayerController = GetOwningPlayerController();
+	const AAGBCharacter* Body = PlayerController ? Cast<AAGBCharacter>(PlayerController->GetViewTarget()) : nullptr;
+	if (!Body || !Body->IsDead())
+	{
+		return;
+	}
+	DrawRect(FLinearColor(0.15f, 0.f, 0.f, 0.35f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
+	UFont* Font = GEngine->GetLargeFont();
+	const FString Title = TEXT("You died");
+	float W = 0.f, H = 0.f;
+	GetTextSize(Title, W, H, Font, Scale * 1.5f);
+	const float Y = Canvas->ClipY * 0.4f;
+	DrawText(Title, FLinearColor(1.f, 0.85f, 0.85f), (Canvas->ClipX - W) * 0.5f, Y, Font, Scale * 1.5f);
+
+	const FString Detail = FString::Printf(TEXT("%s. Respawning..."), *Body->Vitals->GetDeathCause());
+	float DW = 0.f, DH = 0.f;
+	GetTextSize(Detail, DW, DH, GEngine->GetMediumFont(), Scale);
+	DrawText(Detail, TextColor, (Canvas->ClipX - DW) * 0.5f, Y + H * 1.5f + 10.f * Scale, GEngine->GetMediumFont(), Scale);
 }
 
 void AAGBHUD::DropHoveredSlot()
@@ -334,7 +432,7 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 	}
 	const float FooterY = PanelY + PanelHeight - Padding - 30.f * Scale;
 	DrawText(Info, TextColor, PanelX + Padding, FooterY, SmallFont, Scale);
-	DrawText(TEXT("Click: pick up / place    Shift+click: half    Q: drop    Tab: close"), LabelColor, PanelX + Padding, FooterY + 16.f * Scale, SmallFont, Scale);
+	DrawText(TEXT("Click: pick up / place    Shift+click: half    E: eat / use    Q: drop    Tab: close"), LabelColor, PanelX + Padding, FooterY + 16.f * Scale, SmallFont, Scale);
 }
 
 void AAGBHUD::DrawHUD()
@@ -349,15 +447,22 @@ void AAGBHUD::DrawHUD()
 	const float CenterX = Canvas->ClipX * 0.5f;
 	const float CenterY = Canvas->ClipY * 0.5f;
 	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
+	if (!Character)
+	{
+		if (bInventoryOpen)
+		{
+			ToggleInventory(); // Died or lost the pawn with the screen open.
+		}
+		DrawDeathScreen(Scale);
+		return;
+	}
 
-	if (bInventoryOpen && Character)
+	if (bInventoryOpen)
 	{
 		DrawInventoryScreen(Character, Scale);
 	}
-	if (Character)
-	{
-		DrawHotbar(Character, Scale);
-	}
+	DrawHotbar(Character, Scale);
+	DrawVitals(Character, Scale);
 	if (bInventoryOpen)
 	{
 		return;
@@ -371,7 +476,7 @@ void AAGBHUD::DrawHUD()
 
 	const APawn* Pawn = GetOwningPawn();
 	const UAGBInteractionComponent* Interaction = Pawn ? Pawn->FindComponentByClass<UAGBInteractionComponent>() : nullptr;
-	if (Interaction && Interaction->GetFocusedActor())
+	if (Interaction && Interaction->HasFocus())
 	{
 		const FString Prompt = FString::Printf(TEXT("[%s] %s"), *GetInteractKeyName(), *Interaction->GetFocusedPrompt().ToString());
 		UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;

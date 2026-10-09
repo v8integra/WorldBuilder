@@ -4,6 +4,7 @@
 #include "FoliageScatterTools.h"
 #include "GameFoundationTools.h"
 #include "ItemTools.h"
+#include "SurvivalTools.h"
 #include "LandscapeCreateTools.h"
 #include "LandscapeInspectTools.h"
 #include "LandscapePaintTools.h"
@@ -52,6 +53,7 @@ private:
 			UWaterTools::StaticClass(),
 			UGameFoundationTools::StaticClass(),
 			UItemTools::StaticClass(),
+			USurvivalTools::StaticClass(),
 		};
 	}
 };

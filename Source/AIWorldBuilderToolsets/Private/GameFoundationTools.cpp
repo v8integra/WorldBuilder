@@ -126,17 +126,10 @@ namespace
 		// Keep the existing context and actions (the user's rebinds survive); add actions from newer versions.
 		FAGBInputSet Set;
 		Set.MappingContext = Existing;
-		Set.Move = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Move"));
-		Set.Look = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Look"));
-		Set.Jump = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Jump"));
-		Set.Sprint = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Sprint"));
-		Set.Crouch = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Crouch"));
-		Set.Interact = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Interact"));
-		Set.ToggleCamera = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_ToggleCamera"));
-		Set.Inventory = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Inventory"));
-		Set.Drop = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_Drop"));
-		Set.HotbarSelect = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_HotbarSelect"));
-		Set.HotbarCycle = FindAsset<UInputAction>(InputFolder, TEXT("IA_AGB_HotbarCycle"));
+		AGBInput::ForEachAction(Set, [&InputFolder](TObjectPtr<UInputAction>& Action, const TCHAR* AssetName)
+		{
+			Action = FindAsset<UInputAction>(InputFolder, AssetName);
+		});
 		if (AGBInput::IsComplete(Set))
 		{
 			Assets.Add(Existing->GetPathName() + TEXT(" (kept, with its actions)"));

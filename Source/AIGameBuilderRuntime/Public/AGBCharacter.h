@@ -9,7 +9,11 @@
 
 class UAGBCharacterMovementComponent;
 class UAGBInventoryComponent;
+class UAGBSurvivalConfig;
+class UAGBVitalsComponent;
 class UInputMappingContext;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAGBItemUsedSignature, UAGBItemDefinition*, Item);
 class UAGBInteractionComponent;
 class UAnimInstance;
 class UCameraComponent;
@@ -102,7 +106,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Items")
 	TArray<FAGBItemStack> StartingItems;
 
-	/** Gives items to the player: tops up hotbar stacks, then the inventory, then free hotbar slots. Returns how many fit. Server only. */
+	/** Gives items to the player: tops up existing stacks (hotbar, then inventory), then free hotbar slots, then the inventory. Returns how many fit. Server only. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Items")
 	int32 GiveItem(UAGBItemDefinition* Item, int32 Count = 1);
 
@@ -119,6 +123,30 @@ public:
 	/** The stack in the selected hotbar slot (may be empty). */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
 	FAGBItemStack GetSelectedItem() const;
+
+	/** Health, stamina, hunger, thirst, temperature, damage and death. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Survival")
+	TObjectPtr<UAGBVitalsComponent> Vitals;
+
+	/** Survival rules for this game. Empty = standard survival defaults. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Survival")
+	TObjectPtr<UAGBSurvivalConfig> SurvivalConfig;
+
+	/** Fires on the server when a non-consumable item is used (tools and weapons hook in here). */
+	UPROPERTY(BlueprintAssignable, Category = "AI Game Builder|Items")
+	FAGBItemUsedSignature OnItemUsed;
+
+	/** Uses the item in a slot of one of this player's inventories: consumables are eaten/drunk (one), others fire OnItemUsed. */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Items")
+	void RequestUseItem(UAGBInventoryComponent* From, int32 SlotIndex);
+
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Survival")
+	bool IsDead() const;
+
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void Landed(const FHitResult& Hit) override;
+	virtual void OnJumped_Implementation() override;
+	virtual bool CanJumpInternal_Implementation() const override;
 
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Camera")
 	void SetCameraMode(EAGBCameraMode NewMode);
@@ -167,6 +195,12 @@ protected:
 	UFUNCTION()
 	void UpdateHeldItem();
 
+	UFUNCTION(Server, Reliable)
+	void ServerUseItem(UAGBInventoryComponent* From, int32 SlotIndex);
+
+	UFUNCTION()
+	void HandleDeath(const FString& Cause);
+
 private:
 	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */
 	UPROPERTY(Transient)
@@ -188,4 +222,7 @@ private:
 	void OnDrop(const FInputActionValue& Value);
 	void OnHotbarSelect(const FInputActionValue& Value);
 	void OnHotbarCycle(const FInputActionValue& Value);
+	void OnUseItem(const FInputActionValue& Value);
+	void UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex);
+	class AAGBHUD* GetAGBHUD() const;
 };

@@ -60,6 +60,10 @@ struct AIGAMEBUILDERRUNTIME_API FAGBInputSet
 	/** Axis1D: +1 next / -1 previous hotbar slot (mouse wheel, d-pad). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> HotbarCycle;
+
+	/** Use the selected hotbar item: eat/drink consumables; tools and weapons in later systems. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> UseItem;
 };
 
 namespace AGBInput
@@ -78,4 +82,7 @@ namespace AGBInput
 
 	/** Whether every action and the mapping context are set. */
 	AIGAMEBUILDERRUNTIME_API bool IsComplete(const FAGBInputSet& Set);
+
+	/** Visits every action slot of a set with its default asset name ("IA_AGB_Move"...). */
+	AIGAMEBUILDERRUNTIME_API void ForEachAction(FAGBInputSet& Set, TFunctionRef<void(TObjectPtr<UInputAction>& Action, const TCHAR* AssetName)> Visit);
 }

@@ -69,6 +69,7 @@ namespace AGBInput
 		void MapToggleCamera(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::V); C->MapKey(A, EKeys::Gamepad_Special_Left); }
 		void MapInventory(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Tab); C->MapKey(A, EKeys::Gamepad_FaceButton_Top); }
 		void MapDrop(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Q); C->MapKey(A, EKeys::Gamepad_DPad_Down); }
+		void MapUseItem(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::LeftMouseButton); C->MapKey(A, EKeys::Gamepad_RightTrigger); }
 
 		void MapHotbarSelect(UInputMappingContext* C, UInputAction* A)
 		{
@@ -99,7 +100,16 @@ namespace AGBInput
 			{ &FAGBInputSet::Drop, TEXT("IA_AGB_Drop"), EInputActionValueType::Boolean, &MapDrop },
 			{ &FAGBInputSet::HotbarSelect, TEXT("IA_AGB_HotbarSelect"), EInputActionValueType::Axis1D, &MapHotbarSelect },
 			{ &FAGBInputSet::HotbarCycle, TEXT("IA_AGB_HotbarCycle"), EInputActionValueType::Axis1D, &MapHotbarCycle },
+			{ &FAGBInputSet::UseItem, TEXT("IA_AGB_UseItem"), EInputActionValueType::Boolean, &MapUseItem },
 		};
+	}
+
+	void ForEachAction(FAGBInputSet& Set, TFunctionRef<void(TObjectPtr<UInputAction>& Action, const TCHAR* AssetName)> Visit)
+	{
+		for (const FActionSpec& Spec : Specs)
+		{
+			Visit(Set.*Spec.Member, Spec.AssetName);
+		}
 	}
 
 	FAGBInputSet CreateDefaultInput(FObjectFactory Factory, const FAGBInputSet* Existing)

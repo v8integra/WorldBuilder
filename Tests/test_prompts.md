@@ -183,9 +183,24 @@ Prereq: C++ build, then run `SetupGameFoundation` `{"perspective":"ThirdPerson"}
 2. Also: `stone` (Resource, 100, 1.0), `berries` (Food, 20, 0.1, stats `[{"name":"Hunger","value":10}]`), `stone_axe` (Tool, 1, 2.5, equipSlot `MainHand`, meshPath e.g. `/Engine/BasicShapes/Cylinder`), `leather_cap` (Armor, 1, 0.5, equipSlot `Head`).
 3. `ListItems` `{}` → 5 items. Calling `CreateItem` again with the same id updates it (no duplicate).
 4. `SpawnItemPickup` wood x25, stone x10, berries x5 and the axe near the player start; `SetStartingItems` `{"items":[{"itemId":"berries","count":3}]}`.
-5. Play: berries are on the hotbar at start. Walk to a pickup: "[E] Pick up Wood (25)"; E → it goes to the inventory (or tops up hotbar stacks). The axe goes to the hotbar; select its slot (1-0 or wheel) → held in the right hand (cylinder placeholder).
+5. Play: berries are on the hotbar at start. Walk to a pickup: "[E] Pick up Wood (25)"; E → it tops up matching stacks, else fills a free hotbar slot, else the inventory. The axe lands on the hotbar; select its slot (1-0 or wheel) → held in the right hand (cylinder placeholder).
 6. Tab: inventory screen with cursor, look locked. Click a stack then another slot → moves; onto the same item → merges; onto a different item → swaps; Shift+click → half. Leather cap only fits the Head slot. Q over a stack → dropped in front of the player as a pickup. Tab closes.
 7. Q in game drops one of the selected hotbar item.
 8. Co-op (2 players, listen server): each player has their own inventory; a pickup taken by one disappears for both; dropped items appear for both; the other player sees the held axe.
 **Claude Code:** "Create the starting resource items from the design (wood, stone, fiber, flint, berries) and a stone axe; scatter some pickups near the start." → uses ItemTools, then marks the M2 tasks.
+
+## Phase 13 — Survival stats
+
+Prereq: C++ build; run `SetupGameFoundation` `{"perspective":"ThirdPerson"}` again (adds the Use action: left mouse / right trigger).
+1. `GetSurvivalConfig` `{}` → built-in Normal rules, no config assigned. `SetupSurvival` `{"difficulty":"Normal"}` → `/Game/AIGameBuilder/Core/DA_SurvivalConfig`, assigned to BP_AGB_Character.
+2. For quick testing: `SetVitalStat` `{"statId":"Hunger","displayName":"auto","maxValue":-1,"startValue":30,"changePerSecond":0,"minutesToEmpty":2}` (and similar for Thirst with startValue 40).
+3. Play: bottom-left bars (Health, Stamina, Food, Water) and the air temperature. Sprint → stamina drains, stops sprinting at 0, regenerates after 1 s. Jumping costs stamina.
+4. Eat: select berries (Hunger 10) on the hotbar, left-click → Food +10, one berry used. In the Tab screen, hover berries + E also eats.
+5. Drink: walk to a lake/river shore, look at the water within ~2.5 m → "[E] Drink water" → Water +20.
+6. Fall damage: jump from a cliff over ~6 m → health drops. Starve (wait for Food 0) → health drains.
+7. Temperature: climb high (or `SetTemperatureRules` `{"baseTemperatureC":2}`) → "Cold!" and slow health loss; `SpawnHeatSource` next to you → warm again. A Head item with stat `Insulation` 10 also helps.
+8. Die (falls or very cold): ragdoll, "You died" screen with the cause, respawn at the player start after 5 s with full stats and starting items; your items are in a bag where you died: "[E] Take <name>'s items".
+9. Co-op (listen server): each player's bars are their own; a client's death/respawn works; bags can be taken by either player.
+10. Restore: `SetupSurvival` `{"difficulty":"Normal"}` resets the test values.
+**Claude Code:** "Set up survival rules from the design and make berries and water restore food and thirst." → SurvivalTools + ItemTools (stats), then marks the M3 tasks.
 

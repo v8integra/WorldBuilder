@@ -382,6 +382,25 @@ Categories: Resource, Food, Tool, Weapon, Armor, Placeable, Consumable, Misc. Eq
 Legs, Feet. Re-running `SetupGameFoundation` adds the new input actions (Inventory, Drop, HotbarSelect, HotbarCycle) to
 an existing `IMC_AGB_Default` without changing the user's bindings.
 
+## `AIWorldBuilderToolsets.SurvivalTools` (C++, survival stats)
+Runtime: `UAGBVitalsComponent` on the player (server-simulated, replicated): stats from a `UAGBSurvivalConfig` data asset
+(`DA_SurvivalConfig`, on the character's `SurvivalConfig`; built-in Normal rules if none). Drains/regeneration, damage
+while a stat is empty, temperature exposure (`UAGBClimateSubsystem`: base - cooling per 100 m + `UAGBHeatSourceComponent`s
++ world offset for later day/night), sprint/jump stamina (sprinting stops at 0), fall damage, death (ragdoll, items into
+an `AAGBLootBag`, respawn at a player start after a delay). Eating: Food/Consumable items' stats with a vital's name
+restore it (LMB on the selected hotbar item, or E over it in the inventory screen). Drinking: look at any Water plugin
+body (lake, river, ocean...) within reach and press E. Clothing stats `Insulation` / `Cooling` widen the comfort range.
+
+| Tool | Use |
+|---|---|
+| `SetupSurvival(difficulty = "Normal", folder = "/Game/AIGameBuilder/Core")` | Create (or reset) the config from the Easy/Normal/Hard preset and assign it. |
+| `GetSurvivalConfig()` | All stats (with minutes-to-empty) and rules. |
+| `SetVitalStat(statId, displayName, maxValue, startValue, changePerSecond, minutesToEmpty = -1, regenDelaySeconds = -1, damagePerSecondWhenEmpty = -1, regenRequires = "auto", colorHex = "auto", bShowOnHUD = true)` | Add/change a stat (custom ones too: Oxygen, Sanity...). -1/"auto" keep. |
+| `RemoveVitalStat(statId)` | Not Health. |
+| `SetTemperatureRules(baseTemperatureC, seaLevelM, coolingPer100m, comfortMinC, comfortMaxC, exposureDamagePerDegree)` | -999 keeps a value. |
+| `SetSurvivalRules(sprintStaminaPerSecond, jumpStaminaCost, waterDrinkAmount, fallDamageMinSpeed, fallDamagePerSpeed, respawnDelaySeconds, dropItemsOnDeath, lootBagLifetimeMinutes)` | -1 keeps a value. |
+| `SpawnHeatSource(xM, yM, warmthC = 20, radiusM = 6)` | Placeholder fire that warms the air (test temperature). |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

@@ -1,5 +1,7 @@
 #include "AGBCharacterMovementComponent.h"
 
+#include "AGBCharacter.h"
+#include "AGBVitalsComponent.h"
 #include "GameFramework/Character.h"
 
 namespace
@@ -86,7 +88,13 @@ UAGBCharacterMovementComponent::UAGBCharacterMovementComponent()
 
 bool UAGBCharacterMovementComponent::IsSprinting() const
 {
-	return bWantsToSprint && IsMovingOnGround() && !IsCrouching();
+	if (!bWantsToSprint || !IsMovingOnGround() || IsCrouching())
+	{
+		return false;
+	}
+	// Out of stamina: walk (both client and server see the replicated stamina, so prediction stays close).
+	const AAGBCharacter* Character = Cast<AAGBCharacter>(CharacterOwner);
+	return !Character || !Character->Vitals || Character->Vitals->CanSprint();
 }
 
 float UAGBCharacterMovementComponent::GetMaxSpeed() const
