@@ -422,6 +422,22 @@ messages appear at the bottom right. `SetupGameFoundation` assigns the mannequin
 | `ListResources()` | All resource definitions. |
 | `SpawnResourceNode(resourceId, xM, yM, meshIndex = 0, yawDeg = 0, scale = 1)` | A single harvestable actor (ore deposits, special rocks). |
 
+## `AIWorldBuilderToolsets.CraftingTools` (C++, crafting)
+Runtime: `UAGBRecipeDefinition` (ingredients, outputs, seconds, station, unlock: Default / Discover / Manual) and
+`UAGBStationDefinition` (mesh, fuel, warmth, light, craft range) data assets; `AAGBCraftingStation` (one generic
+replicated actor per placed station; E opens its crafting screen); `UAGBCraftingComponent` on the player (known
+recipes, server-side queue: ingredients taken when queued and refunded on cancel; a craft waits while its station is
+out of reach or unlit). Placeable items (`PlacesStation`) are put down with left click where the player looks (flat
+ground, not too close to another station). Fuel = items tagged `Fuel` with a `BurnSeconds` stat (default 60).
+UI: the Tab screen has a crafting panel (click craft 1, Shift+click 5, click a queue entry to cancel, "Add fuel").
+
+| Tool | Use |
+|---|---|
+| `CreateStation(stationId, displayName, meshPath = "auto", meshScale = 1, bNeedsFuel = false, warmthC = 0, heatRadiusM = 6, lightIntensity = 0, craftRangeM = 4, placeableItemId = "auto", folder = "/Game/AIGameBuilder/Stations")` | Station kind + the item that places it (created if missing). |
+| `CreateRecipe(recipeId, outputItemId, outputCount, ingredients, craftSeconds, stationId = "none", unlock = "Default", category = "auto", folder = "/Game/AIGameBuilder/Recipes")` | `ingredients`: `[{"itemId":"wood","count":3}]`. |
+| `ListCrafting()` | All recipes and stations, one line each. |
+| `SpawnStation(stationId, xM, yM, yawDeg = 0, fuelSeconds = 0)` | Place a station in the level (starting camp, tests). |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

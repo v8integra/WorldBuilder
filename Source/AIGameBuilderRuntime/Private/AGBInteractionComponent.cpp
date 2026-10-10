@@ -201,6 +201,14 @@ void UAGBInteractionComponent::Interact()
 	{
 		return;
 	}
+	// Screens (crafting stations, storage) open locally without a server round trip.
+	if (UObject* Interactable = FindInteractable(Target, GetPawn()))
+	{
+		if (IAGBInteractable::Execute_InteractLocal(Interactable, GetPawn()))
+		{
+			return;
+		}
+	}
 	if (GetOwner()->HasAuthority())
 	{
 		InteractWith(Target);

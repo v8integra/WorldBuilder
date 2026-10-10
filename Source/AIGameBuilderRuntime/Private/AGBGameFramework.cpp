@@ -1,6 +1,9 @@
 #include "AGBGameFramework.h"
 
 #include "AGBCharacter.h"
+#include "AGBCraftingComponent.h"
+#include "AGBCraftingStation.h"
+#include "AGBCraftingTypes.h"
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
 #include "AGBSurvivalConfig.h"
@@ -23,6 +26,9 @@ namespace
 	const FLinearColor SelectedColor(1.f, 0.8f, 0.2f, 1.f);
 	const FLinearColor HeldColor(0.3f, 0.8f, 1.f, 1.f);
 	const FLinearColor LabelColor(1.f, 1.f, 1.f, 0.45f);
+	const FLinearColor GoodColor(0.55f, 0.9f, 0.45f);
+	const FLinearColor BadColor(1.f, 0.45f, 0.35f);
+	constexpr float CraftingPanelWidth = 440.f;
 	constexpr TCHAR DegreeSign = 0x00B0;
 
 	UAGBInventoryComponent* InventoryByIndex(const AAGBCharacter* Character, int32 Index)
@@ -99,6 +105,7 @@ void AAGBHUD::ToggleInventory()
 		return;
 	}
 	bInventoryOpen = !bInventoryOpen;
+	CurrentStation.Reset();
 	Held = FSlotRef();
 	Hovered = FSlotRef();
 
@@ -138,9 +145,57 @@ AAGBHUD::FSlotRef AAGBHUD::ParseHitBox(FName BoxName) const
 	return Ref;
 }
 
+void AAGBHUD::OpenStation(AAGBCraftingStation* Station)
+{
+	if (!bInventoryOpen)
+	{
+		ToggleInventory();
+	}
+	CurrentStation = Station;
+}
+
+bool AAGBHUD::HandleCraftingClick(const FString& BoxName)
+{
+	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
+	if (!Character)
+	{
+		return false;
+	}
+	FString Index;
+	if (BoxName.Split(TEXT("AGBR_"), nullptr, &Index))
+	{
+		const int32 RecipeIndex = FCString::Atoi(*Index);
+		const APlayerController* PlayerController = GetOwningPlayerController();
+		const bool bFive = PlayerController && (PlayerController->IsInputKeyDown(EKeys::LeftShift) || PlayerController->IsInputKeyDown(EKeys::RightShift));
+		if (DrawnRecipes.IsValidIndex(RecipeIndex) && DrawnRecipes[RecipeIndex].IsValid())
+		{
+			Character->Crafting->RequestCraft(DrawnRecipes[RecipeIndex].Get(), bFive ? 5 : 1);
+		}
+		return true;
+	}
+	if (BoxName.Split(TEXT("AGBQ_"), nullptr, &Index))
+	{
+		Character->Crafting->RequestCancel(FCString::Atoi(*Index));
+		return true;
+	}
+	if (BoxName == TEXT("AGBF"))
+	{
+		if (AAGBCraftingStation* Station = CurrentStation.Get())
+		{
+			Character->Crafting->RequestAddFuel(Station);
+		}
+		return true;
+	}
+	return false;
+}
+
 void AAGBHUD::NotifyHitBoxClick(FName BoxName)
 {
 	Super::NotifyHitBoxClick(BoxName);
+	if (HandleCraftingClick(BoxName.ToString()))
+	{
+		return;
+	}
 	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
 	const FSlotRef Clicked = ParseHitBox(BoxName);
 	if (!Character || !Clicked.IsValid())
@@ -425,8 +480,12 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 	const float EquipmentWidth = Size + 40.f * Scale;
 	const float PanelWidth = Padding * 2.f + EquipmentWidth + GridWidth;
 	const float PanelHeight = Padding * 2.f + TitleHeight + FMath::Max(Rows, EquipmentRows) * Step - Gap + 40.f * Scale;
-	const float PanelX = (Canvas->ClipX - PanelWidth) * 0.5f;
+	const float CraftingWidth = CraftingPanelWidth * Scale;
+	const float PanelX = (Canvas->ClipX - PanelWidth - CraftingWidth - 12.f * Scale) * 0.5f;
 	const float PanelY = FMath::Max(10.f, (Canvas->ClipY - 120.f * Scale - PanelHeight) * 0.5f);
+	CraftingPanelX = PanelX + PanelWidth + 12.f * Scale;
+	CraftingPanelY = PanelY;
+	CraftingPanelHeight = PanelHeight;
 
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.35f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
 	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), PanelX, PanelY, PanelWidth, PanelHeight);
@@ -472,6 +531,144 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 	DrawText(TEXT("Click: pick up / place    Shift+click: half    E: eat / use    Q: drop    Tab: close"), LabelColor, PanelX + Padding, FooterY + 16.f * Scale, SmallFont, Scale);
 }
 
+void AAGBHUD::DrawCraftingPanel(AAGBCharacter* Character, float Scale)
+{
+	UAGBCraftingComponent* Crafting = Character->Crafting;
+	if (!Crafting)
+	{
+		return;
+	}
+	UFont* Font = GEngine->GetMediumFont();
+	UFont* SmallFont = GEngine->GetSmallFont();
+	const float Padding = 16.f * Scale;
+	const float Width = CraftingPanelWidth * Scale;
+	const float X = CraftingPanelX;
+	const float Bottom = CraftingPanelY + CraftingPanelHeight;
+	float Y = CraftingPanelY;
+	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), X, Y, Width, CraftingPanelHeight);
+	Y += Padding;
+
+	// Station header (fuel, out of reach).
+	AAGBCraftingStation* Station = CurrentStation.Get();
+	if (Station && !Station->IsInRange(Character))
+	{
+		CurrentStation.Reset();
+		Station = nullptr;
+	}
+	FString Title = TEXT("Crafting");
+	if (Station && Station->Definition)
+	{
+		Title = Station->Definition->GetDisplayNameOrId().ToString();
+		if (Station->Definition->bNeedsFuel)
+		{
+			const int32 Seconds = FMath::CeilToInt(Station->GetFuelSeconds());
+			Title += Seconds > 0 ? FString::Printf(TEXT("  (burning %d:%02d)"), Seconds / 60, Seconds % 60) : FString(TEXT("  (out of fuel)"));
+		}
+	}
+	DrawText(Title, TextColor, X + Padding, Y, Font, Scale);
+	if (Station && Station->Definition && Station->Definition->bNeedsFuel)
+	{
+		const FString Button = TEXT("Add fuel");
+		float W = 0.f, H = 0.f;
+		GetTextSize(Button, W, H, SmallFont, Scale);
+		const float BX = X + Width - Padding - W - 16.f * Scale;
+		DrawRect(FLinearColor(0.35f, 0.2f, 0.05f, 0.9f), BX, Y, W + 16.f * Scale, H + 8.f * Scale);
+		DrawText(Button, TextColor, BX + 8.f * Scale, Y + 4.f * Scale, SmallFont, Scale);
+		AddHitBox(FVector2D(BX, Y), FVector2D(W + 16.f * Scale, H + 8.f * Scale), TEXT("AGBF"), true);
+	}
+	Y += 34.f * Scale;
+
+	// Queue (click to cancel).
+	const TArray<FAGBCraftJob>& Queue = Crafting->GetQueue();
+	for (int32 Index = 0; Index < Queue.Num() && Index < 4; ++Index)
+	{
+		const FAGBCraftJob& Job = Queue[Index];
+		if (!Job.Recipe)
+		{
+			continue;
+		}
+		const float RowH = 22.f * Scale;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X + Padding, Y, Width - Padding * 2.f, RowH);
+		DrawRect(FLinearColor(0.3f, 0.6f, 0.9f, 0.6f), X + Padding, Y, (Width - Padding * 2.f) * Crafting->GetJobProgress(Index), RowH);
+		FString Line = FString::Printf(TEXT("%s x%d"), *Job.Recipe->GetDisplayNameOrId().ToString(), Job.Remaining);
+		if (Job.bPaused && Job.Recipe->Station)
+		{
+			Line += FString::Printf(TEXT("  (waiting for %s)"), *Job.Recipe->Station->GetDisplayNameOrId().ToString());
+		}
+		DrawText(Line, TextColor, X + Padding + 6.f * Scale, Y + 3.f * Scale, SmallFont, Scale);
+		AddHitBox(FVector2D(X + Padding, Y), FVector2D(Width - Padding * 2.f, RowH), *FString::Printf(TEXT("AGBQ_%d"), Index), true);
+		Y += RowH + 4.f * Scale;
+	}
+	if (Queue.Num() > 0)
+	{
+		Y += 8.f * Scale;
+	}
+
+	// Recipes: ones for the open station first, then the rest.
+	TArray<UAGBRecipeDefinition*> Recipes = Crafting->GetKnownRecipes();
+	if (Station)
+	{
+		Recipes.StableSort([Station](const UAGBRecipeDefinition& A, const UAGBRecipeDefinition& B)
+		{
+			return (A.Station == Station->Definition) > (B.Station == Station->Definition);
+		});
+	}
+	DrawnRecipes.Reset();
+	const float RowHeight = 42.f * Scale;
+	const float ListBottom = Bottom - Padding - 18.f * Scale;
+	int32 Hidden = 0;
+	for (UAGBRecipeDefinition* Recipe : Recipes)
+	{
+		if (Y + RowHeight > ListBottom)
+		{
+			++Hidden;
+			continue;
+		}
+		const int32 Index = DrawnRecipes.Add(Recipe);
+		const int32 Craftable = Crafting->GetMaxCraftable(Recipe);
+		const EAGBStationStatus StationStatus = Crafting->GetStationStatus(Recipe);
+		const bool bReady = Craftable > 0 && StationStatus == EAGBStationStatus::Ready;
+
+		DrawRect(FLinearColor(1.f, 1.f, 1.f, bReady ? 0.08f : 0.03f), X + Padding, Y, Width - Padding * 2.f, RowHeight - 4.f * Scale);
+		const int32 OutCount = Recipe->Outputs.Num() > 0 ? Recipe->Outputs[0].Count : 1;
+		FString Name = Recipe->GetDisplayNameOrId().ToString() + (OutCount > 1 ? FString::Printf(TEXT(" x%d"), OutCount) : FString());
+		DrawText(Name, bReady ? TextColor : LabelColor, X + Padding + 6.f * Scale, Y + 2.f * Scale, SmallFont, Scale);
+
+		FString Right = FString::Printf(TEXT("%.0fs"), Recipe->CraftSeconds);
+		if (Recipe->Station && StationStatus != EAGBStationStatus::Ready)
+		{
+			Right = (StationStatus == EAGBStationStatus::NeedsFuel ? TEXT("light ") : TEXT("needs ")) + Recipe->Station->GetDisplayNameOrId().ToString();
+		}
+		float RW = 0.f, RH = 0.f;
+		GetTextSize(Right, RW, RH, SmallFont, Scale);
+		DrawText(Right, StationStatus == EAGBStationStatus::Ready ? LabelColor : BadColor, X + Width - Padding - RW - 6.f * Scale, Y + 2.f * Scale, SmallFont, Scale);
+
+		// Ingredients: have/need, green when enough.
+		float IX = X + Padding + 6.f * Scale;
+		for (const FAGBItemAmount& Ingredient : Recipe->Ingredients)
+		{
+			if (!Ingredient.Item)
+			{
+				continue;
+			}
+			const int32 Have = Character->CountItem(Ingredient.Item);
+			const FString Part = FString::Printf(TEXT("%s %d/%d   "), *Ingredient.Item->GetDisplayNameOrId().ToString(), Have, Ingredient.Count);
+			float PW = 0.f, PH = 0.f;
+			GetTextSize(Part, PW, PH, SmallFont, Scale * 0.9f);
+			DrawText(Part, Have >= Ingredient.Count ? GoodColor : BadColor, IX, Y + 19.f * Scale, SmallFont, Scale * 0.9f);
+			IX += PW;
+		}
+		AddHitBox(FVector2D(X + Padding, Y), FVector2D(Width - Padding * 2.f, RowHeight - 4.f * Scale), *FString::Printf(TEXT("AGBR_%d"), Index), true);
+		Y += RowHeight;
+	}
+	FString Footer = Recipes.Num() == 0 ? FString(TEXT("No recipes known yet.")) : FString(TEXT("Click: craft 1    Shift+click: craft 5    Click queue: cancel"));
+	if (Hidden > 0)
+	{
+		Footer = FString::Printf(TEXT("+%d more recipes.  "), Hidden) + Footer;
+	}
+	DrawText(Footer, LabelColor, X + Padding, Bottom - Padding - 12.f * Scale, SmallFont, Scale * 0.9f);
+}
+
 void AAGBHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -497,6 +694,7 @@ void AAGBHUD::DrawHUD()
 	if (bInventoryOpen)
 	{
 		DrawInventoryScreen(Character, Scale);
+		DrawCraftingPanel(Character, Scale);
 	}
 	DrawHotbar(Character, Scale);
 	DrawVitals(Character, Scale);

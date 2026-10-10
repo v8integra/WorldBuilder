@@ -4,6 +4,7 @@
 #include "FoliageScatterTools.h"
 #include "GameFoundationTools.h"
 #include "HarvestTools.h"
+#include "CraftingTools.h"
 #include "ItemTools.h"
 #include "SurvivalTools.h"
 #include "LandscapeCreateTools.h"
@@ -56,6 +57,7 @@ private:
 			UItemTools::StaticClass(),
 			USurvivalTools::StaticClass(),
 			UHarvestTools::StaticClass(),
+			UCraftingTools::StaticClass(),
 		};
 	}
 };

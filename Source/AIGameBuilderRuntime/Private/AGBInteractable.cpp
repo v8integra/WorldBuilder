@@ -15,6 +15,11 @@ bool IAGBInteractable::CanInteract_Implementation(APawn* Interactor) const
 	return true;
 }
 
+bool IAGBInteractable::InteractLocal_Implementation(APawn* Interactor)
+{
+	return false;
+}
+
 void IAGBInteractable::Interact_Implementation(APawn* Interactor)
 {
 }

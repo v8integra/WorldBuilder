@@ -225,3 +225,16 @@ Prereq: C++ build; open TestWorld (trees from Phase 7); run `SetupGameFoundation
 3. After adding a pack in Fab: "I added <pack> at /Game/<folder>" → `update_asset_pack(..., "added", path)` and the AI sets it up.
 4. Felling a tree: it topples away from you over ~2 s smoothly (no physics stutter), rests 1 s, sinks. Same in co-op on both screens.
 
+## Phase 15 — Crafting
+
+Prereq: C++ build. Items from earlier phases (wood, stone, fiber, berries...); give wood the tag `Fuel` (CreateItem again with tags ["Fuel"], stats [{"name":"BurnSeconds","value":45}]).
+1. `CreateStation` `{"stationId":"campfire","displayName":"Campfire","meshPath":"auto","meshScale":1,"bNeedsFuel":true,"warmthC":20,"heatRadiusM":6,"lightIntensity":60,"craftRangeM":4,"placeableItemId":"auto"}` → DA_Station_campfire + item "campfire" (Placeable). Same for "workbench" (no fuel, no light).
+2. Recipes: `stone_axe` (3 wood + 2 stone, 4 s, by hand, Default); `campfire` (5 wood + 3 stone, 3 s, by hand); `workbench` (10 wood + 4 stone, 5 s, by hand, Discover); `cooked_berries` or `cooked_meat` (1 berries → 1 cooked, 5 s, station campfire); `stone_pickaxe` (station workbench). `ListCrafting` shows them.
+3. Play, Tab: crafting panel on the right; ingredients show have/need (green/red). Click stone axe → queue entry with progress bar, ingredients gone; finished → "+1 Stone Axe". Shift+click → 5 queued (only as many as you can afford). Click the queue entry → cancelled, ingredients back.
+4. Discover: before carrying wood and stone, "Workbench" is missing from the list; pick both up → "New recipe: Workbench".
+5. Craft a campfire, select it on the hotbar, left-click the ground → campfire placed (not on steep ground or right next to another station). E on it → crafting screen titled "Campfire (out of fuel)"; cooked recipe says "light Campfire"; "Add fuel" uses one wood → "burning 0:45", light and warmth (temperature rises); cook. Walk away mid-craft → "(waiting for Campfire)"; come back → continues. Fuel runs out → light off, crafting pauses.
+6. Workbench recipe shows "needs Workbench" until one is placed nearby.
+7. `SpawnStation` `{"stationId":"campfire","xM":..,"yM":..,"yawDeg":0,"fuelSeconds":600}` → a lit campfire in the level.
+8. Co-op: each player has their own queue and known recipes; a campfire lit by one is lit for both; both can cook at it.
+**Claude Code:** "Set up crafting from the design: campfire and workbench stations, tier-1 tool recipes, cooking at the campfire." → CraftingTools (+ ItemTools for missing items), then marks the M5 tasks.
+

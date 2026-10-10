@@ -8,6 +8,7 @@
 #include "AGBCharacter.generated.h"
 
 class UAGBCharacterMovementComponent;
+class UAGBCraftingComponent;
 class UAGBInventoryComponent;
 class UAGBSurvivalConfig;
 class UAGBVitalsComponent;
@@ -114,6 +115,22 @@ public:
 	/** Total of an item across hotbar and inventory. */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
 	int32 CountItem(const UAGBItemDefinition* Item) const;
+
+	/** Removes up to Count of an item (inventory first, then hotbar). Returns how many were taken. Server only. */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Items")
+	int32 TakeItem(const UAGBItemDefinition* Item, int32 Count);
+
+	/** Recipes, crafting queue and station fuel. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Crafting")
+	TObjectPtr<UAGBCraftingComponent> Crafting;
+
+	/** How far (cm, from the eyes) placeable items can be put down. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Crafting")
+	float PlaceRange = 400.f;
+
+	/** Places the selected placeable item (station) where the player looks. */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Crafting")
+	void PlaceSelectedItem();
 
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Items")
 	void SelectHotbarSlot(int32 SlotIndex);
@@ -226,6 +243,9 @@ protected:
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastPlaySwing();
+
+	UFUNCTION(Server, Reliable)
+	void ServerPlaceSelectedItem(FVector_NetQuantize Location, float Yaw);
 
 private:
 	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */

@@ -6,6 +6,8 @@
 class AAGBCharacter;
 class UAGBItemDefinition;
 class UAGBResourceDefinition;
+class UAGBRecipeDefinition;
+class UAGBStationDefinition;
 class AGameModeBase;
 class UBlueprint;
 class UWorld;
@@ -37,4 +39,6 @@ namespace GameToolUtils
 
 	UAGBItemDefinition* FindItem(const FString& ItemId);
 	UAGBResourceDefinition* FindResource(const FString& ResourceId);
+	UAGBRecipeDefinition* FindRecipe(const FString& RecipeId);
+	UAGBStationDefinition* FindStation(const FString& StationId);
 }

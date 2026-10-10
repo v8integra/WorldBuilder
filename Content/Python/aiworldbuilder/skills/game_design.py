@@ -133,6 +133,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
 - `SpawnResourceNode` for single deposits (metal ore, coal) where the design places them.
 - Playtest: wrong tool message, yields per swing, felling/depleting, regrowth.
 
+## Crafting (milestone M5)
+
+- Stations first: `AIWorldBuilderToolsets.CraftingTools.CreateStation` for each station in the "Crafting" decision
+  (campfire: fuel, warmth ~20, light ~60; workbench: none; forge: fuel, warmth ~15). It also creates the placeable item.
+- Make fuel items: tag `Fuel` and stat `BurnSeconds` (wood 45, coal 120) via ItemTools.
+- `CreateRecipe` for every craftable item: basic tools and the campfire by hand (Default unlock), better tiers at the
+  workbench/forge, cooking at the campfire. Use `Discover` for recipes the player should find by gathering
+  ingredients. Keep early recipes cheap (3-10 resources, 3-5 s).
+- Place a starter campfire with `SpawnStation` only if the design wants one at the start.
+- Playtest: Tab crafting panel, queue/cancel, discover, place and fuel a campfire, cook, walk away (pause).
+
 ---
 
 # Things the user must do themselves

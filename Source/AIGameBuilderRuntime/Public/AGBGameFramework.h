@@ -52,6 +52,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|HUD")
 	bool IsInventoryOpen() const { return bInventoryOpen; }
 
+	/** Opens the inventory screen with a crafting station's recipes and fuel (E on a station). */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
+	void OpenStation(class AAGBCraftingStation* Station);
+
 	/** Drops the whole stack under the mouse (inventory screen open). */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void DropHoveredSlot();
@@ -88,6 +92,13 @@ private:
 	TArray<FNotification> Notifications;
 
 	bool bInventoryOpen = false;
+	TWeakObjectPtr<class AAGBCraftingStation> CurrentStation;
+	/** Recipes as drawn this frame (hit box AGBR_<index>). */
+	TArray<TWeakObjectPtr<class UAGBRecipeDefinition>> DrawnRecipes;
+	/** Left edge of the inventory panel, set while drawing (the crafting panel goes to its right). */
+	float CraftingPanelX = 0.f;
+	float CraftingPanelY = 0.f;
+	float CraftingPanelHeight = 0.f;
 	FSlotRef Hovered;
 	FSlotRef Held;
 	int32 HeldCount = 0; // 0 = whole stack.
@@ -102,5 +113,7 @@ private:
 	void DrawVitals(class AAGBCharacter* Character, float Scale);
 	void DrawDeathScreen(float Scale);
 	void DrawNotifications(float Scale);
+	void DrawCraftingPanel(class AAGBCharacter* Character, float Scale);
+	bool HandleCraftingClick(const FString& BoxName);
 	void DrawFrame(float X, float Y, float W, float H, float Thickness, const FLinearColor& Color);
 };

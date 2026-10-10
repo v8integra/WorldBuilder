@@ -1,6 +1,7 @@
 #include "GameToolUtils.h"
 
 #include "AGBCharacter.h"
+#include "AGBCraftingTypes.h"
 #include "AGBHarvestTypes.h"
 #include "AGBItemTypes.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -127,5 +128,15 @@ namespace GameToolUtils
 	UAGBResourceDefinition* FindResource(const FString& ResourceId)
 	{
 		return Cast<UAGBResourceDefinition>(FindAssetByTag(UAGBResourceDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBResourceDefinition, ResourceId), ResourceId));
+	}
+
+	UAGBRecipeDefinition* FindRecipe(const FString& RecipeId)
+	{
+		return Cast<UAGBRecipeDefinition>(FindAssetByTag(UAGBRecipeDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBRecipeDefinition, RecipeId), RecipeId));
+	}
+
+	UAGBStationDefinition* FindStation(const FString& StationId)
+	{
+		return Cast<UAGBStationDefinition>(FindAssetByTag(UAGBStationDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBStationDefinition, StationId), StationId));
 	}
 }

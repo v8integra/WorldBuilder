@@ -32,6 +32,14 @@ public:
 	bool CanInteract(APawn* Interactor) const;
 	virtual bool CanInteract_Implementation(APawn* Interactor) const;
 
+	/**
+	 * Runs first on the player's own machine. Return true when it is fully handled there (opening a screen: crafting
+	 * stations, storage); the server Interact is then not called.
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "AI Game Builder|Interaction")
+	bool InteractLocal(APawn* Interactor);
+	virtual bool InteractLocal_Implementation(APawn* Interactor);
+
 	/** Uses it. Always runs on the server; replicate any resulting state. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "AI Game Builder|Interaction")
 	void Interact(APawn* Interactor);

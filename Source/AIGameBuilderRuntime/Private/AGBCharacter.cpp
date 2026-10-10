@@ -3,7 +3,11 @@
 #include "AGBCharacterMovementComponent.h"
 #include "AGBGameFramework.h"
 #include "AGBInteractionComponent.h"
+#include "AGBCraftingComponent.h"
+#include "AGBCraftingStation.h"
+#include "AGBCraftingTypes.h"
 #include "AGBHarvestSubsystem.h"
+#include "EngineUtils.h"
 #include "AGBInventoryComponent.h"
 #include "AGBLootBag.h"
 #include "Animation/AnimInstance.h"
@@ -78,6 +82,7 @@ AAGBCharacter::AAGBCharacter(const FObjectInitializer& ObjectInitializer)
 	Equipment->DisplayName = NSLOCTEXT("AIGameBuilder", "Equipment", "Equipment");
 
 	Vitals = CreateDefaultSubobject<UAGBVitalsComponent>(TEXT("Vitals"));
+	Crafting = CreateDefaultSubobject<UAGBCraftingComponent>(TEXT("Crafting"));
 
 	HeldItem = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeldItem"));
 	HeldItem->SetupAttachment(GetMesh(), HandSocket);
@@ -298,6 +303,82 @@ int32 AAGBCharacter::GiveItem(UAGBItemDefinition* Item, int32 Count)
 int32 AAGBCharacter::CountItem(const UAGBItemDefinition* Item) const
 {
 	return Hotbar->CountItem(Item) + Inventory->CountItem(Item);
+}
+
+int32 AAGBCharacter::TakeItem(const UAGBItemDefinition* Item, int32 Count)
+{
+	int32 Taken = Inventory->RemoveItem(Item, Count);
+	Taken += Hotbar->RemoveItem(Item, Count - Taken);
+	return Taken;
+}
+
+void AAGBCharacter::PlaceSelectedItem()
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (Selected.IsEmpty() || !Selected.Item->PlacesStation || !Controller || IsDead())
+	{
+		return;
+	}
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	const FVector Eyes = GetPawnViewLocation();
+	const FVector End = ViewLocation + ViewRotation.Vector() * (FVector::Dist(ViewLocation, Eyes) + PlaceRange);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBPlaceTrace), /*bTraceComplex=*/false, this);
+	FHitResult Hit;
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, ECC_Visibility, Params) || FVector::Dist(Hit.ImpactPoint, Eyes) > PlaceRange)
+	{
+		ClientShowMessage(NSLOCTEXT("AIGameBuilder", "PlaceAim", "Look at the ground nearby to place it"), true);
+		return;
+	}
+	// Face the player.
+	const float Yaw = static_cast<float>((GetActorLocation() - Hit.ImpactPoint).Rotation().Yaw);
+	if (HasAuthority())
+	{
+		ServerPlaceSelectedItem_Implementation(Hit.ImpactPoint, Yaw);
+	}
+	else
+	{
+		ServerPlaceSelectedItem(Hit.ImpactPoint, Yaw);
+	}
+}
+
+void AAGBCharacter::ServerPlaceSelectedItem_Implementation(FVector_NetQuantize Location, float Yaw)
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (Selected.IsEmpty() || !Selected.Item->PlacesStation || IsDead()
+		|| FVector::Dist(Location, GetPawnViewLocation()) > PlaceRange + 100.f)
+	{
+		return;
+	}
+	// Needs fairly flat ground right there, and some room from other stations.
+	FHitResult Ground;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBPlaceGround), /*bTraceComplex=*/false, this);
+	if (!GetWorld()->LineTraceSingleByChannel(Ground, Location + FVector(0.0, 0.0, 50.0), Location - FVector(0.0, 0.0, 100.0), ECC_WorldStatic, Params)
+		|| Ground.ImpactNormal.Z < FMath::Cos(FMath::DegreesToRadians(35.0)))
+	{
+		ClientShowMessage(NSLOCTEXT("AIGameBuilder", "PlaceTooSteep", "The ground is too steep here"), true);
+		return;
+	}
+	for (TActorIterator<AAGBCraftingStation> It(GetWorld()); It; ++It)
+	{
+		if (FVector::Dist2D(It->GetActorLocation(), Ground.ImpactPoint) < 120.0)
+		{
+			ClientShowMessage(NSLOCTEXT("AIGameBuilder", "PlaceBlocked", "Too close to another station"), true);
+			return;
+		}
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnParams.bDeferConstruction = true;
+	const FTransform Transform(FRotator(0.0, Yaw, 0.0), Ground.ImpactPoint);
+	if (AAGBCraftingStation* Station = GetWorld()->SpawnActor<AAGBCraftingStation>(AAGBCraftingStation::StaticClass(), Transform, SpawnParams))
+	{
+		Station->Definition = Selected.Item->PlacesStation;
+		Station->FinishSpawning(Transform);
+		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
+	}
 }
 
 FAGBItemStack AAGBCharacter::GetSelectedItem() const
@@ -565,6 +646,10 @@ void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
 	if (bConsumable)
 	{
 		RequestUseItem(Hotbar, SelectedHotbarSlot);
+	}
+	else if (!Selected.IsEmpty() && Selected.Item->PlacesStation)
+	{
+		PlaceSelectedItem();
 	}
 	else
 	{
