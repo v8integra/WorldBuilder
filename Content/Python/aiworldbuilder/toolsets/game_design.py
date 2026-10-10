@@ -21,6 +21,31 @@ def _find(items: list, item_id: str, kind: str) -> dict:
     raise ValueError(f'No {kind} with id "{item_id}".')
 
 
+def _seed_packs(data: dict, template: dict) -> int:
+    """Adds the template's asset pack suggestions, filling {setting}/{style}/{genre} from the project. Returns how many."""
+    game = data['game']
+    decisions = {d['topic'].lower(): d['choice'] for d in store.active_decisions(data)}
+    fill = {
+        'setting': decisions.get('setting', game.get('genre', '')),
+        'style': decisions.get('art style', decisions.get('art_style', '')),
+        'genre': game.get('genre', ''),
+    }
+    existing = {k['name'].lower() for k in data.setdefault('packs', [])}
+    added = 0
+    for pack in template.get('asset_packs', []):
+        if pack['name'].lower() in existing:
+            continue
+        search = pack.get('search', '')
+        for key, value in fill.items():
+            search = search.replace('{' + key + '}', value)
+        data['packs'].append({'id': store.next_id(data['packs'], 'P'), 'name': pack['name'], 'category': pack.get('category', ''),
+                              'priority': pack.get('priority', 'recommended'), 'search': ' '.join(search.split()),
+                              'why': pack.get('why', ''), 'requirements': pack.get('requirements', ''),
+                              'covers': pack.get('covers', []), 'status': 'suggested', 'path': '', 'notes': ''})
+        added += 1
+    return added
+
+
 def _task_line(t: dict) -> str:
     note = f" ({t['notes']})" if t.get('notes') else ''
     return f"- {t['id']} [{t['status']}] {t['title']}{note}"
@@ -85,6 +110,13 @@ class GameDesignTools(unreal.ToolsetDefinition):
         if assets:
             counts = {s: sum(1 for a in assets if a['status'] == s) for s in store.ASSET_STATUSES}
             lines.append(f"Assets: {counts['provided']} provided, {counts['placeholder']} using placeholders, {counts['needed']} still needed.")
+        packs = data.get('packs', [])
+        if packs:
+            missing = [k for k in packs if k['status'] == 'suggested' and k['priority'] == 'essential']
+            added = sum(1 for k in packs if k['status'] == 'added')
+            lines.append(f"Asset packs: {added} added, {sum(1 for k in packs if k['status'] == 'suggested')} still suggested.")
+            if missing:
+                lines.append('Essential packs not added yet (remind the user): ' + ', '.join(f"{k['id']} {k['name']}" for k in missing))
         return '\n'.join(lines)
 
     # ------------------------------------------------------------------ templates & project
@@ -170,8 +202,11 @@ class GameDesignTools(unreal.ToolsetDefinition):
                                    'purpose': a.get('purpose', ''), 'status': 'needed',
                                    'placeholder': a.get('placeholder', ''), 'path': '', 'notes': ''})
             added_assets += 1
+        added_packs = _seed_packs(data, template)
         store.save(data)
-        return f"Added {added_tasks} task(s) and {added_assets} asset need(s) from the '{template['genre']}' template."
+        return (f"Added {added_tasks} task(s), {added_assets} asset need(s) and {added_packs} asset pack suggestion(s) from the "
+                f"'{template['genre']}' template. Fill in the pack search terms for the setting and art style, then show the user "
+                f"get_asset_pack_list.")
 
     # ------------------------------------------------------------------ design document
 
@@ -436,3 +471,108 @@ class GameDesignTools(unreal.ToolsetDefinition):
         return '\n'.join(f"{a['id']} [{a['status']}] {a['name']} ({a['category']}) — {a.get('purpose', '')}"
                          + (f" | using: {a['path'] or a['placeholder']}" if (a.get('path') or a.get('placeholder')) else '')
                          for a in rows)
+
+    # ------------------------------------------------------------------ asset packs
+
+    @toolset_registry.tool_call
+    @staticmethod
+    def get_asset_pack_list(status: str | None = None) -> str:
+        """Returns the list of asset packs the user should add to the project (from Fab or the Marketplace), essential first,
+        with what to search for, why it is needed and what to check before adding it. Show this to the user after the
+        interview and whenever they ask what to get. The AI cannot download packs: the user adds them in the editor's Fab
+        panel ("Add to Project"), then tells the AI, which sets them up and marks them added.
+
+        Example: get_asset_pack_list("suggested")
+
+        Args:
+            status: suggested, added or skipped. Omit for all.
+
+        Returns:
+            A markdown checklist for the user.
+        """
+        data = _require_project()
+        packs = [k for k in data.get('packs', []) if not status or k['status'] == status]
+        if not packs:
+            return 'No asset packs listed. Run seed_plan_from_template or add_asset_pack.'
+        lines = ['# Asset packs for your game', '',
+                 'Add these in the editor: open Fab, search for the pack, check the "must have" notes, then "Add to Project". '
+                 'Tell me which ones you added and I will set them up. Free packs work fine; paid ones are your choice.', '']
+        for priority in store.PACK_PRIORITIES:
+            group = [k for k in packs if k['priority'] == priority]
+            if not group:
+                continue
+            lines.append(f'## {priority.capitalize()}')
+            for k in group:
+                box = {'added': 'x', 'skipped': '-'}.get(k['status'], ' ')
+                lines.append(f"- [{box}] **{k['name']}** ({k['id']}) — {k['why']}")
+                lines.append(f"  - Search for: {k['search']}")
+                if k.get('requirements'):
+                    lines.append(f"  - Must have: {k['requirements']}")
+                if k.get('path'):
+                    lines.append(f"  - Added at: {k['path']}")
+            lines.append('')
+        return '\n'.join(lines)
+
+    @toolset_registry.tool_call
+    @staticmethod
+    def add_asset_pack(name: str, category: str, search: str, why: str, priority: str = 'recommended',
+                       requirements: str | None = None, covers: list[str] | None = None) -> str:
+        """Adds an asset pack suggestion for the user (things the game needs that the template didn't list).
+
+        Example: add_asset_pack("Medieval village kit", "Environment", "modular medieval village houses Nanite", "The starting village", "recommended")
+
+        Args:
+            name: What kind of pack.
+            category: Animation, Props, Environment, Materials, Building, Character, UI, Audio, VFX...
+            search: Search terms for Fab.
+            why: What the game uses it for.
+            priority: essential, recommended or optional.
+            requirements: What to check before adding it (skeleton, style, poly count...).
+            covers: Asset wishlist names it provides.
+
+        Returns:
+            The pack id.
+        """
+        if priority not in store.PACK_PRIORITIES:
+            raise ValueError(f'priority must be one of {store.PACK_PRIORITIES}.')
+        data = _require_project()
+        packs = data.setdefault('packs', [])
+        pack_id = store.next_id(packs, 'P')
+        packs.append({'id': pack_id, 'name': name.strip(), 'category': category.strip(), 'priority': priority,
+                      'search': search.strip(), 'why': why.strip(), 'requirements': (requirements or '').strip(),
+                      'covers': [str(c) for c in (covers or [])], 'status': 'suggested', 'path': '', 'notes': ''})
+        store.save(data)
+        return f"Added asset pack suggestion {pack_id} '{name}' ({priority})."
+
+    @toolset_registry.tool_call
+    @staticmethod
+    def update_asset_pack(pack_id: str, status: str, content_path: str | None = None, notes: str | None = None) -> str:
+        """Marks an asset pack as added (give the content folder it landed in), skipped, or back to suggested.
+        After a pack is added, set up its assets and update the asset wishlist entries it covers.
+
+        Example: update_asset_pack("P-001", "added", "/Game/MeleeAnimations")
+
+        Args:
+            pack_id: Pack id, e.g. "P-001".
+            status: suggested, added or skipped.
+            content_path: Content folder of the added pack.
+            notes: Pack name as added, licence notes...
+
+        Returns:
+            Confirmation and which wishlist entries it covers.
+        """
+        if status not in store.PACK_STATUSES:
+            raise ValueError(f'status must be one of {store.PACK_STATUSES}.')
+        data = _require_project()
+        pack = _find(data.get('packs', []), pack_id, 'asset pack')
+        pack['status'] = status
+        if content_path is not None:
+            pack['path'] = content_path.strip()
+        if notes is not None:
+            pack['notes'] = notes.strip()
+        store.save(data)
+        msg = f"{pack['id']} '{pack['name']}' is now {status}."
+        if status == 'added' and pack.get('covers'):
+            msg += ' Set up its assets and update these wishlist entries: ' + ', '.join(pack['covers']) + '.'
+        return msg
+

@@ -25,5 +25,11 @@
   "asset_needs": [
     {"name": "Player character", "category": "Character", "purpose": "The player", "placeholder": "Engine mannequin"},
     {"name": "Environment art", "category": "Environment", "purpose": "The world", "placeholder": "Engine shapes and solid colours"}
+  ],
+  "asset_packs": [
+    {"name": "Character animations for the genre", "category": "Animation", "priority": "essential", "search": "UE5 mannequin {genre} animations", "why": "The default mannequin only walks, runs, jumps and punches.", "requirements": "UE5 Manny/Quinn skeleton (or retargetable); in-place versions", "covers": ["Player character"]},
+    {"name": "Environment pack for the setting", "category": "Environment", "priority": "essential", "search": "{setting} environment {style} Nanite", "why": "The world's look: terrain textures, foliage, rocks, props.", "requirements": "Static meshes and tiling surface textures in one style", "covers": ["Environment art"]},
+    {"name": "UI icons and fonts", "category": "UI", "priority": "recommended", "search": "{genre} game UI icons", "why": "Menus and HUD.", "requirements": "Textures with transparency", "covers": []},
+    {"name": "Sound effects and music", "category": "Audio", "priority": "optional", "search": "{genre} sound effects music", "why": "Feedback and atmosphere.", "requirements": "WAV, loopable ambience/music", "covers": []}
   ]
 }

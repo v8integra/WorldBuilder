@@ -3,8 +3,11 @@
 #include "AGBCharacterMovementComponent.h"
 #include "AGBGameFramework.h"
 #include "AGBInteractionComponent.h"
+#include "AGBHarvestSubsystem.h"
 #include "AGBInventoryComponent.h"
 #include "AGBLootBag.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimSequenceBase.h"
 #include "AGBSurvivalConfig.h"
 #include "AGBVitalsComponent.h"
 #include "GameFramework/PlayerState.h"
@@ -281,6 +284,14 @@ int32 AAGBCharacter::GiveItem(UAGBItemDefinition* Item, int32 Count)
 	Added += Inventory->AddItem(Item, Count - Added, /*bOnlyExistingStacks=*/true);
 	Added += Hotbar->AddItem(Item, Count - Added);
 	Added += Inventory->AddItem(Item, Count - Added);
+	if (Added > 0 && HasActorBegunPlay())
+	{
+		ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Gained", "+{0} {1}"), Added, Item->GetDisplayNameOrId()), false);
+	}
+	if (Added < Count)
+	{
+		ClientShowMessage(NSLOCTEXT("AIGameBuilder", "InventoryFull", "Inventory full"), true);
+	}
 	return Added;
 }
 
@@ -548,7 +559,122 @@ void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
 	{
 		return; // The mouse button is clicking the inventory screen.
 	}
-	RequestUseItem(Hotbar, SelectedHotbarSlot);
+	const FAGBItemStack Selected = GetSelectedItem();
+	const bool bConsumable = !Selected.IsEmpty()
+		&& (Selected.Item->Category == EAGBItemCategory::Food || Selected.Item->Category == EAGBItemCategory::Consumable);
+	if (bConsumable)
+	{
+		RequestUseItem(Hotbar, SelectedHotbarSlot);
+	}
+	else
+	{
+		Swing(); // Tools, weapons and bare hands.
+	}
+}
+
+void AAGBCharacter::Swing()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (IsDead() || Now - LastSwingTime < SwingInterval)
+	{
+		return;
+	}
+	LastSwingTime = Now;
+	PlaySwingAnimation();
+
+	// Aim along the camera; reach is measured from the eyes (same as interaction).
+	UPrimitiveComponent* Target = nullptr;
+	int32 InstanceIndex = INDEX_NONE;
+	FVector ImpactPoint = FVector::ZeroVector;
+	if (Controller)
+	{
+		FVector ViewLocation;
+		FRotator ViewRotation;
+		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		const FVector Eyes = GetPawnViewLocation();
+		const FVector End = ViewLocation + ViewRotation.Vector() * (FVector::Dist(ViewLocation, Eyes) + Interaction->HarvestRange);
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBSwingTrace), /*bTraceComplex=*/false, this);
+		FHitResult Hit;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, ECC_Visibility, Params)
+			&& FVector::Dist(Hit.ImpactPoint, Eyes) <= Interaction->HarvestRange)
+		{
+			Target = Hit.GetComponent();
+			InstanceIndex = Hit.Item;
+			ImpactPoint = Hit.ImpactPoint;
+		}
+	}
+
+	if (HasAuthority())
+	{
+		ServerSwing_Implementation(Target, InstanceIndex, ImpactPoint);
+	}
+	else
+	{
+		ServerSwing(Target, InstanceIndex, ImpactPoint);
+	}
+}
+
+void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int32 InstanceIndex, FVector_NetQuantize ImpactPoint)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (IsDead() || (!IsLocallyControlled() && Now - LastSwingTime < SwingInterval * 0.8))
+	{
+		return; // Swinging faster than allowed.
+	}
+	LastSwingTime = Now;
+	MulticastPlaySwing();
+
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (Target)
+	{
+		// Server checks: the hit point is within reach and on the target.
+		const FVector Eyes = GetPawnViewLocation();
+		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= Interaction->HarvestRange + 150.f
+			&& FVector::Dist(ImpactPoint, Target->Bounds.Origin) <= Target->Bounds.SphereRadius + 100.f;
+		UAGBHarvestSubsystem* Harvesting = GetWorld()->GetSubsystem<UAGBHarvestSubsystem>();
+		if (bInReach && Harvesting)
+		{
+			const FAGBHarvestResult Result = Harvesting->Harvest(this, Target, InstanceIndex, Selected.Item, ImpactPoint);
+			if (!Result.Message.IsEmpty())
+			{
+				ClientShowMessage(Result.Message, /*bWarning=*/!Result.bHarvested);
+			}
+		}
+	}
+	if (!Selected.IsEmpty())
+	{
+		OnItemUsed.Broadcast(Selected.Item);
+	}
+}
+
+void AAGBCharacter::MulticastPlaySwing_Implementation()
+{
+	if (!IsLocallyControlled())
+	{
+		PlaySwingAnimation(); // The swinging player already played it.
+	}
+}
+
+void AAGBCharacter::PlaySwingAnimation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	const FAGBItemStack Selected = GetSelectedItem();
+	UAnimSequenceBase* Animation = (!Selected.IsEmpty() && !Selected.Item->UseAnimation.IsNull())
+		? Selected.Item->UseAnimation.LoadSynchronous() : SwingAnimation.Get();
+	if (Animation && AnimInstance)
+	{
+		// Swing in place: attack animations often carry root motion (a lunge), which would also fight movement replication.
+		AnimInstance->SetRootMotionMode(ERootMotionMode::IgnoreRootMotion);
+		AnimInstance->PlaySlotAnimationAsDynamicMontage(Animation, SwingAnimationSlot, 0.1f, 0.2f, 1.2f);
+	}
+}
+
+void AAGBCharacter::ClientShowMessage_Implementation(const FText& Message, bool bWarning)
+{
+	if (AAGBHUD* HUD = GetAGBHUD())
+	{
+		HUD->AddNotification(Message, bWarning);
+	}
 }
 
 void AAGBCharacter::OnToggleInventory(const FInputActionValue& Value)

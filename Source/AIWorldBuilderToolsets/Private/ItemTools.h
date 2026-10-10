@@ -48,6 +48,14 @@ struct FGameItemInfo
 	/// "Name=Value".
 	UPROPERTY(BlueprintReadOnly, Category = "AIGameBuilder")
 	TArray<FString> Stats;
+
+	/// Grip transform in the hand (translation | rotation | scale).
+	UPROPERTY(BlueprintReadOnly, Category = "AIGameBuilder")
+	FString HeldOffset;
+
+	/// Animation played on use, empty = character default swing.
+	UPROPERTY(BlueprintReadOnly, Category = "AIGameBuilder")
+	FString UseAnimation;
 };
 
 /// An item and a count, as tool input.
@@ -137,4 +145,24 @@ public:
 	 */
 	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Items")
 	static FGameItemResult SetStartingItems(const TArray<FGameItemAmount>& Items);
+
+	/**
+	 * Sets how a held (MainHand) item sits in the hand and which animation plays when it is used. The offset is relative to
+	 * the hand socket (UE mannequin: hand_r). Tune it in Play: if the tool points the wrong way, rotate by 90/180 degrees on
+	 * one axis at a time. Saved.
+	 * Example: SetItemHandling("stone_axe", 0, 0, 0, 0, 0, 180, 1, "auto")
+	 * @param ItemId Item to change.
+	 * @param OffsetXCm Grip offset along the socket X axis, cm.
+	 * @param OffsetYCm Grip offset along the socket Y axis, cm.
+	 * @param OffsetZCm Grip offset along the socket Z axis, cm.
+	 * @param PitchDeg Rotation around the socket Y axis, degrees.
+	 * @param YawDeg Rotation around the socket Z axis, degrees.
+	 * @param RollDeg Rotation around the socket X axis, degrees.
+	 * @param Scale Size multiplier in the hand (on top of the item's mesh scale).
+	 * @param AnimationPath Animation (sequence or montage) played on use: chop, mine, swing. "auto" keeps it, "none" uses the character's default swing.
+	 * @return The item.
+	 */
+	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Items")
+	static FGameItemResult SetItemHandling(const FString& ItemId, double OffsetXCm, double OffsetYCm, double OffsetZCm, double PitchDeg, double YawDeg,
+		double RollDeg, double Scale = 1.0, const FString& AnimationPath = TEXT("auto"));
 };

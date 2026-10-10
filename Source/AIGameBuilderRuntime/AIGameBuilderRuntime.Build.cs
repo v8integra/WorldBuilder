@@ -15,6 +15,12 @@ public class AIGameBuilderRuntime : ModuleRules
 			"Engine",
 			"EnhancedInput",
 			"InputCore",
+			"NetCore",
+		});
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"AssetRegistry",
 		});
 	}
 }

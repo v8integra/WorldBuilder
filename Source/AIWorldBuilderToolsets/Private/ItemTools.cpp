@@ -7,6 +7,7 @@
 #include "AIWorldBuilderCore.h"
 #include "AIWorldBuilderLandscape.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Animation/AnimSequenceBase.h"
 #include "Engine/Blueprint.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
@@ -65,41 +66,17 @@ namespace
 
 	TArray<FAssetData> GetItemAssets()
 	{
-		IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-		FARFilter Filter;
-		Filter.ClassPaths.Add(UAGBItemDefinition::StaticClass()->GetClassPathName());
-		Filter.bRecursiveClasses = true;
-		TArray<FAssetData> Assets;
-		Registry.GetAssets(Filter, Assets);
-		return Assets;
+		return GameToolUtils::GetAssetsOfClass(UAGBItemDefinition::StaticClass());
 	}
 
 	UAGBItemDefinition* FindItem(const FString& ItemId)
 	{
-		const FString Wanted = ItemId.TrimStartAndEnd();
-		for (const FAssetData& Asset : GetItemAssets())
-		{
-			FString Value;
-			if (Asset.GetTagValue(ItemIdTag, Value) && Value.Equals(Wanted, ESearchCase::IgnoreCase))
-			{
-				return Cast<UAGBItemDefinition>(Asset.GetAsset());
-			}
-		}
-		return nullptr;
+		return GameToolUtils::FindItem(ItemId);
 	}
 
 	FString KnownItemIds()
 	{
-		TArray<FString> Ids;
-		for (const FAssetData& Asset : GetItemAssets())
-		{
-			FString Value;
-			if (Asset.GetTagValue(ItemIdTag, Value))
-			{
-				Ids.Add(Value);
-			}
-		}
-		return Ids.Num() > 0 ? FString::Join(Ids, TEXT(", ")) : FString(TEXT("none yet"));
+		return GameToolUtils::ListIds(UAGBItemDefinition::StaticClass(), ItemIdTag);
 	}
 
 	FGameItemInfo Describe(const UAGBItemDefinition* Item)
@@ -122,6 +99,8 @@ namespace
 		{
 			Info.Stats.Add(FString::Printf(TEXT("%s=%g"), *Stat.Name.ToString(), Stat.Value));
 		}
+		Info.HeldOffset = Item->HeldOffset.ToString();
+		Info.UseAnimation = Item->UseAnimation.ToSoftObjectPath().ToString();
 		return Info;
 	}
 
@@ -359,6 +338,44 @@ FGameItemResult UItemTools::SetStartingItems(const TArray<FGameItemAmount>& Item
 	}
 	R.bSuccess = true;
 	R.Message = FString::Printf(TEXT("Players start with: %s (%s)."), Lines.Num() > 0 ? *FString::Join(Lines, TEXT(", ")) : TEXT("nothing"), *Blueprint->GetName());
+	return R;
+}
+
+FGameItemResult UItemTools::SetItemHandling(const FString& ItemId, double OffsetXCm, double OffsetYCm, double OffsetZCm, double PitchDeg, double YawDeg,
+	double RollDeg, double Scale, const FString& AnimationPath)
+{
+	UAGBItemDefinition* Item = FindItem(ItemId);
+	if (!Item)
+	{
+		return Fail(FString::Printf(TEXT("No item with id '%s'. Known items: %s."), *ItemId, *KnownItemIds()));
+	}
+	UAnimSequenceBase* Animation = nullptr;
+	const bool bSetAnimation = !IsKeyword(AnimationPath, TEXT("auto")) && !AnimationPath.IsEmpty();
+	if (bSetAnimation && !IsKeyword(AnimationPath, TEXT("none")))
+	{
+		Animation = LoadObject<UAnimSequenceBase>(nullptr, *AnimationPath);
+		if (!Animation)
+		{
+			return Fail(FString::Printf(TEXT("Animation '%s' not found (use an Animation Sequence or Montage path)."), *AnimationPath));
+		}
+	}
+
+	Item->Modify();
+	Item->HeldOffset = FTransform(FRotator(PitchDeg, YawDeg, RollDeg), FVector(OffsetXCm, OffsetYCm, OffsetZCm), FVector(FMath::Max(0.01, Scale)));
+	if (bSetAnimation)
+	{
+		Item->UseAnimation = Animation;
+	}
+	Item->MarkPackageDirty();
+	UEditorLoadingAndSavingUtils::SavePackages({ Item->GetPackage() }, /*bOnlyDirty=*/false);
+
+	FGameItemResult R;
+	R.bSuccess = true;
+	R.Items.Add(Describe(Item));
+	R.Message = FString::Printf(TEXT("'%s' is held at (%.1f, %.1f, %.1f) cm, rotated (pitch %.0f, yaw %.0f, roll %.0f), scale %.2f; use animation: %s%s"),
+		*Item->ItemId.ToString(), OffsetXCm, OffsetYCm, OffsetZCm, PitchDeg, YawDeg, RollDeg, Scale,
+		Item->UseAnimation.IsNull() ? TEXT("character default") : *Item->UseAnimation.ToSoftObjectPath().ToString(),
+		Item->EquipSlot == EAGBEquipSlot::MainHand ? TEXT(".") : TEXT(". Note: only MainHand items are held."));
 	return R;
 }
 

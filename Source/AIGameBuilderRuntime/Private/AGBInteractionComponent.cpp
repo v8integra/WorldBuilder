@@ -1,5 +1,8 @@
 #include "AGBInteractionComponent.h"
 
+#include "AGBCharacter.h"
+#include "AGBHarvestSubsystem.h"
+#include "AGBHarvestTypes.h"
 #include "AGBInteractable.h"
 #include "AGBVitalsComponent.h"
 #include "Engine/OverlapResult.h"
@@ -75,17 +78,24 @@ void UAGBInteractionComponent::UpdateFocus()
 		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
 		const FVector Eyes = Pawn->GetPawnViewLocation();
 		const double CameraToEyes = FVector::Dist(ViewLocation, Eyes);
-		const FVector End = ViewLocation + ViewRotation.Vector() * (CameraToEyes + InteractionRange);
+		const FVector End = ViewLocation + ViewRotation.Vector() * (CameraToEyes + FMath::Max(InteractionRange, HarvestRange));
 
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBInteractionTrace), /*bTraceComplex=*/false, Pawn);
 		FHitResult Hit;
-		if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, TraceChannel, Params)
-			&& FVector::Dist(Hit.ImpactPoint, Eyes) <= InteractionRange)
+		FocusedResourceText = FText::GetEmpty();
+		bCanHarvestFocused = false;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, TraceChannel, Params))
 		{
-			if (UObject* Interactable = FindInteractable(Hit.GetActor(), Pawn))
+			const double Distance = FVector::Dist(Hit.ImpactPoint, Eyes);
+			UObject* Interactable = Distance <= InteractionRange ? FindInteractable(Hit.GetActor(), Pawn) : nullptr;
+			if (Interactable)
 			{
 				NewFocus = Hit.GetActor();
 				NewPrompt = IAGBInteractable::Execute_GetInteractionPrompt(Interactable, Pawn);
+			}
+			else if (Distance <= HarvestRange)
+			{
+				UpdateResourceFocus(Hit);
 			}
 		}
 
@@ -102,6 +112,23 @@ void UAGBInteractionComponent::UpdateFocus()
 		FocusedActor = NewFocus;
 		OnFocusChanged.Broadcast(NewFocus);
 	}
+}
+
+void UAGBInteractionComponent::UpdateResourceFocus(const FHitResult& Hit)
+{
+	const UAGBHarvestSubsystem* Harvesting = GetWorld()->GetSubsystem<UAGBHarvestSubsystem>();
+	const UAGBResourceDefinition* Resource = Harvesting ? Harvesting->FindResource(Hit.GetComponent(), Hit.Item) : nullptr;
+	if (!Resource)
+	{
+		return;
+	}
+	const AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwner());
+	const UAGBItemDefinition* Tool = Character ? Character->GetSelectedItem().Item.Get() : nullptr;
+	float Power = 0.f;
+	bCanHarvestFocused = Resource->GetHarvestPower(Tool, Power);
+	FocusedResourceText = bCanHarvestFocused
+		? Resource->GetDisplayNameOrId()
+		: FText::Format(NSLOCTEXT("AIGameBuilder", "ResourceNeedsTool", "{0}: {1}"), Resource->GetDisplayNameOrId(), Resource->GetToolHint());
 }
 
 bool UAGBInteractionComponent::CanDrink() const

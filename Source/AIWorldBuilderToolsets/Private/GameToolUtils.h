@@ -1,8 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AssetRegistry/AssetData.h"
 
 class AAGBCharacter;
+class UAGBItemDefinition;
+class UAGBResourceDefinition;
 class AGameModeBase;
 class UBlueprint;
 class UWorld;
@@ -22,4 +25,16 @@ namespace GameToolUtils
 
 	/** The AI Game Builder player character Blueprint used by the active game mode, or nullptr. */
 	UBlueprint* GetCharacterBlueprint(UWorld* World);
+
+	/** All assets of a class (and subclasses) in the asset registry. */
+	TArray<FAssetData> GetAssetsOfClass(UClass* Class);
+
+	/** The asset of a class whose searchable tag (e.g. ItemId) equals Value (case-insensitive), loaded; or nullptr. */
+	UObject* FindAssetByTag(UClass* Class, FName Tag, const FString& Value);
+
+	/** Comma-separated tag values of all assets of a class ("none yet" if there are none). */
+	FString ListIds(UClass* Class, FName Tag);
+
+	UAGBItemDefinition* FindItem(const FString& ItemId);
+	UAGBResourceDefinition* FindResource(const FString& ResourceId);
 }

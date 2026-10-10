@@ -238,6 +238,43 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 	}
 }
 
+void AAGBHUD::AddNotification(const FText& Message, bool bWarning)
+{
+	const FString Text = Message.ToString();
+	const double Now = GetWorld()->GetTimeSeconds();
+	// Same message again: refresh it instead of stacking duplicates.
+	Notifications.RemoveAll([&Text](const FNotification& Existing) { return Existing.Text == Text; });
+	Notifications.Add({ Text, bWarning, Now });
+	if (Notifications.Num() > 6)
+	{
+		Notifications.RemoveAt(0);
+	}
+}
+
+void AAGBHUD::DrawNotifications(float Scale)
+{
+	constexpr double Lifetime = 3.0;
+	constexpr double FadeTime = 0.5;
+	const double Now = GetWorld()->GetTimeSeconds();
+	Notifications.RemoveAll([Now](const FNotification& Entry) { return Now - Entry.Time > Lifetime; });
+
+	UFont* Font = GEngine->GetMediumFont();
+	float Y = Canvas->ClipY - 140.f * Scale;
+	for (int32 Index = Notifications.Num() - 1; Index >= 0; --Index)
+	{
+		const FNotification& Entry = Notifications[Index];
+		const float Alpha = static_cast<float>(FMath::Clamp((Lifetime - (Now - Entry.Time)) / FadeTime, 0.0, 1.0));
+		FLinearColor Color = Entry.bWarning ? FLinearColor(1.f, 0.65f, 0.25f) : TextColor;
+		Color.A = Alpha;
+		float W = 0.f, H = 0.f;
+		GetTextSize(Entry.Text, W, H, Font, Scale);
+		const float X = Canvas->ClipX - W - 30.f * Scale;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f * Alpha), X - 8.f, Y - 3.f, W + 16.f, H + 6.f);
+		DrawText(Entry.Text, Color, X, Y, Font, Scale);
+		Y -= H + 10.f * Scale;
+	}
+}
+
 void AAGBHUD::DrawDeathScreen(float Scale)
 {
 	const APlayerController* PlayerController = GetOwningPlayerController();
@@ -463,6 +500,7 @@ void AAGBHUD::DrawHUD()
 	}
 	DrawHotbar(Character, Scale);
 	DrawVitals(Character, Scale);
+	DrawNotifications(Scale);
 	if (bInventoryOpen)
 	{
 		return;
@@ -486,5 +524,15 @@ void AAGBHUD::DrawHUD()
 		const float Y = CenterY + 40.f * Scale;
 		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X - 8.f, Y - 4.f, Width + 16.f, Height + 8.f);
 		DrawText(Prompt, TextColor, X, Y, Font, Scale);
+	}
+	else if (Interaction && !Interaction->GetFocusedResourceText().IsEmpty())
+	{
+		// Harvestable in reach: its name, or what tool it needs.
+		const FString Text = Interaction->GetFocusedResourceText().ToString();
+		UFont* Font = GEngine->GetSmallFont();
+		float Width = 0.f, Height = 0.f;
+		GetTextSize(Text, Width, Height, Font, Scale);
+		const FLinearColor Color = Interaction->CanHarvestFocusedResource() ? TextColor : FLinearColor(1.f, 0.65f, 0.25f);
+		DrawText(Text, Color, CenterX - Width * 0.5f, CenterY + 24.f * Scale, Font, Scale);
 	}
 }

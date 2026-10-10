@@ -27,6 +27,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Interaction")
 	float InteractionRange = 250.f;
 
+	/** Maximum distance (cm) from the eyes for swings (harvesting). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Interaction")
+	float HarvestRange = 300.f;
+
 	/** Collision channel for the look trace. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Interaction")
 	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Visibility;
@@ -46,6 +50,14 @@ public:
 	/** Looking at water the player can drink from (lakes, rivers, ocean...: any Water plugin body). */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
 	bool IsFocusingWater() const { return bFocusingWater; }
+
+	/** Name of the harvestable resource in reach ("Tree"), with a hint if the held tool can't harvest it. Empty if none. */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
+	FText GetFocusedResourceText() const { return FocusedResourceText; }
+
+	/** Whether the held tool (or hands) can harvest the focused resource. */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
+	bool CanHarvestFocusedResource() const { return bCanHarvestFocused; }
 
 	/** Whether something can be used right now (an interactable or drinkable water). */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Interaction")
@@ -70,6 +82,7 @@ protected:
 private:
 	APawn* GetPawn() const;
 	void UpdateFocus();
+	void UpdateResourceFocus(const FHitResult& Hit);
 	void InteractWith(AActor* Target);
 	void DrinkWater();
 	bool CanDrink() const;
@@ -79,4 +92,6 @@ private:
 	TWeakObjectPtr<AActor> FocusedActor;
 	FText FocusedPrompt;
 	bool bFocusingWater = false;
+	FText FocusedResourceText;
+	bool bCanHarvestFocused = false;
 };

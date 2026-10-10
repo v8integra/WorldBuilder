@@ -11,6 +11,7 @@ class UAGBCharacterMovementComponent;
 class UAGBInventoryComponent;
 class UAGBSurvivalConfig;
 class UAGBVitalsComponent;
+class UAnimSequenceBase;
 class UInputMappingContext;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAGBItemUsedSignature, UAGBItemDefinition*, Item);
@@ -143,6 +144,25 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Survival")
 	bool IsDead() const;
 
+	/** Seconds between swings (harvesting, later attacks). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Harvesting", meta = (ClampMin = "0.1"))
+	float SwingInterval = 0.6f;
+
+	/** Animation played on each swing (e.g. the mannequin's MM_Attack_01). Needs the slot below in the Animation Blueprint. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Harvesting")
+	TObjectPtr<UAnimSequenceBase> SwingAnimation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Harvesting")
+	FName SwingAnimationSlot = TEXT("DefaultSlot");
+
+	/** Swings the selected item (or bare hands) at what the player is looking at: harvests resources in reach. */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Harvesting")
+	void Swing();
+
+	/** Shows a short message on this player's screen ("+3 Wood", "Needs a tool: Axe"). Call on the server. */
+	UFUNCTION(Client, Reliable)
+	void ClientShowMessage(const FText& Message, bool bWarning);
+
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual void OnJumped_Implementation() override;
@@ -201,6 +221,12 @@ protected:
 	UFUNCTION()
 	void HandleDeath(const FString& Cause);
 
+	UFUNCTION(Server, Reliable)
+	void ServerSwing(UPrimitiveComponent* Target, int32 InstanceIndex, FVector_NetQuantize ImpactPoint);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlaySwing();
+
 private:
 	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */
 	UPROPERTY(Transient)
@@ -224,5 +250,8 @@ private:
 	void OnHotbarCycle(const FInputActionValue& Value);
 	void OnUseItem(const FInputActionValue& Value);
 	void UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex);
+	void PlaySwingAnimation();
+
+	double LastSwingTime = -1000.0;
 	class AAGBHUD* GetAGBHUD() const;
 };

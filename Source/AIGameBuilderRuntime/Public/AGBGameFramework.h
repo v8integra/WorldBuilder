@@ -60,6 +60,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void UseHoveredSlot();
 
+	/** Short message at the bottom right for a few seconds ("+3 Wood"). Warnings are shown in orange. */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
+	void AddNotification(const FText& Message, bool bWarning);
+
 	virtual void DrawHUD() override;
 	virtual void NotifyHitBoxClick(FName BoxName) override;
 	virtual void NotifyHitBoxBeginCursorOver(FName BoxName) override;
@@ -75,6 +79,14 @@ private:
 		bool operator==(const FSlotRef& Other) const { return Inventory == Other.Inventory && Slot == Other.Slot; }
 	};
 
+	struct FNotification
+	{
+		FString Text;
+		bool bWarning = false;
+		double Time = 0.0;
+	};
+	TArray<FNotification> Notifications;
+
 	bool bInventoryOpen = false;
 	FSlotRef Hovered;
 	FSlotRef Held;
@@ -89,5 +101,6 @@ private:
 	void DrawInventoryScreen(class AAGBCharacter* Character, float Scale);
 	void DrawVitals(class AAGBCharacter* Character, float Scale);
 	void DrawDeathScreen(float Scale);
+	void DrawNotifications(float Scale);
 	void DrawFrame(float X, float Y, float W, float H, float Thickness, const FLinearColor& Color);
 };

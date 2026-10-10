@@ -1,6 +1,9 @@
 #include "GameToolUtils.h"
 
 #include "AGBCharacter.h"
+#include "AGBHarvestTypes.h"
+#include "AGBItemTypes.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "AIWorldBuilderLandscape.h"
 #include "Engine/Blueprint.h"
 #include "Engine/World.h"
@@ -74,5 +77,55 @@ namespace GameToolUtils
 			return nullptr;
 		}
 		return UBlueprint::GetBlueprintFromClass(PawnClass);
+	}
+
+	TArray<FAssetData> GetAssetsOfClass(UClass* Class)
+	{
+		IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		FARFilter Filter;
+		Filter.ClassPaths.Add(Class->GetClassPathName());
+		Filter.bRecursiveClasses = true;
+		TArray<FAssetData> Assets;
+		Registry.GetAssets(Filter, Assets);
+		return Assets;
+	}
+
+	UObject* FindAssetByTag(UClass* Class, FName Tag, const FString& Value)
+	{
+		const FString Wanted = Value.TrimStartAndEnd();
+		for (const FAssetData& Asset : GetAssetsOfClass(Class))
+		{
+			FString TagValue;
+			if (Asset.GetTagValue(Tag, TagValue) && TagValue.Equals(Wanted, ESearchCase::IgnoreCase))
+			{
+				return Asset.GetAsset();
+			}
+		}
+		return nullptr;
+	}
+
+	FString ListIds(UClass* Class, FName Tag)
+	{
+		TArray<FString> Ids;
+		for (const FAssetData& Asset : GetAssetsOfClass(Class))
+		{
+			FString TagValue;
+			if (Asset.GetTagValue(Tag, TagValue))
+			{
+				Ids.Add(TagValue);
+			}
+		}
+		Ids.Sort();
+		return Ids.Num() > 0 ? FString::Join(Ids, TEXT(", ")) : FString(TEXT("none yet"));
+	}
+
+	UAGBItemDefinition* FindItem(const FString& ItemId)
+	{
+		return Cast<UAGBItemDefinition>(FindAssetByTag(UAGBItemDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBItemDefinition, ItemId), ItemId));
+	}
+
+	UAGBResourceDefinition* FindResource(const FString& ResourceId)
+	{
+		return Cast<UAGBResourceDefinition>(FindAssetByTag(UAGBResourceDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBResourceDefinition, ResourceId), ResourceId));
 	}
 }

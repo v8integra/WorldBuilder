@@ -23,6 +23,7 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"LandscapeEditor",
 			"MeshUtilities",
 			"PCG",
+			"PhysicsCore",
 			"RenderCore",
 			"RHI",
 			"ToolsetRegistry",

@@ -377,6 +377,7 @@ half, Q drops the hovered stack). Q in game drops one of the selected hotbar ite
 | `ListItems(category = "all")` | Items with their settings. |
 | `SpawnItemPickup(itemId, count, xM, yM)` | Pickup on the ground. |
 | `SetStartingItems(items)` | `[{"itemId":"torch","count":1}]` on the game's character Blueprint (`[]` = nothing). |
+| `SetItemHandling(itemId, offsetXCm, offsetYCm, offsetZCm, pitchDeg, yawDeg, rollDeg, scale = 1, animationPath = "auto")` | Grip of a held item relative to the hand socket, and its use animation (chop/mine/swing; root motion is ignored). |
 
 Categories: Resource, Food, Tool, Weapon, Armor, Placeable, Consumable, Misc. Equip slots: None, MainHand, Head, Chest,
 Legs, Feet. Re-running `SetupGameFoundation` adds the new input actions (Inventory, Drop, HotbarSelect, HotbarCycle) to
@@ -401,6 +402,26 @@ body (lake, river, ocean...) within reach and press E. Clothing stats `Insulatio
 | `SetSurvivalRules(sprintStaminaPerSecond, jumpStaminaCost, waterDrinkAmount, fallDamageMinSpeed, fallDamagePerSpeed, respawnDelaySeconds, dropItemsOnDeath, lootBagLifetimeMinutes)` | -1 keeps a value. |
 | `SpawnHeatSource(xM, yM, warmthC = 20, radiusM = 6)` | Placeholder fire that warms the air (test temperature). |
 
+## `AIWorldBuilderToolsets.HarvestTools` (C++, harvesting)
+Runtime: `UAGBResourceDefinition` data assets (`DA_Resource_<id>`) map static meshes to a resource. Anything placed with
+those meshes — scattered foliage, PCG output, instanced meshes, or `AAGBResourceNode` actors — becomes harvestable.
+Players swing with left click (selected tool, or bare hands when nothing/a non-tool is selected; food is still eaten).
+The server (`UAGBHarvestSubsystem`) checks reach and tool: the held item needs one of the resource's `ToolTags`
+(item tags like `Tool.Axe`), its `HarvestPower` stat (default 1; hands 1) is the damage per hit, and per-hit yields are
+multiplied by that power. Depleted foliage/PCG instances are hidden (moved underground, indices kept) and regrow;
+`AAGBHarvestState` replicates that to every player, including late joiners. Trees with simple collision topple over.
+The crosshair shows the resource name (orange with the needed tool if the held item can't harvest it); "+3 Wood"
+messages appear at the bottom right. `SetupGameFoundation` assigns the mannequin's MM_Attack_01 as the swing animation
+(it plays if the Animation Blueprint has a DefaultSlot).
+
+| Tool | Use |
+|---|---|
+| `ListWorldMeshes()` | Placed meshes (Foliage / PCG / Instanced / ResourceNode) with counts, hittable or not, and their resource. |
+| `SetupHarvestCollision(meshPaths, shape = "auto", mode = "Solid")` | Make placed meshes hittable: simple collision shape (Trunk / Box / Capsule / Sphere, or keep) and collision on for every placed copy. Solid = blocks players (trees, rocks); HarvestOnly = walk-through (bushes). Foliage types default to **no collision**. |
+| `CreateResource(resourceId, displayName, meshPaths, toolTags, bAllowHands, health, yieldPerHit, yieldWhenDepleted, regrowMinutes, bFallWhenDepleted, toolHint = "auto", folder = "/Game/AIGameBuilder/Resources")` | Create or update (same id). Yields: `[{"itemId":"wood","minCount":1,"maxCount":2,"chance":1}]`. |
+| `ListResources()` | All resource definitions. |
+| `SpawnResourceNode(resourceId, xM, yM, meshIndex = 0, yawDeg = 0, scale = 1)` | A single harvestable actor (ore deposits, special rocks). |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like
@@ -418,6 +439,7 @@ Memory for building a whole game across sessions, stored in the game project (no
 | `list_decisions(source)` | Active decisions, optionally only `user` / `ai_default`. |
 | `add_tasks(milestone, titles, phase)` / `update_task(task_id, status, notes)` / `list_tasks(status, milestone)` | Task board; status `todo`, `doing`, `done`, `blocked`. |
 | `add_asset_need(name, category, purpose, placeholder)` / `update_asset(asset_id, status, path, notes)` / `list_asset_wishlist(status)` | Asset wishlist; status `needed`, `placeholder`, `provided`. |
+| `get_asset_pack_list(status)` / `add_asset_pack(name, category, search, why, priority, requirements, covers)` / `update_asset_pack(pack_id, status, content_path, notes)` | Asset packs the user should add from Fab (essential / recommended / optional, with search terms and what to check); status `suggested`, `added`, `skipped`. Seeded from the genre template (search terms filled from the Setting and Art style decisions). The AI cannot download from Fab: the user clicks "Add to Project", the AI sets the content up. |
 
 ```json
 call_tool { "toolset_name": "aiworldbuilder.toolsets.game_design.GameDesignTools", "tool_name": "record_decision",

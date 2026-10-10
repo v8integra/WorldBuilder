@@ -5,6 +5,7 @@
 
 #include "AGBItemTypes.generated.h"
 
+class UAnimSequenceBase;
 class UStaticMesh;
 class UTexture2D;
 
@@ -94,6 +95,10 @@ public:
 	/** Offset of the mesh in the hand socket when held (MainHand items). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Equip")
 	FTransform HeldOffset;
+
+	/** Animation played when swinging/using this item (chop, mine, attack). Empty = the character's default swing. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Equip")
+	TSoftObjectPtr<UAnimSequenceBase> UseAnimation;
 
 	/** Free-form tags for game systems ("Tool.Axe", "Fuel"...). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")

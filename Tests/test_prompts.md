@@ -160,7 +160,7 @@ Prereq: restart the editor (Python only, no C++ build). Python tool argument nam
 5. `seed_plan_from_template` `{}` → 37 tasks, 10 assets. Again → 0 added.
 6. `record_decision` twice on the same topic (once `ai_default`, once `user`) → second replaces the first; `list_decisions` shows only the latest.
 7. `update_task` `{"task_id":"T-001","status":"done","notes":"ok"}`, `update_asset` `{"asset_id":"A-002","status":"placeholder","path":"/Engine/BasicShapes/Cone"}` → reflected in `GameDesign.md`.
-8. Delete the `AIGameBuilder` folder after the manual tests.
+8. Manual tests above create a throwaway project: run them in a scratch project, or call `start_game_project` with `overwrite=true` when starting the real game (never delete the memory of a real game).
 **Claude Code:** "I want to make a survival game. Interview me." → asks the must-ask questions in small batches with recommendations, records answers and AI defaults, writes the design doc, seeds the plan, lists the AI defaults and most useful assets. New session: "Let's continue my game." → resumes from `get_project_memory` without re-interviewing.
 
 ## Phase 11 — Game foundation (runtime module)
@@ -203,4 +203,25 @@ Prereq: C++ build; run `SetupGameFoundation` `{"perspective":"ThirdPerson"}` aga
 9. Co-op (listen server): each player's bars are their own; a client's death/respawn works; bags can be taken by either player.
 10. Restore: `SetupSurvival` `{"difficulty":"Normal"}` resets the test values.
 **Claude Code:** "Set up survival rules from the design and make berries and water restore food and thirst." → SurvivalTools + ItemTools (stats), then marks the M3 tasks.
+
+## Phase 14 — Harvesting
+
+Prereq: C++ build; open TestWorld (trees from Phase 7); run `SetupGameFoundation` `{"perspective":"ThirdPerson"}` again (assigns the swing animation).
+1. `ListWorldMeshes` `{}` → the Megaplant tree meshes (Foliage) with counts and `bHittable`; any rock/bush meshes.
+1b. Meshes not hittable: `SetupHarvestCollision` trees `{"meshPaths":[...],"shape":"Trunk","mode":"Solid"}`, rocks ("Box" or "auto", Solid), bushes ("Box", "HarvestOnly"); `ListWorldMeshes` again → bHittable true; Save All. In Play: you can no longer walk through trees and rocks, but still through bushes.
+2. Items: `CreateItem` `stone_axe` again with tags `["Tool.Axe"]` and stats `[{"name":"HarvestPower","value":2}]`; a `stone_pickaxe` (Tool, MainHand, tags `["Tool.Pickaxe"]`, HarvestPower 2); `fiber` (Resource, 100, 0.1) if missing.
+3. `CreateResource` `{"resourceId":"tree","displayName":"Tree","meshPaths":[<tree meshes>],"toolTags":["Tool.Axe"],"bAllowHands":false,"health":10,"yieldPerHit":[{"itemId":"wood","minCount":1,"maxCount":2}],"yieldWhenDepleted":[{"itemId":"wood","minCount":4,"maxCount":6}],"regrowMinutes":2,"bFallWhenDepleted":true}` → message says how many placed trees are now harvestable.
+4. `SpawnResourceNode` a rock: first `CreateResource` "rock" with `/Engine/BasicShapes/Sphere`, toolTags `["Tool.Pickaxe"]`, bAllowHands true, yields stone; then place one near the start.
+5. Play, bare hands at a tree: crosshair "Tree: Needs a tool: Axe" (orange); left click → "Needs a tool: Axe". With the axe selected: "Tree" (white); each swing → "+2 Wood" (power 2), about 5 swings → the tree topples (if the mesh has simple collision) and disappears; wood in the hotbar/inventory.
+6. The rock: by hand → +1 stone per hit; with the pickaxe → +2 per hit; depleted → it disappears, back after the regrow time.
+7. Wait 2 minutes → the tree grows back.
+7b. Swing stays in place (no lunge). `SetItemHandling` on the axe/pickaxe until they sit right in the hand (rotate 90/180 on one axis at a time). A felled tree topples, settles within ~3 s and sinks into the ground (no rolling).
+8. Co-op (listen server): a tree felled by one player disappears for both; a client joining later sees it gone; it regrows for both.
+**Claude Code:** "Make the trees, rocks and bushes in TestWorld harvestable: axe for trees (wood), pickaxe for rocks (stone, flint), hands for bushes (fiber, berries)." → ListWorldMeshes, ItemTools, CreateResource, then marks the M4 tasks.
+
+### Phase 14b — Asset pack list (Python) and smoother tree falls
+1. Restart the editor (Python changed). Ask Claude in UE: "Run seed_plan_from_template again and show me the asset packs I should add." → 10 survival pack suggestions (essential: melee/tool animations, tools & weapons, nature pack, landscape surfaces), search terms filled from your setting/art style, already-present content can be marked added; existing tasks are not duplicated.
+2. `GameDesign.md` has an "Asset packs to add" table; `get_project_memory` lists essential packs not added yet.
+3. After adding a pack in Fab: "I added <pack> at /Game/<folder>" → `update_asset_pack(..., "added", path)` and the AI sets it up.
+4. Felling a tree: it topples away from you over ~2 s smoothly (no physics stutter), rests 1 s, sinks. Same in co-op on both screens.
 

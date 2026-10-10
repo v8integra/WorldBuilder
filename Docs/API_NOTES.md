@@ -317,4 +317,11 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   controller; call `SetViewTarget(body)` again to keep a death camera. `ACharacter::Landed` runs before the landing
   velocity is cleared (fall damage from `Velocity.Z`). Respawn with `AGameModeBase::RestartPlayer` on a timer.
 - Non-ASCII characters in `TEXT()` literals: build them from code points (e.g. `TCHAR(0x00B0)`), not source text.
-
+- **Harvesting instances (Phase 14):** hits on ISM/HISM/foliage give the instance index in `FHitResult::Item`
+  (`InstanceBodyIndex`); `UpdateInstanceTransform` takes that original index (HISM maps to render order internally).
+  Don't `RemoveInstance` (indices shift); move the instance far underground and restore it to regrow. Foliage/PCG
+  components saved in the level are stably named, so their pointers replicate (RPC targets and FastArray entries).
+  `FFastArraySerializer` (NetCore) item callbacks run on clients only: apply on the server directly. Reapply hidden
+  instances periodically because World Partition streaming reloads foliage with its saved transforms.
+- `UBodySetupCore::GetCollisionTraceFlag` needs the PhysicsCore module.
+- **Foliage collision:** `UFoliageType` defaults its BodyInstance to the NoCollision profile, so scattered foliage is walk-through and untraceable. Set the type's BodyInstance and call `AInstancedFoliageActor::NotifyFoliageTypeChanged`. Simple collision: edit `UBodySetup::AggGeom` (`RemoveSimpleCollision`, `AddCollisionFrom`, `InvalidatePhysicsData`, `CreatePhysicsMeshes`) then UnrealEd's exported `RefreshCollisionChange(UStaticMesh&)` (declared locally; GeomFitUtils.h is private). Avoid the Generate*AsSimpleCollision helpers in automation (they fit from mesh descriptions and may prompt).

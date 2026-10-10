@@ -63,6 +63,7 @@ Agents should start with `AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset.
 | `GameFoundationTools` | Game mode, player character (3rd/1st person, Enhanced Input, sprint, crouch, interaction), player starts, startup maps |
 | `ItemTools` | Item definitions, pickups, starting items (inventory, hotbar and equipment are on the player character) |
 | `SurvivalTools` | Health, stamina, hunger, thirst and custom stats, temperature, drinking, fall damage, death bags and respawn |
+| `HarvestTools` | Make placed trees, rocks and bushes (foliage, PCG, nodes) harvestable with tools, yields and regrowth |
 | `WorldCaptureTools` | Viewport captures (view, look-at, orbit, top-down) and exact height/slope maps (PNG files) |
 | `aiworldbuilder...GameDesignTools` (Python) | Game project memory: design doc, decision log, task board, asset wishlist, genre templates |
 | `aiworldbuilder...WorldBuilderInfoTools` (Python) | `ping` |

@@ -30,6 +30,8 @@ DESIGN_SECTIONS = {
 
 TASK_STATUSES = ('todo', 'doing', 'done', 'blocked')
 ASSET_STATUSES = ('needed', 'placeholder', 'provided')
+PACK_STATUSES = ('suggested', 'added', 'skipped')
+PACK_PRIORITIES = ('essential', 'recommended', 'optional')
 DECISION_SOURCES = ('user', 'ai_default')
 
 
@@ -54,6 +56,7 @@ def _empty() -> dict:
         'decisions': [],
         'tasks': [],
         'assets': [],
+        'packs': [],
     }
 
 
@@ -150,5 +153,16 @@ def render_markdown(data: dict) -> str:
         for a in data['assets']:
             where = a.get('path') or a.get('placeholder') or ''
             lines.append(f"| {a['id']} | {a['name']} | {a['category']} | {a.get('purpose', '')} | {a['status']} | {where} |")
+        lines.append('')
+
+    if data.get('packs'):
+        lines += ['## Asset packs to add (Fab / Marketplace)', '',
+                  'Add these in the editor (Fab: find the pack, "Add to Project"), then tell the AI which ones you added.', '',
+                  '| ID | Pack | Priority | Search for | Why | Must have | Status |', '|---|---|---|---|---|---|---|']
+        order = {p: i for i, p in enumerate(PACK_PRIORITIES)}
+        for k in sorted(data['packs'], key=lambda k: (order.get(k['priority'], 9), k['id'])):
+            status = k['status'] + (f" ({k['path']})" if k.get('path') else '')
+            lines.append(f"| {k['id']} | {k['name']} | {k['priority']} | {k.get('search', '')} | {k.get('why', '')} | "
+                         f"{k.get('requirements', '')} | {status} |")
         lines.append('')
     return '\n'.join(lines)

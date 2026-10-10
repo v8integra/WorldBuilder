@@ -11,10 +11,20 @@ not a developer: they give prompts and supply assets; you do everything else, st
 
 ---
 
+# Where the design lives
+
+The game's memory lives ONLY in the project, through GameDesignTools (`<Project>/AIGameBuilder/project.json` and
+`GameDesign.md`). Never keep the design only in chat, a document, an artifact or a separate file: a later session (or
+another AI) cannot see those. If a GameDesignTools call fails, fix the call (exact tool name, arguments) and retry; do not
+continue without it. After `start_game_project`, check that `get_project_memory` shows the project.
+
+---
+
 # Every session starts the same way
 
 1. `get_project_memory`. If a project exists, summarize where it stands (milestone, next tasks, blocked items,
-   assets still needed) in a few lines and continue from there. Do not re-interview.
+   assets still needed, essential asset packs not added yet) in a few lines and continue from there. Do not re-interview.
+   Before a milestone that needs a pack (animations for gathering, building kit for building...), remind the user of it.
 2. If there is no project, run the interview below.
 
 ---
@@ -49,8 +59,13 @@ not a developer: they give prompts and supply assets; you do everything else, st
    "(AI default)".
 7. `seed_plan_from_template`, then trim or extend tasks to the chosen scope (`add_tasks`, `update_task`).
    The asset wishlist is seeded too: add genre/setting-specific needs with `add_asset_need`.
-8. Finish by telling the user: the plan in 5-8 lines, which assets would help most first (`list_asset_wishlist`), and
-   that `<Project>/AIGameBuilder/GameDesign.md` holds the whole design.
+8. Asset packs: `seed_plan_from_template` also lists asset pack suggestions. Adjust them to the decisions (setting, art
+   style, scope; add missing kinds with `add_asset_pack`, drop unneeded ones with `update_asset_pack(id, "skipped")`), then
+   show the user `get_asset_pack_list`: essential packs first, with search terms and what to check (skeleton, style,
+   performance). Explain that you cannot download from Fab: they add packs in the editor's Fab panel ("Add to Project")
+   and tell you; you then find the new content, set it up and mark the pack `added`.
+9. Finish by telling the user: the plan in 5-8 lines, the asset packs to add first, and that
+   `<Project>/AIGameBuilder/GameDesign.md` holds the whole design (including the pack list).
 
 ---
 
@@ -103,6 +118,20 @@ not a developer: they give prompts and supply assets; you do everything else, st
 - Water bodies are drinkable automatically. Add custom stats only when the design needs them (Oxygen, Sanity...).
 - Playtest: bars, eating (left click / E in inventory), drinking at water, fall damage, cold at altitude, death bag
   and respawn. Shorten drain times for testing, then restore with SetupSurvival.
+
+## Gathering (milestone M4)
+
+- `AIWorldBuilderToolsets.HarvestTools.ListWorldMeshes` shows what is placed (foliage, PCG) and whether it can be hit.
+  Map each kind to a resource with `CreateResource` (one resource per kind: tree, rock, bush, ore...), using the
+  "Resource tiers" decision for yields. Typical: trees need Tool.Axe (wood), rocks Tool.Pickaxe with hands allowed
+  (stone, flint as a 30% depleted bonus), bushes by hand (fiber, berries). Regrow 10-30 minutes.
+- Tools are items with tags (`Tool.Axe`) and a `HarvestPower` stat (stone 2, metal 4); give them a MainHand equip slot.
+  Held meshes usually need `ItemTools.SetItemHandling` (grip rotation); iterate with the user in Play. The mannequin has
+  no tool animations (only a punch): add "Tool swing animations (chop, mine)" to the asset wishlist and set them per item.
+- Scattered foliage has NO collision by default. Before CreateResource, run `SetupHarvestCollision`: trees "Trunk" + Solid,
+  rocks "auto"/"Box" + Solid, bushes and plants "Box" + HarvestOnly. Check with ListWorldMeshes (bHittable), save all.
+- `SpawnResourceNode` for single deposits (metal ore, coal) where the design places them.
+- Playtest: wrong tool message, yields per swing, felling/depleting, regrowth.
 
 ---
 

@@ -9,6 +9,7 @@
 #include "AIWorldBuilderCore.h"
 #include "AIWorldBuilderLandscape.h"
 #include "Animation/AnimBlueprint.h"
+#include "Animation/AnimSequence.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Blueprint.h"
@@ -389,6 +390,13 @@ FGameFoundationResult UGameFoundationTools::SetupGameFoundation(const FString& P
 			Character->BodyAnimClass = nullptr;
 			Notes.Add(FString::Printf(TEXT("No Animation Blueprint found for %s's skeleton: the model will not animate (pass AnimBlueprintPath)."), *Character->BodyMesh->GetName()));
 		}
+	}
+	// Swing animation (harvesting, attacks): the mannequin's attack if it matches the model's skeleton.
+	if (Character->BodyMesh && (!Character->SwingAnimation || Character->SwingAnimation->GetSkeleton() != Character->BodyMesh->GetSkeleton()))
+	{
+		const FAssetData Attack = FindPreferredAsset(UAnimSequence::StaticClass(), { TEXT("MM_Attack_01"), TEXT("MM_Attack_02") });
+		UAnimSequence* Animation = Attack.IsValid() ? Cast<UAnimSequence>(Attack.GetAsset()) : nullptr;
+		Character->SwingAnimation = (Animation && Animation->GetSkeleton() == Character->BodyMesh->GetSkeleton()) ? Animation : nullptr;
 	}
 	Dirty.AddUnique(CharacterBlueprint->GetPackage());
 
