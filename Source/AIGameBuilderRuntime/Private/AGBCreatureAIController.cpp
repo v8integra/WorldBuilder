@@ -3,6 +3,7 @@
 #include "AGBCharacter.h"
 #include "AGBCreature.h"
 #include "AGBCreatureTypes.h"
+#include "AGBWorldEnvironment.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -79,6 +80,8 @@ void AAGBCreatureAIController::Think(AAGBCreature* Creature)
 	APawn* Nearest = FindNearestPlayer(Creature, NearestDistance);
 	const bool bRecentlyHurt = Now - Creature->LastDamagedTime < FleeAfterHitSeconds;
 	const double FromHome = FVector::Dist2D(Creature->GetActorLocation(), Creature->Home);
+	const AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld());
+	const float AggroRange = Definition->AggroRange * (Environment && Environment->IsNight() ? Environment->NightAggroMultiplier : 1.f);
 
 	// Current target still worth chasing?
 	if (State == EAGBCreatureState::Chase)
@@ -86,7 +89,7 @@ void AAGBCreatureAIController::Think(AAGBCreature* Creature)
 		APawn* Hunted = Target.Get();
 		const AAGBCharacter* HuntedCharacter = Cast<AAGBCharacter>(Hunted);
 		const bool bLost = !Hunted || (HuntedCharacter && HuntedCharacter->IsDead())
-			|| FVector::Dist(Hunted->GetActorLocation(), Creature->GetActorLocation()) > Definition->AggroRange * 1.5
+			|| FVector::Dist(Hunted->GetActorLocation(), Creature->GetActorLocation()) > AggroRange * 1.5
 			|| FromHome > Definition->LeashRange;
 		if (bLost)
 		{
@@ -105,7 +108,7 @@ void AAGBCreatureAIController::Think(AAGBCreature* Creature)
 			State = EAGBCreatureState::Chase;
 			return;
 		}
-		if (Nearest && NearestDistance <= Definition->AggroRange && FromHome < Definition->LeashRange && State != EAGBCreatureState::Return)
+		if (Nearest && NearestDistance <= AggroRange && FromHome < Definition->LeashRange && State != EAGBCreatureState::Return)
 		{
 			Target = Nearest;
 			State = EAGBCreatureState::Chase;

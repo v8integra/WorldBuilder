@@ -68,6 +68,7 @@ Agents should start with `AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset.
 | `BuildingTools` | Snap building (foundations, walls, doors, floors, roofs, stairs), storage, beds, repair/demolish, structural collapse |
 | `CreatureTools` | Wildlife (passive / skittish / aggressive), biome spawn zones, hunting and butchering |
 | `CombatTools` | Melee, ranged and thrown weapons, armor, durability |
+| `WorldEnvironmentTools` | Day and night, weather, seasons, biome climate zones |
 | `WorldCaptureTools` | Viewport captures (view, look-at, orbit, top-down) and exact height/slope maps (PNG files) |
 | `aiworldbuilder...GameDesignTools` (Python) | Game project memory: design doc, decision log, task board, asset wishlist, genre templates |
 | `aiworldbuilder...WorldBuilderInfoTools` (Python) | `ping` |

@@ -13,8 +13,13 @@ float UAGBHeatSourceComponent::GetWarmthAt(const FVector& Location) const
 	{
 		return 0.f;
 	}
-	const double Distance = FVector::Dist(GetComponentLocation(), Location);
-	return Distance >= Radius ? 0.f : WarmthC * static_cast<float>(1.0 - Distance / Radius);
+	const double Distance = FVector::Dist2D(GetComponentLocation(), Location);
+	if (Distance >= Radius)
+	{
+		return 0.f;
+	}
+	const double Inner = FMath::Min<double>(InnerRadius, Radius - 1.0);
+	return Distance <= Inner ? WarmthC : WarmthC * static_cast<float>(1.0 - (Distance - Inner) / (Radius - Inner));
 }
 
 void UAGBHeatSourceComponent::BeginPlay()
@@ -50,6 +55,13 @@ float UAGBClimateSubsystem::GetTemperatureAt(FVector Location, const UAGBSurviva
 		}
 	}
 	return Temperature + Warmth;
+}
+
+AAGBClimateZone::AAGBClimateZone()
+{
+	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
+	Climate = CreateDefaultSubobject<UAGBHeatSourceComponent>(TEXT("Climate"));
+	Climate->SetupAttachment(GetRootComponent());
 }
 
 AAGBHeatSource::AAGBHeatSource()

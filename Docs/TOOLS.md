@@ -491,6 +491,23 @@ a red flash. The inventory title shows total armor.
 
 `ItemTools.SetItemStat(itemId, statName, value, bRemove = false)` changes one stat (e.g. add `Durability` to an existing tool).
 
+## `AIWorldBuilderToolsets.WorldEnvironmentTools` (C++, day/night, weather, seasons, climate)
+Runtime: `AAGBWorldEnvironment` (one per level, replicated clock and weather): the cycle runs DayLengthMinutes with
+NightFraction of it at night (18:00-06:00); the level's atmosphere sun is rotated (east -> SunYaw at noon -> west), a
+moon light and a night exposure bias keep nights dark; weather types (weights, durations, temperature offset, sun and
+fog multipliers, precipitation) change over time and blend over a minute; precipitation is snow below SnowBelowC
+(optional Niagara rain/snow effects follow the player). Night cooling + weather + optional seasons feed the climate
+temperature; `AAGBClimateZone` adds biome offsets with soft edges. Aggressive creatures' aggro range is multiplied at
+night. HUD: "Day 2  21:40  Rain    12 degC". Console (PIE, also from clients): `AGBTime <hour>`, `AGBWeather <id>`.
+
+| Tool | Use |
+|---|---|
+| `SetupWorldEnvironment(dayLengthMinutes = 60, nightFraction = 0.333, startHour = 8, nightCoolingC = 8, nightAggroMultiplier = 1.5, bWeather = true, bSeasons = false, seasonLengthDays = 7, bCreateMissingSky = true)` | Places/updates the environment; makes the sun and sky light Movable, sky light real-time capture; adds a missing sun/sky atmosphere/sky light/fog. |
+| `SetWeatherType(weatherId, weight, minMinutes, maxMinutes, temperatureOffsetC, sunMultiplier, fogMultiplier, bPrecipitation, bRemove = false)` | Add/change/remove a weather type. |
+| `SetWeatherEffects(rainSystemPath = "none", snowSystemPath = "none")` | Niagara systems for rain and snow. |
+| `CreateClimateZone(centerXM, centerYM, radiusM, temperatureOffsetC, edgeM = 50, label)` | Warmer/colder biome area. |
+| `GetWorldEnvironment()` | Settings, weathers, lighting actors (mobility), climate zones. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

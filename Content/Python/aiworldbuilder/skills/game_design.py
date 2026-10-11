@@ -178,6 +178,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
 - Add durability to earlier tools with `ItemTools.SetItemStat(id, "Durability", n)`; recipes with CraftingTools.
 - Playtest: durability bars and breaking, bow/arrow recovery, spear throw, armor in the inventory title, hit flash.
 
+## World systems (milestone M9)
+
+- `AIWorldBuilderToolsets.WorldEnvironmentTools.SetupWorldEnvironment` from the "Day/night cycle" decision (default
+  60 min, a third of it night), then save the level. It fixes the lighting so the sun can move; mention any changes.
+- Weather fitting the setting with `SetWeatherType` (desert: rare rain, sandstorm with heat and fog; tundra: frequent
+  precipitation = snow). Seasons only if the design asks for them.
+- Climate zones from the world builder's biomes: snowfields/glaciers -8 to -15, deserts +8 to +12, hot springs +15.
+  Mountains are already colder by altitude (SurvivalTools temperature rules).
+- Rain/snow particles when a VFX pack is added (`SetWeatherEffects`).
+- Playtest with the console: `AGBTime 22`, `AGBWeather Rain`.
+
 ---
 
 # Things the user must do themselves

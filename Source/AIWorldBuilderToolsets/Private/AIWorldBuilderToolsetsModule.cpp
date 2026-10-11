@@ -18,6 +18,7 @@
 #include "PCGWorldTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WaterTools.h"
+#include "WorldEnvironmentTools.h"
 #include "WorldCaptureTools.h"
 
 class FAIWorldBuilderToolsetsModule : public IModuleInterface
@@ -64,6 +65,7 @@ private:
 			UBuildingTools::StaticClass(),
 			UCreatureTools::StaticClass(),
 			UCombatTools::StaticClass(),
+			UWorldEnvironmentTools::StaticClass(),
 		};
 	}
 };

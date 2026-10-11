@@ -8,6 +8,7 @@
 #include "AGBInventoryComponent.h"
 #include "AGBSurvivalConfig.h"
 #include "AGBVitalsComponent.h"
+#include "AGBWorldEnvironment.h"
 #include "TimerManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -60,6 +61,32 @@ AAGBGameMode::AAGBGameMode()
 	DefaultPawnClass = AAGBCharacter::StaticClass();
 	PlayerControllerClass = AAGBPlayerController::StaticClass();
 	HUDClass = AAGBHUD::StaticClass();
+}
+
+void AAGBPlayerController::AGBTime(float Hour)
+{
+	ServerSetTime(Hour);
+}
+
+void AAGBPlayerController::AGBWeather(const FString& Weather)
+{
+	ServerSetWeather(Weather);
+}
+
+void AAGBPlayerController::ServerSetTime_Implementation(float Hour)
+{
+	if (AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld()))
+	{
+		Environment->SetHour(Hour);
+	}
+}
+
+void AAGBPlayerController::ServerSetWeather_Implementation(const FString& Weather)
+{
+	if (AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld()))
+	{
+		Environment->SetWeather(FName(*Weather));
+	}
 }
 
 void AAGBGameMode::RestartPlayer(AController* NewPlayer)
@@ -324,7 +351,11 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 	const TCHAR* Feeling = Air < Comfort.X ? TEXT("  Cold!") : (Air > Comfort.Y ? TEXT("  Hot!") : TEXT(""));
 	const FLinearColor TemperatureColor = Air < Comfort.X ? FLinearColor(0.5f, 0.8f, 1.f) : (Air > Comfort.Y ? FLinearColor(1.f, 0.5f, 0.3f) : TextColor);
 	float TextW = 0.f, TextH = 0.f;
-	const FString Temperature = FString::Printf(TEXT("%.0f %sC%s"), Air, *FString(1, &DegreeSign), Feeling);
+	FString Temperature = FString::Printf(TEXT("%.0f %sC%s"), Air, *FString(1, &DegreeSign), Feeling);
+	if (const AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld()))
+	{
+		Temperature = Environment->DescribeForPlayer(Air) + TEXT("    ") + Temperature;
+	}
 	GetTextSize(Temperature, TextW, TextH, Font, Scale);
 	Y -= TextH;
 	DrawText(Temperature, TemperatureColor, X, Y, Font, Scale);
@@ -346,6 +377,70 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 		GetTextSize(Label, TextW, TextH, Font, Scale * 0.9f);
 		DrawText(Label, TextColor, X + 6.f, Y + (Height - TextH) * 0.5f, Font, Scale * 0.9f);
 		Y -= Gap;
+	}
+}
+
+void AAGBHUD::DrawPrecipitation(AAGBCharacter* Character, float Scale)
+{
+	const AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld());
+	const double Now = GetWorld()->GetTimeSeconds();
+	const float DeltaSeconds = static_cast<float>(FMath::Clamp(Now - LastPrecipitationTime, 0.0, 0.1));
+	LastPrecipitationTime = Now;
+	// A Niagara effect replaces this placeholder when the game has one.
+	if (!Environment || !Character || Environment->GetPrecipitation() < 0.05f
+		|| !Environment->RainEffect.IsNull() || !Environment->SnowEffect.IsNull())
+	{
+		return;
+	}
+
+	// Nothing falls on players under a roof (checked a few times a second).
+	if (Now >= NextShelterCheck)
+	{
+		NextShelterCheck = Now + 0.3;
+		FVector ViewLocation;
+		FRotator ViewRotation;
+		GetOwningPlayerController()->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBShelter), false, Character);
+		FHitResult Hit;
+		bSheltered = GetWorld()->LineTraceSingleByChannel(Hit, Character->GetActorLocation(), Character->GetActorLocation() + FVector(0.0, 0.0, 3000.0), ECC_Visibility, Params);
+	}
+	if (bSheltered)
+	{
+		return;
+	}
+
+	const bool bSnow = Character->Vitals && Character->Vitals->GetAirTemperature() < Environment->SnowBelowC;
+	const int32 Count = FMath::RoundToInt((bSnow ? 160.f : 260.f) * Environment->GetPrecipitation());
+	while (Drops.Num() < Count)
+	{
+		Drops.Add(FVector(FMath::FRand(), FMath::FRand(), FMath::FRandRange(0.7f, 1.3f)));
+	}
+	Drops.SetNum(Count);
+
+	const float W = Canvas->ClipX;
+	const float H = Canvas->ClipY;
+	const float Fall = (bSnow ? 0.12f : 1.6f) * DeltaSeconds;
+	for (FVector& Drop : Drops)
+	{
+		Drop.Y += Fall * Drop.Z;
+		Drop.X += (bSnow ? FMath::Sin(static_cast<float>(Now) * 1.3f + Drop.Z * 9.f) * 0.02f : 0.12f) * DeltaSeconds;
+		if (Drop.Y > 1.f)
+		{
+			Drop = FVector(FMath::FRand(), 0.f, FMath::FRandRange(0.7f, 1.3f));
+		}
+		Drop.X = FMath::Frac(Drop.X);
+		const float X = Drop.X * W;
+		const float Y = Drop.Y * H;
+		if (bSnow)
+		{
+			const float Flake = 3.f * Scale * Drop.Z;
+			DrawRect(FLinearColor(1.f, 1.f, 1.f, 0.7f), X, Y, Flake, Flake);
+		}
+		else
+		{
+			const float Length = 28.f * Scale * Drop.Z;
+			DrawLine(X, Y, X + Length * 0.12f, Y + Length, FLinearColor(0.75f, 0.82f, 0.95f, 0.35f), 1.f);
+		}
 	}
 }
 
@@ -778,6 +873,10 @@ void AAGBHUD::DrawHUD()
 		return;
 	}
 
+	if (!bInventoryOpen)
+	{
+		DrawPrecipitation(Character, Scale);
+	}
 	if (bInventoryOpen)
 	{
 		DrawInventoryScreen(Character, Scale);

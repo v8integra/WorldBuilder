@@ -272,3 +272,14 @@ Prereq: C++ build. Wolves/deer from Phase 17.
 5. Co-op: arrows fly for both players; the other player is never hurt by your arrows or swings.
 **Claude Code:** "Add weapons and armor from the design (spear, bow and arrows, leather armor) with recipes, and give tools durability." → CombatTools + ItemTools.SetItemStat + CraftingTools, then marks the M8 combat tasks.
 
+## Phase 19 — World systems
+
+Prereq: C++ build (new Niagara dependency). Open TestWorld; Save All first.
+1. `SetupWorldEnvironment` `{}` → message lists lighting changes (sun/sky light made Movable, sky light real-time capture, anything added). `GetWorldEnvironment` shows 4 weather types.
+2. Play: HUD shows "Day 1  08:xx  Clear    NN degC". Console `AGBTime 18` → sunset colours; `AGBTime 22` → dark night with faint moonlight, temperature several degrees lower, wolves notice you from farther; `AGBTime 6` → sunrise.
+3. `AGBWeather Rain` → sun dims, fog thickens, temperature drops ~4 degC, HUD says Rain (Snow if you stand somewhere below 2 degC, e.g. high mountains or `SetTemperatureRules` base 0). `AGBWeather Clear` back. Without commands the weather changes by itself every few minutes.
+4. `CreateClimateZone` cold area `{"centerXM":..,"centerYM":..,"radiusM":100,"temperatureOffsetC":-12}` → walking in: "Cold!" and snow during rain; a warm zone (+10) the opposite.
+5. Optional: `SetupWorldEnvironment` with `bSeasons` true and `seasonLengthDays` 1 → HUD shows the season; temperature shifts by season.
+6. Co-op: both players see the same time and weather; `AGBTime` typed on the client changes it for both.
+**Claude Code:** "Set up day/night, weather and biome climate from the design: 60-minute days, colder nights, snowy mountains, a warm valley." → WorldEnvironmentTools, then marks the M9 world tasks.
+

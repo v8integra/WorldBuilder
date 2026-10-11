@@ -26,6 +26,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Temperature", meta = (ClampMin = "1"))
 	float Radius = 600.f;
 
+	/** Full effect within this distance (cm); fades from here to Radius. 0 = fades from the centre. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Temperature", meta = (ClampMin = "0"))
+	float InnerRadius = 0.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|Temperature")
 	bool bActive = true;
 
@@ -58,6 +62,22 @@ public:
 
 private:
 	TArray<TWeakObjectPtr<UAGBHeatSourceComponent>> HeatSources;
+};
+
+/**
+ * A biome's local climate: makes an area warmer (desert, hot springs) or colder (snowfields, glacier) than the
+ * altitude rule alone, with a soft edge. Placed by the AI's WorldEnvironmentTools.
+ */
+UCLASS()
+class AIGAMEBUILDERRUNTIME_API AAGBClimateZone : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	AAGBClimateZone();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder")
+	TObjectPtr<UAGBHeatSourceComponent> Climate;
 };
 
 /** A placeholder fire that only gives heat and light (real campfires with fuel and cooking come with crafting). */

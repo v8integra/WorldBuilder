@@ -33,6 +33,21 @@ class AIGAMEBUILDERRUNTIME_API AAGBPlayerController : public APlayerController
 public:
 	/** Server: where this player respawns (a bed). Empty = a player start. */
 	TWeakObjectPtr<AActor> RespawnPoint;
+
+	/** Console (testing): jumps the clock to an hour, e.g. "AGBTime 22". */
+	UFUNCTION(Exec)
+	void AGBTime(float Hour);
+
+	/** Console (testing): sets the weather, e.g. "AGBWeather Rain". */
+	UFUNCTION(Exec)
+	void AGBWeather(const FString& Weather);
+
+protected:
+	UFUNCTION(Server, Reliable)
+	void ServerSetTime(float Hour);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetWeather(const FString& Weather);
 };
 
 /**
@@ -107,6 +122,11 @@ private:
 
 	bool bInventoryOpen = false;
 	double DamageFlashTime = -100.0;
+	/** Screen-space rain/snow particles (x, y in 0-1, speed). */
+	TArray<FVector> Drops;
+	double NextShelterCheck = 0.0;
+	bool bSheltered = false;
+	double LastPrecipitationTime = 0.0;
 	float DamageFlashStrength = 0.f;
 	TWeakObjectPtr<class AAGBCraftingStation> CurrentStation;
 	TWeakObjectPtr<UAGBInventoryComponent> CurrentContainer;
@@ -130,6 +150,7 @@ private:
 	void DrawVitals(class AAGBCharacter* Character, float Scale);
 	void DrawDeathScreen(float Scale);
 	void DrawNotifications(float Scale);
+	void DrawPrecipitation(class AAGBCharacter* Character, float Scale);
 	void DrawCraftingPanel(class AAGBCharacter* Character, float Scale);
 	void DrawContainerPanel(class AAGBCharacter* Character, float Scale);
 	bool HandleCraftingClick(const FString& BoxName);
