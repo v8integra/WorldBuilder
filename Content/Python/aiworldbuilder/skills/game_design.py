@@ -144,6 +144,16 @@ continue without it. After `start_game_project`, check that `get_project_memory`
 - Place a starter campfire with `SpawnStation` only if the design wants one at the start.
 - Playtest: Tab crafting panel, queue/cancel, discover, place and fuel a campfire, cook, walk away (pause).
 
+## Building (milestone M6)
+
+- `AIWorldBuilderToolsets.BuildingTools.SetupBuilding` once. Then `CreatePiece` for each piece of the first tier in the
+  "Building" decision (foundation, wall, doorway, door, window, floor, roof, stairs), plus storage box and bed; give
+  them recipes (CraftingTools; foundations/walls ~10-25 wood, at the workbench for higher tiers). Health by tier:
+  thatch 250, wood 800, stone 2500, metal 6000. Make a hammer (tag `Tool.Hammer`) for repairs and demolishing.
+- With a building kit pack: all pieces of a set share one grid size (measure the foundation mesh: 3, 4 or 5 m); use
+  meshYawDeg 90 if the kit's walls run along X; meshOffsetZCm if pivots are not at the floor.
+- Playtest: snapping, doors, stairs, storage, bed respawn, demolish + collapse, co-op building.
+
 ---
 
 # Things the user must do themselves

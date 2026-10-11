@@ -238,3 +238,15 @@ Prereq: C++ build. Items from earlier phases (wood, stone, fiber, berries...); g
 8. Co-op: each player has their own queue and known recipes; a campfire lit by one is lit for both; both can cook at it.
 **Claude Code:** "Set up crafting from the design: campfire and workbench stations, tier-1 tool recipes, cooking at the campfire." → CraftingTools (+ ItemTools for missing items), then marks the M5 tasks.
 
+## Phase 16 — Building
+
+Prereq: C++ build; `SetupGameFoundation` again (adds the Rotate action: R); `SetupBuilding` `{}`.
+1. Pieces (placeholder blocks): `CreatePiece` wood_foundation (Foundation, health 800), wood_wall (Wall), wood_doorway (Doorway), wood_door (Door), wood_window (Window), wood_floor (Floor), wood_roof (Roof), wood_stairs (Stairs), storage_box (Storage, 20 slots), bed (Bed). Recipes for each (by hand or at the workbench), and a `hammer` item (Tool, MainHand, tags ["Tool.Hammer"]) with a recipe. `ListPieces` shows them with their items.
+2. Play: craft a few foundations and walls. Select a foundation: green preview on fairly flat ground, red with a reason on a steep slope ("too uneven"); R rotates; left click places. Next foundation snaps beside the first.
+3. Walls snap to foundation edges (aim near an edge), stack on walls; doorway + door (E opens/closes); window; floor on wall tops (you can stand on it); roof; stairs on a foundation (walk up).
+4. Storage box on the floor: E opens a panel next to your inventory; move items in and out (click/click). Bed: E → "Respawn point set"; die → respawn next to the bed.
+5. Hammer: aiming at a piece shows "Demolish Wood Wall (800/800)"; E demolishes and gives the item back. Demolish a foundation → the walls/floor/roof standing only on it collapse a moment later; a storage box on it drops its contents in a bag.
+6. Can't place a wall where one already is; can't place a wall/door inside a player ("A player is in the way").
+7. Co-op: both players see each other's building, previews are local, doors/storage/beds work for both; a client's placement matches the green preview.
+**Claude Code:** "Set up building from the design: wood tier pieces with recipes at the workbench, a hammer, storage box and bed." → BuildingTools + CraftingTools, then marks the M6 tasks.
+

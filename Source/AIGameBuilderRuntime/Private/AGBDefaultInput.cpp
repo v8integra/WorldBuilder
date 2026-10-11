@@ -70,6 +70,7 @@ namespace AGBInput
 		void MapInventory(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Tab); C->MapKey(A, EKeys::Gamepad_FaceButton_Top); }
 		void MapDrop(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Q); C->MapKey(A, EKeys::Gamepad_DPad_Down); }
 		void MapUseItem(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::LeftMouseButton); C->MapKey(A, EKeys::Gamepad_RightTrigger); }
+		void MapRotate(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::R); C->MapKey(A, EKeys::Gamepad_DPad_Up); }
 
 		void MapHotbarSelect(UInputMappingContext* C, UInputAction* A)
 		{
@@ -101,6 +102,7 @@ namespace AGBInput
 			{ &FAGBInputSet::HotbarSelect, TEXT("IA_AGB_HotbarSelect"), EInputActionValueType::Axis1D, &MapHotbarSelect },
 			{ &FAGBInputSet::HotbarCycle, TEXT("IA_AGB_HotbarCycle"), EInputActionValueType::Axis1D, &MapHotbarCycle },
 			{ &FAGBInputSet::UseItem, TEXT("IA_AGB_UseItem"), EInputActionValueType::Boolean, &MapUseItem },
+			{ &FAGBInputSet::Rotate, TEXT("IA_AGB_Rotate"), EInputActionValueType::Boolean, &MapRotate },
 		};
 	}
 

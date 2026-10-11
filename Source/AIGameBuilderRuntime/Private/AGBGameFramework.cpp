@@ -20,6 +20,7 @@ namespace
 	constexpr int32 BackpackIndex = 0;
 	constexpr int32 HotbarIndex = 1;
 	constexpr int32 EquipmentIndex = 2;
+	constexpr int32 ContainerIndex = 3;
 	constexpr int32 InventoryColumns = 6;
 
 	const FLinearColor SlotColor(0.f, 0.f, 0.f, 0.55f);
@@ -59,6 +60,20 @@ AAGBGameMode::AAGBGameMode()
 	DefaultPawnClass = AAGBCharacter::StaticClass();
 	PlayerControllerClass = AAGBPlayerController::StaticClass();
 	HUDClass = AAGBHUD::StaticClass();
+}
+
+void AAGBGameMode::RestartPlayer(AController* NewPlayer)
+{
+	const AAGBPlayerController* PlayerController = Cast<AAGBPlayerController>(NewPlayer);
+	const AActor* Bed = PlayerController ? PlayerController->RespawnPoint.Get() : nullptr;
+	if (Bed)
+	{
+		// Beside the bed, facing the same way.
+		const FVector Location = Bed->GetActorLocation() + Bed->GetActorRightVector() * 120.0 + FVector(0.0, 0.0, 110.0);
+		RestartPlayerAtTransform(NewPlayer, FTransform(FRotator(0.0, Bed->GetActorRotation().Yaw, 0.0), Location));
+		return;
+	}
+	Super::RestartPlayer(NewPlayer);
 }
 
 void AAGBGameMode::ScheduleRespawn(AController* Controller, float DelaySeconds)
@@ -106,6 +121,7 @@ void AAGBHUD::ToggleInventory()
 	}
 	bInventoryOpen = !bInventoryOpen;
 	CurrentStation.Reset();
+	CurrentContainer.Reset();
 	Held = FSlotRef();
 	Hovered = FSlotRef();
 
@@ -140,9 +156,48 @@ AAGBHUD::FSlotRef AAGBHUD::ParseHitBox(FName BoxName) const
 	{
 		return Ref;
 	}
-	Ref.Inventory = InventoryByIndex(Character, FCString::Atoi(*Parts[1]));
+	const int32 InventoryIndex = FCString::Atoi(*Parts[1]);
+	Ref.Inventory = InventoryIndex == ContainerIndex ? CurrentContainer.Get() : InventoryByIndex(Character, InventoryIndex);
 	Ref.Slot = FCString::Atoi(*Parts[2]);
 	return Ref;
+}
+
+void AAGBHUD::OpenContainer(UAGBInventoryComponent* Container)
+{
+	if (!bInventoryOpen)
+	{
+		ToggleInventory();
+	}
+	CurrentStation.Reset();
+	CurrentContainer = Container;
+}
+
+void AAGBHUD::DrawContainerPanel(AAGBCharacter* Character, float Scale)
+{
+	UAGBInventoryComponent* Container = CurrentContainer.Get();
+	if (!Container || !Container->CanBeAccessedBy(Character))
+	{
+		CurrentContainer.Reset();
+		return;
+	}
+	const float Padding = 16.f * Scale;
+	const float Width = CraftingPanelWidth * Scale;
+	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), CraftingPanelX, CraftingPanelY, Width, CraftingPanelHeight);
+	DrawText(Container->DisplayName.ToString(), TextColor, CraftingPanelX + Padding, CraftingPanelY + Padding, GEngine->GetMediumFont(), Scale);
+
+	const float Size = 60.f * Scale;
+	const float Step = Size + 6.f * Scale;
+	const int32 Columns = FMath::Max(1, FMath::FloorToInt((Width - Padding * 2.f + 6.f * Scale) / Step));
+	const float Top = CraftingPanelY + Padding + 40.f * Scale;
+	for (int32 Index = 0; Index < Container->GetNumSlots(); ++Index)
+	{
+		const float Y = Top + (Index / Columns) * Step;
+		if (Y + Size > CraftingPanelY + CraftingPanelHeight - Padding)
+		{
+			break;
+		}
+		DrawSlot(Container, ContainerIndex, Index, CraftingPanelX + Padding + (Index % Columns) * Step, Y, Size, false, FString());
+	}
 }
 
 void AAGBHUD::OpenStation(AAGBCraftingStation* Station)
@@ -151,6 +206,7 @@ void AAGBHUD::OpenStation(AAGBCraftingStation* Station)
 	{
 		ToggleInventory();
 	}
+	CurrentContainer.Reset();
 	CurrentStation = Station;
 }
 
@@ -694,7 +750,14 @@ void AAGBHUD::DrawHUD()
 	if (bInventoryOpen)
 	{
 		DrawInventoryScreen(Character, Scale);
-		DrawCraftingPanel(Character, Scale);
+		if (CurrentContainer.IsValid())
+		{
+			DrawContainerPanel(Character, Scale);
+		}
+		if (!CurrentContainer.IsValid())
+		{
+			DrawCraftingPanel(Character, Scale);
+		}
 	}
 	DrawHotbar(Character, Scale);
 	DrawVitals(Character, Scale);
@@ -722,6 +785,15 @@ void AAGBHUD::DrawHUD()
 		const float Y = CenterY + 40.f * Scale;
 		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X - 8.f, Y - 4.f, Width + 16.f, Height + 8.f);
 		DrawText(Prompt, TextColor, X, Y, Font, Scale);
+	}
+	else if (Character->IsBuilding())
+	{
+		const FAGBPlacement& Placement = Character->GetBuildPlacement();
+		const FString Text = Placement.bValid ? FString(TEXT("Left click: place    R: rotate")) : Placement.Reason.ToString();
+		UFont* Font = GEngine->GetSmallFont();
+		float Width = 0.f, Height = 0.f;
+		GetTextSize(Text, Width, Height, Font, Scale);
+		DrawText(Text, Placement.bValid ? TextColor : FLinearColor(1.f, 0.65f, 0.25f), CenterX - Width * 0.5f, CenterY + 24.f * Scale, Font, Scale);
 	}
 	else if (Interaction && !Interaction->GetFocusedResourceText().IsEmpty())
 	{

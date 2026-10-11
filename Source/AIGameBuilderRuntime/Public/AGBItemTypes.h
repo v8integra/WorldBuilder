@@ -5,6 +5,7 @@
 
 #include "AGBItemTypes.generated.h"
 
+class UAGBBuildPieceDefinition;
 class UAGBStationDefinition;
 class UAnimSequenceBase;
 class UStaticMesh;
@@ -100,6 +101,10 @@ public:
 	/** Animation played when swinging/using this item (chop, mine, attack). Empty = the character's default swing. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Equip")
 	TSoftObjectPtr<UAnimSequenceBase> UseAnimation;
+
+	/** Placeable items: the building piece this item places (select it on the hotbar, aim, left-click; R rotates). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Placeable")
+	TObjectPtr<UAGBBuildPieceDefinition> PlacesPiece;
 
 	/** Placeable items: the crafting station this item places (select it on the hotbar and left-click the ground). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Placeable")

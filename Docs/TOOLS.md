@@ -438,6 +438,24 @@ UI: the Tab screen has a crafting panel (click craft 1, Shift+click 5, click a q
 | `ListCrafting()` | All recipes and stations, one line each. |
 | `SpawnStation(stationId, xM, yM, yawDeg = 0, fuelSeconds = 0)` | Place a station in the level (starting camp, tests). |
 
+## `AIWorldBuilderToolsets.BuildingTools` (C++, building)
+Runtime: `UAGBBuildPieceDefinition` (type, mesh + offset, grid size, height, thickness, health, tier, storage slots),
+`AAGBBuildPiece` (one replicated actor per placed piece), `AAGBBuildGhost` (local preview). Players craft piece items
+(`PlacesPiece`) and place them from the hotbar: a green/red preview follows the aim, R rotates, left click places
+(the server re-checks). Snapping: foundations to foundations; walls/doorways/windows on slab edges and on top of walls;
+floors and roofs on wall tops; doors into doorways; stairs on slabs; storage, beds and props on any flat surface.
+Free foundations need fairly even ground (legs reach 4x the thickness down). Support: every piece knows what holds it;
+when all of it is gone, it collapses (cascading). Hammer (item tag `Tool.Hammer`): swing repairs 20% x HarvestPower;
+E while holding it demolishes and refunds the item. Doors: E. Storage: E opens a container panel next to the inventory.
+Beds: E sets the respawn point (the game mode respawns there). Origins: slabs = top centre; walls = bottom centre with
+the wall along local Y (use `meshYawDeg` 90 for kits whose walls run along X).
+
+| Tool | Use |
+|---|---|
+| `SetupBuilding(folder = "/Game/AIGameBuilder/Core")` | Creates `M_AGB_BuildGhost` (see-through preview) and assigns it to the character. Once per project. |
+| `CreatePiece(pieceId, displayName, pieceType, meshPath = "auto", gridSizeM = 3, heightM = 3, thicknessCm = 20, maxHealth = 500, tier = "Wood", storageSlots = 20, meshOffsetZCm = 0, meshYawDeg = 0, meshScale = 1, placeableItemId = "auto", folder = "/Game/AIGameBuilder/Building")` | Piece + its placeable item (created if missing). Then a recipe with CraftingTools. |
+| `ListPieces()` | All pieces. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

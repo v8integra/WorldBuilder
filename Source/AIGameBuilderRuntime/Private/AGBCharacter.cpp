@@ -3,6 +3,7 @@
 #include "AGBCharacterMovementComponent.h"
 #include "AGBGameFramework.h"
 #include "AGBInteractionComponent.h"
+#include "AGBBuildingTypes.h"
 #include "AGBCraftingComponent.h"
 #include "AGBCraftingStation.h"
 #include "AGBCraftingTypes.h"
@@ -312,9 +313,140 @@ int32 AAGBCharacter::TakeItem(const UAGBItemDefinition* Item, int32 Count)
 	return Taken;
 }
 
+bool AAGBCharacter::IsBuilding() const
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	return !Selected.IsEmpty() && Selected.Item->PlacesPiece && !IsDead();
+}
+
+void AAGBCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (IsLocallyControlled())
+	{
+		UpdateBuildPreview();
+	}
+}
+
+void AAGBCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (BuildGhost)
+	{
+		BuildGhost->Destroy();
+		BuildGhost = nullptr;
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void AAGBCharacter::UpdateBuildPreview()
+{
+	const AAGBHUD* HUD = GetAGBHUD();
+	const bool bShow = IsBuilding() && Controller && !(HUD && HUD->IsInventoryOpen());
+	BuildPlacement = FAGBPlacement();
+	if (!bShow)
+	{
+		if (BuildGhost)
+		{
+			BuildGhost->SetActorHiddenInGame(true);
+		}
+		return;
+	}
+
+	const UAGBBuildPieceDefinition* Piece = GetSelectedItem().Item->PlacesPiece;
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	const FVector Eyes = GetPawnViewLocation();
+	const FVector End = ViewLocation + ViewRotation.Vector() * (FVector::Dist(ViewLocation, Eyes) + PlaceRange);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBBuildAim), /*bTraceComplex=*/false, this);
+	if (BuildGhost)
+	{
+		Params.AddIgnoredActor(BuildGhost);
+	}
+	FHitResult Hit;
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, ECC_Visibility, Params) || FVector::Dist(Hit.ImpactPoint, Eyes) > PlaceRange)
+	{
+		BuildPlacement.Reason = NSLOCTEXT("AIGameBuilder", "BuildAim", "Aim at the ground or your building nearby");
+		if (BuildGhost)
+		{
+			BuildGhost->SetActorHiddenInGame(true);
+		}
+		return;
+	}
+	BuildAimPoint = Hit.ImpactPoint;
+	BuildAimNormal = Hit.ImpactNormal;
+	BuildAimActor = Hit.GetActor();
+	BuildPlacement = AGBBuilding::FindPlacement(this, Piece, BuildAimPoint, BuildAimNormal, Hit.GetActor(), BuildYaw);
+
+	if (!BuildGhost)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.ObjectFlags |= RF_Transient;
+		BuildGhost = GetWorld()->SpawnActor<AAGBBuildGhost>(AAGBBuildGhost::StaticClass(), FTransform::Identity, SpawnParams);
+	}
+	if (BuildGhost)
+	{
+		const FTransform Shown = BuildPlacement.bValid || BuildPlacement.bSnapped
+			? BuildPlacement.Transform
+			: FTransform(FRotator(0.0, GetActorRotation().Yaw + BuildYaw, 0.0), BuildAimPoint);
+		BuildGhost->Show(Piece, Shown, BuildPlacement.bValid, BuildGhostMaterial.LoadSynchronous());
+	}
+}
+
+void AAGBCharacter::OnRotate(const FInputActionValue& Value)
+{
+	BuildYaw = FMath::Fmod(BuildYaw + 90.f, 360.f);
+}
+
+void AAGBCharacter::ServerPlacePiece_Implementation(FVector_NetQuantize Point, FVector_NetQuantizeNormal Normal, AActor* HitActor, float ExtraYaw)
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (Selected.IsEmpty() || !Selected.Item->PlacesPiece || IsDead() || FVector::Dist(Point, GetPawnViewLocation()) > PlaceRange + 100.f)
+	{
+		return;
+	}
+	UAGBBuildPieceDefinition* Piece = Selected.Item->PlacesPiece;
+	const FAGBPlacement Placement = AGBBuilding::FindPlacement(this, Piece, Point, Normal, HitActor, ExtraYaw);
+	if (!Placement.bValid)
+	{
+		ClientShowMessage(Placement.Reason, true);
+		return;
+	}
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnParams.bDeferConstruction = true;
+	if (AAGBBuildPiece* Placed = GetWorld()->SpawnActor<AAGBBuildPiece>(AAGBBuildPiece::StaticClass(), Placement.Transform, SpawnParams))
+	{
+		Placed->Definition = Piece;
+		Placed->FinishSpawning(Placement.Transform);
+		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
+	}
+}
+
 void AAGBCharacter::PlaceSelectedItem()
 {
 	const FAGBItemStack Selected = GetSelectedItem();
+	if (!Selected.IsEmpty() && Selected.Item->PlacesPiece)
+	{
+		if (!BuildPlacement.bValid)
+		{
+			if (AAGBHUD* HUD = GetAGBHUD())
+			{
+				HUD->AddNotification(BuildPlacement.Reason, true);
+			}
+			return;
+		}
+		if (HasAuthority())
+		{
+			ServerPlacePiece_Implementation(BuildAimPoint, BuildAimNormal, BuildAimActor.Get(), BuildYaw);
+		}
+		else
+		{
+			ServerPlacePiece(BuildAimPoint, BuildAimNormal, BuildAimActor.Get(), BuildYaw);
+		}
+		return;
+	}
 	if (Selected.IsEmpty() || !Selected.Item->PlacesStation || !Controller || IsDead())
 	{
 		return;
@@ -631,6 +763,10 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	{
 		EnhancedInput->BindAction(Input.UseItem, ETriggerEvent::Started, this, &AAGBCharacter::OnUseItem);
 	}
+	if (Input.Rotate)
+	{
+		EnhancedInput->BindAction(Input.Rotate, ETriggerEvent::Started, this, &AAGBCharacter::OnRotate);
+	}
 }
 
 void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
@@ -647,7 +783,7 @@ void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
 	{
 		RequestUseItem(Hotbar, SelectedHotbarSlot);
 	}
-	else if (!Selected.IsEmpty() && Selected.Item->PlacesStation)
+	else if (!Selected.IsEmpty() && (Selected.Item->PlacesStation || Selected.Item->PlacesPiece))
 	{
 		PlaceSelectedItem();
 	}
@@ -716,6 +852,15 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		const FVector Eyes = GetPawnViewLocation();
 		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= Interaction->HarvestRange + 150.f
 			&& FVector::Dist(ImpactPoint, Target->Bounds.Origin) <= Target->Bounds.SphereRadius + 100.f;
+		AAGBBuildPiece* Piece = Cast<AAGBBuildPiece>(Target->GetOwner());
+		if (bInReach && Piece && !Selected.IsEmpty() && Selected.Item->HasTag(TEXT("Tool.Hammer")))
+		{
+			const float Repaired = Piece->Repair(Piece->GetMaxHealth() * 0.2f * Selected.Item->GetStat(TEXT("HarvestPower"), 1.f));
+			ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Repaired", "{0}: {1}/{2}"),
+				Repaired > 0.f ? NSLOCTEXT("AIGameBuilder", "RepairedWord", "Repaired") : NSLOCTEXT("AIGameBuilder", "FullHealth", "Fully repaired"),
+				FMath::RoundToInt(Piece->GetHealth()), FMath::RoundToInt(Piece->GetMaxHealth())), false);
+			return;
+		}
 		UAGBHarvestSubsystem* Harvesting = GetWorld()->GetSubsystem<UAGBHarvestSubsystem>();
 		if (bInReach && Harvesting)
 		{

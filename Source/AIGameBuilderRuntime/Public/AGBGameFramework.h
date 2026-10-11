@@ -18,8 +18,10 @@ class AIGAMEBUILDERRUNTIME_API AAGBGameMode : public AGameModeBase
 public:
 	AAGBGameMode();
 
-	/** Respawns a player after a delay (at a player start; beds come with building). */
+	/** Respawns a player after a delay (at their bed, else a player start). */
 	void ScheduleRespawn(AController* Controller, float DelaySeconds);
+
+	virtual void RestartPlayer(AController* NewPlayer) override;
 };
 
 /** Player controller for AI Game Builder games (menus and input modes are added in later phases). */
@@ -27,6 +29,10 @@ UCLASS()
 class AIGAMEBUILDERRUNTIME_API AAGBPlayerController : public APlayerController
 {
 	GENERATED_BODY()
+
+public:
+	/** Server: where this player respawns (a bed). Empty = a player start. */
+	TWeakObjectPtr<AActor> RespawnPoint;
 };
 
 /**
@@ -51,6 +57,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|HUD")
 	bool IsInventoryOpen() const { return bInventoryOpen; }
+
+	/** Opens the inventory screen with a container (storage box) next to it. */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
+	void OpenContainer(UAGBInventoryComponent* Container);
 
 	/** Opens the inventory screen with a crafting station's recipes and fuel (E on a station). */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
@@ -93,6 +103,7 @@ private:
 
 	bool bInventoryOpen = false;
 	TWeakObjectPtr<class AAGBCraftingStation> CurrentStation;
+	TWeakObjectPtr<UAGBInventoryComponent> CurrentContainer;
 	/** Recipes as drawn this frame (hit box AGBR_<index>). */
 	TArray<TWeakObjectPtr<class UAGBRecipeDefinition>> DrawnRecipes;
 	/** Left edge of the inventory panel, set while drawing (the crafting panel goes to its right). */
@@ -114,6 +125,7 @@ private:
 	void DrawDeathScreen(float Scale);
 	void DrawNotifications(float Scale);
 	void DrawCraftingPanel(class AAGBCharacter* Character, float Scale);
+	void DrawContainerPanel(class AAGBCharacter* Character, float Scale);
 	bool HandleCraftingClick(const FString& BoxName);
 	void DrawFrame(float X, float Y, float W, float H, float Thickness, const FLinearColor& Color);
 };

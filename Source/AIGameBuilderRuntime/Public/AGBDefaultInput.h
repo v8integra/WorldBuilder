@@ -64,6 +64,10 @@ struct AIGAMEBUILDERRUNTIME_API FAGBInputSet
 	/** Use the selected hotbar item: eat/drink consumables; tools and weapons in later systems. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> UseItem;
+
+	/** Rotate the piece being placed by 90 degrees. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> Rotate;
 };
 
 namespace AGBInput

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AGBBuildPiece.h"
 #include "AGBDefaultInput.h"
 #include "AGBItemTypes.h"
 #include "GameFramework/Character.h"
@@ -13,6 +14,7 @@ class UAGBInventoryComponent;
 class UAGBSurvivalConfig;
 class UAGBVitalsComponent;
 class UAnimSequenceBase;
+class UMaterialInterface;
 class UInputMappingContext;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAGBItemUsedSignature, UAGBItemDefinition*, Item);
@@ -128,9 +130,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Crafting")
 	float PlaceRange = 400.f;
 
-	/** Places the selected placeable item (station) where the player looks. */
+	/** Places the selected placeable item (station or building piece) where the player looks. */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Crafting")
 	void PlaceSelectedItem();
+
+	/** See-through material for the building preview (needs a "Color" vector parameter). Set by BuildingTools.SetupBuilding. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Building")
+	TSoftObjectPtr<UMaterialInterface> BuildGhostMaterial;
+
+	/** Whether a building piece is selected (preview showing). */
+	bool IsBuilding() const;
+
+	/** Where the selected piece would go (owning client). */
+	const FAGBPlacement& GetBuildPlacement() const { return BuildPlacement; }
+
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Items")
 	void SelectHotbarSlot(int32 SlotIndex);
@@ -247,6 +262,9 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceSelectedItem(FVector_NetQuantize Location, float Yaw);
 
+	UFUNCTION(Server, Reliable)
+	void ServerPlacePiece(FVector_NetQuantize Point, FVector_NetQuantizeNormal Normal, AActor* HitActor, float ExtraYaw);
+
 private:
 	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */
 	UPROPERTY(Transient)
@@ -271,6 +289,17 @@ private:
 	void OnUseItem(const FInputActionValue& Value);
 	void UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex);
 	void PlaySwingAnimation();
+	void OnRotate(const FInputActionValue& Value);
+	void UpdateBuildPreview();
+
+	UPROPERTY(Transient)
+	TObjectPtr<AAGBBuildGhost> BuildGhost;
+
+	FAGBPlacement BuildPlacement;
+	float BuildYaw = 0.f;
+	FVector BuildAimPoint = FVector::ZeroVector;
+	FVector BuildAimNormal = FVector::UpVector;
+	TWeakObjectPtr<AActor> BuildAimActor;
 
 	double LastSwingTime = -1000.0;
 	class AAGBHUD* GetAGBHUD() const;
