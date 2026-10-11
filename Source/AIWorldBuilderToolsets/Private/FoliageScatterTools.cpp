@@ -1,5 +1,7 @@
 #include "FoliageScatterTools.h"
 
+#include "GameToolUtils.h"
+
 #include "AIWorldBuilderCore.h"
 #include "AIWorldBuilderLandscape.h"
 #include "MeshConversionTools.h"
@@ -111,28 +113,6 @@ namespace
 		return Type;
 	}
 
-	/** Paint layer info by name on a landscape (target layers), or nullptr. */
-	ULandscapeLayerInfoObject* FindLayerInfo(const ALandscape* Landscape, const FString& LayerName)
-	{
-		for (const TPair<FName, FLandscapeTargetLayerSettings>& Pair : Landscape->GetTargetLayers())
-		{
-			if (Pair.Key.ToString().Equals(LayerName, ESearchCase::IgnoreCase))
-			{
-				return Pair.Value.LayerInfoObj;
-			}
-		}
-		return nullptr;
-	}
-
-	/** Final (merged) paint weight 0..1 of a layer at a world point. */
-	float LayerWeightAt(const ALandscape* Landscape, ULandscapeInfo* Info, ULandscapeLayerInfoObject* LayerInfo, const FVector& WorldCm)
-	{
-		const FVector Local = Landscape->LandscapeActorToWorld().InverseTransformPosition(WorldCm);
-		const int32 CSQ = FMath::Max(Info->ComponentSizeQuads, 1);
-		const FIntPoint Key(FMath::FloorToInt32(Local.X / CSQ), FMath::FloorToInt32(Local.Y / CSQ));
-		ULandscapeComponent* Component = Info->XYtoComponentMap.FindRef(Key);
-		return Component ? Component->GetLayerWeightAtLocation(WorldCm, LayerInfo) : 0.0f;
-	}
 }
 
 FString UFoliageScatterTools::GetToolsetVersion() const
@@ -204,7 +184,7 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 	ULandscapeLayerInfoObject* LayerInfo = nullptr;
 	if (!IsNone(LayerName))
 	{
-		LayerInfo = FindLayerInfo(Landscape, LayerName);
+		LayerInfo = GameToolUtils::FindLayerInfo(Landscape, LayerName);
 		if (!LayerInfo)
 		{
 			Result.Message = FString::Printf(TEXT("Paint layer '%s' not found or has no Layer Info. Use ListPaintLayers to see the layers."), *LayerName);
@@ -289,7 +269,7 @@ FWorldBuilderFoliageResult UFoliageScatterTools::ScatterFoliage(const TArray<FSt
 			}
 
 			const FVector Location(P.X, P.Y, Z.GetValue() - SinkCm);
-			if (LayerInfo && LayerWeightAt(Landscape, Info, LayerInfo, FVector(P.X, P.Y, Z.GetValue())) < MinLayerWeight)
+			if (LayerInfo && GameToolUtils::LayerWeightAt(Landscape, Info, LayerInfo, FVector(P.X, P.Y, Z.GetValue())) < MinLayerWeight)
 			{
 				++RejLayer;
 				continue;

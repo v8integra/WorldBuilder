@@ -154,6 +154,19 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   meshYawDeg 90 if the kit's walls run along X; meshOffsetZCm if pivots are not at the floor.
 - Playtest: snapping, doors, stairs, storage, bed respawn, demolish + collapse, co-op building.
 
+## Creatures (milestone M8)
+
+- Loot items first (raw meat: Food with Hunger and a negative Health stat; hide; feathers...), and a `Damage` stat on
+  tools and weapons (stone axe ~15, spear ~25; bare hands do 5).
+- `AIWorldBuilderToolsets.CreatureTools.CreateCreature` for each animal in the "Creatures" decision: Passive (deer),
+  Skittish (rabbits, birds), Aggressive (wolves, bears). Use the wildlife pack's skeletal meshes when the user has added
+  one (animations are found automatically; check the message), placeholders otherwise. Sizes: rabbit radius 20 /
+  half height 20, deer 40/70, wolf 40/50, bear 70/90.
+- `CreateSpawnZone` per habitat using what the world builder made: grasslands (paint layer Grass, low slopes) for deer
+  and rabbits, forests for wolves, high ground for bears. 3-6 alive per zone; more zones rather than bigger ones.
+  If a zone finds few points, read the rejection counts and adjust (height, slope, layer).
+- Playtest: fleeing, hunting/attacks, leash and return, butchering loot, respawn, co-op.
+
 ---
 
 # Things the user must do themselves

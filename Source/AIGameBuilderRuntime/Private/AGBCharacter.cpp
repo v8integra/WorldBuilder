@@ -5,6 +5,9 @@
 #include "AGBInteractionComponent.h"
 #include "AGBBuildingTypes.h"
 #include "AGBCraftingComponent.h"
+#include "AGBCreature.h"
+#include "AGBCreatureTypes.h"
+#include "Kismet/GameplayStatics.h"
 #include "AGBCraftingStation.h"
 #include "AGBCraftingTypes.h"
 #include "AGBHarvestSubsystem.h"
@@ -140,7 +143,10 @@ float AAGBCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	const float Applied = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (Applied > 0.f && HasAuthority())
 	{
-		Vitals->ApplyDamage(Applied, DamageCauser ? FString::Printf(TEXT("Killed by %s"), *DamageCauser->GetName()) : FString(TEXT("Killed")));
+		const AAGBCreature* Creature = Cast<AAGBCreature>(DamageCauser);
+		const FString Cause = Creature && Creature->Definition ? Creature->Definition->GetDisplayNameOrId().ToString()
+			: (DamageCauser ? DamageCauser->GetName() : FString());
+		Vitals->ApplyDamage(Applied, Cause.IsEmpty() ? FString(TEXT("Killed")) : FString::Printf(TEXT("Killed by a %s"), *Cause));
 	}
 	return Applied;
 }
@@ -852,6 +858,18 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		const FVector Eyes = GetPawnViewLocation();
 		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= Interaction->HarvestRange + 150.f
 			&& FVector::Dist(ImpactPoint, Target->Bounds.Origin) <= Target->Bounds.SphereRadius + 100.f;
+		AAGBCreature* Creature = Cast<AAGBCreature>(Target->GetOwner());
+		if (bInReach && Creature && !Creature->IsDead())
+		{
+			// Hands hit for 5; tools and weapons for their "Damage" stat.
+			const float Damage = Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f);
+			UGameplayStatics::ApplyDamage(Creature, Damage, Controller, this, nullptr);
+			if (!Selected.IsEmpty())
+			{
+				OnItemUsed.Broadcast(Selected.Item);
+			}
+			return;
+		}
 		AAGBBuildPiece* Piece = Cast<AAGBBuildPiece>(Target->GetOwner());
 		if (bInReach && Piece && !Selected.IsEmpty() && Selected.Item->HasTag(TEXT("Tool.Hammer")))
 		{

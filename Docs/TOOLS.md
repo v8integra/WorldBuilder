@@ -456,6 +456,24 @@ the wall along local Y (use `meshYawDeg` 90 for kits whose walls run along X).
 | `CreatePiece(pieceId, displayName, pieceType, meshPath = "auto", gridSizeM = 3, heightM = 3, thicknessCm = 20, maxHealth = 500, tier = "Wood", storageSlots = 20, meshOffsetZCm = 0, meshYawDeg = 0, meshScale = 1, placeableItemId = "auto", folder = "/Game/AIGameBuilder/Building")` | Piece + its placeable item (created if missing). Then a recipe with CraftingTools. |
 | `ListPieces()` | All pieces. |
 
+## `AIWorldBuilderToolsets.CreatureTools` (C++, creatures)
+Runtime: `UAGBCreatureDefinition` (behaviour, skeletal mesh + idle/walk/run/attack/death sequences or an Animation
+Blueprint, or placeholder box+ball shapes; capsule size; health, damage, speeds, attack range/interval; aggro, flee,
+wander and leash ranges; loot + butcher tool tags; corpse time). `AAGBCreature` (replicated ACharacter; animations
+picked by speed on every machine). `AAGBCreatureAIController` (server brain: wander/idle around home; Skittish flees
+nearby players; Passive flees when hurt; Aggressive hunts players in aggro range, attacks, gives up past the leash and
+returns home; anyone hurt by a player may fight back if aggressive). Direct steering with obstacle probes (no navmesh
+needed). `AAGBCreatureSpawnZone` (server: keeps MaxAlive alive near players, spawns out of sight at stored points,
+respawns after kills, removes the population 30 s after players leave). Players damage creatures with swings (item
+`Damage` stat, hands 5); bodies are butchered with E (optional tool tags) for loot.
+
+| Tool | Use |
+|---|---|
+| `CreateCreature(creatureId, displayName, behaviour, meshPath, animationFolder, maxHealth, damage, walkSpeedMs, runSpeedMs, radiusCm, halfHeightCm, aggroRangeM, fleeRangeM, wanderRadiusM, loot, butcherToolTags, meshYawDeg = -90, meshScale = 1, folder)` | Create/update a creature; with a skeletal mesh, animations of its skeleton are found by name. |
+| `ListCreatures()` | Creature kinds and the level's spawn zones. |
+| `CreateSpawnZone(creatureId, centerXM, centerYM, radiusM, maxAlive = 4, minHeightM, maxHeightM, maxSlopeDeg = 30, paintLayer = "none", minLayerWeight = 0.4, respawnMinutes = 2, label)` | Biome-filtered spawn points (landscape only, not under objects, no water); reports why spots were rejected. |
+| `SpawnCreature(creatureId, xM, yM)` | One creature (tests). |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

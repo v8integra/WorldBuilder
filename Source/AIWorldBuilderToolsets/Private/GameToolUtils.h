@@ -4,6 +4,9 @@
 #include "AssetRegistry/AssetData.h"
 
 class AAGBCharacter;
+class ALandscape;
+class ULandscapeInfo;
+class ULandscapeLayerInfoObject;
 class UAGBItemDefinition;
 class UAGBResourceDefinition;
 class UAGBRecipeDefinition;
@@ -41,4 +44,10 @@ namespace GameToolUtils
 	UAGBResourceDefinition* FindResource(const FString& ResourceId);
 	UAGBRecipeDefinition* FindRecipe(const FString& RecipeId);
 	UAGBStationDefinition* FindStation(const FString& StationId);
+
+	/** Paint layer info by name on a landscape (target layers), or nullptr. */
+	ULandscapeLayerInfoObject* FindLayerInfo(const ALandscape* Landscape, const FString& LayerName);
+
+	/** Final (merged) paint weight 0..1 of a layer at a world point (cm). */
+	float LayerWeightAt(const ALandscape* Landscape, ULandscapeInfo* Info, ULandscapeLayerInfoObject* LayerInfo, const FVector& WorldCm);
 }

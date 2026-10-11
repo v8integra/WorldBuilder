@@ -1,6 +1,8 @@
 #include "AGBInteractionComponent.h"
 
 #include "AGBCharacter.h"
+#include "AGBCreature.h"
+#include "AGBCreatureTypes.h"
 #include "AGBHarvestSubsystem.h"
 #include "AGBHarvestTypes.h"
 #include "AGBInteractable.h"
@@ -116,6 +118,13 @@ void UAGBInteractionComponent::UpdateFocus()
 
 void UAGBInteractionComponent::UpdateResourceFocus(const FHitResult& Hit)
 {
+	if (const AAGBCreature* Creature = Cast<AAGBCreature>(Hit.GetActor()); Creature && !Creature->IsDead() && Creature->Definition)
+	{
+		bCanHarvestFocused = true;
+		FocusedResourceText = FText::Format(NSLOCTEXT("AIGameBuilder", "CreatureHealth", "{0}  {1}/{2}"), Creature->Definition->GetDisplayNameOrId(),
+			FMath::CeilToInt(Creature->GetHealth()), FMath::RoundToInt(Creature->GetMaxHealth()));
+		return;
+	}
 	const UAGBHarvestSubsystem* Harvesting = GetWorld()->GetSubsystem<UAGBHarvestSubsystem>();
 	const UAGBResourceDefinition* Resource = Harvesting ? Harvesting->FindResource(Hit.GetComponent(), Hit.Item) : nullptr;
 	if (!Resource)

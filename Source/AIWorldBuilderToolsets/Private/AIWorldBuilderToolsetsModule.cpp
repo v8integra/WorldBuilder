@@ -6,6 +6,7 @@
 #include "HarvestTools.h"
 #include "BuildingTools.h"
 #include "CraftingTools.h"
+#include "CreatureTools.h"
 #include "ItemTools.h"
 #include "SurvivalTools.h"
 #include "LandscapeCreateTools.h"
@@ -60,6 +61,7 @@ private:
 			UHarvestTools::StaticClass(),
 			UCraftingTools::StaticClass(),
 			UBuildingTools::StaticClass(),
+			UCreatureTools::StaticClass(),
 		};
 	}
 };

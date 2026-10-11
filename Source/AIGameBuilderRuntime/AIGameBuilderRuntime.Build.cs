@@ -20,6 +20,7 @@ public class AIGameBuilderRuntime : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"AIModule",
 			"AssetRegistry",
 		});
 	}

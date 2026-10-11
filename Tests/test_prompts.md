@@ -250,3 +250,15 @@ Prereq: C++ build; `SetupGameFoundation` again (adds the Rotate action: R); `Set
 7. Co-op: both players see each other's building, previews are local, doors/storage/beds work for both; a client's placement matches the green preview.
 **Claude Code:** "Set up building from the design: wood tier pieces with recipes at the workbench, a hammer, storage box and bed." → BuildingTools + CraftingTools, then marks the M6 tasks.
 
+## Phase 17 — Creatures
+
+Prereq: C++ build. Items: `raw_meat` (Food, stats Hunger 10 and Health -5), `hide` (Resource); weapons: give the stone axe a `Damage` stat (e.g. 15) via CreateItem.
+1. `CreateCreature` deer (Passive, health 60, damage 0, walk 1.5 / run 8 m/s, radius 40, half height 70, flee 15, wander 20, loot raw_meat 2-3 + hide 1), rabbit (Skittish, health 15, radius 20, half height 20, run 7, flee 12, loot raw_meat 1), wolf (Aggressive, health 80, damage 12, run 6.5, aggro 20, loot raw_meat 2 + hide 1). `ListCreatures` shows placeholder bodies.
+2. `SpawnCreature` one of each ~15-25 m from the player start. Play:
+   - Rabbit runs when you come within ~12 m. Deer wanders, ignores you, runs when hit.
+   - Wolf hunts you within 20 m, attacks every 1.5 s (health drops, death screen says "Killed by a Wolf"), gives up if you run far / it gets 50 m from home, then walks back.
+   - Crosshair shows "Wolf  80/80"; swings hurt it (axe Damage 15, hands 5); it fights back. Dead: falls on its side; "[E] Butcher Wolf" → raw meat + hide; body disappears.
+3. `CreateSpawnZone` deer in a grassy area `{"creatureId":"deer","centerXM":..,"centerYM":..,"radiusM":80,"maxAlive":4,"paintLayer":"Grass","minLayerWeight":0.5}` → message with spawn points and rejection counts. Play near it: up to 4 deer appear (never right next to you); kill one → replaced after 2 min; walk 300+ m away and back → population removed and respawned.
+4. Co-op: both players see the same creatures moving and dying; a wolf can chase either player; butchering by one removes the body for both.
+**Claude Code:** "Add wildlife from the design: deer and rabbits in the grasslands, wolves in the forest, bears in the mountains." → CreatureTools (+ ItemTools for loot), spawn zones from the world's paint layers and heights, then marks the M8 creature tasks.
+

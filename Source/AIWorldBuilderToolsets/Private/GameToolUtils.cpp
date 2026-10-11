@@ -13,6 +13,9 @@
 #include "GameFramework/WorldSettings.h"
 #include "GameMapsSettings.h"
 #include "Landscape.h"
+#include "LandscapeComponent.h"
+#include "LandscapeInfo.h"
+#include "LandscapeLayerInfoObject.h"
 
 using namespace AIWorldBuilder;
 
@@ -138,5 +141,26 @@ namespace GameToolUtils
 	UAGBStationDefinition* FindStation(const FString& StationId)
 	{
 		return Cast<UAGBStationDefinition>(FindAssetByTag(UAGBStationDefinition::StaticClass(), GET_MEMBER_NAME_CHECKED(UAGBStationDefinition, StationId), StationId));
+	}
+
+	ULandscapeLayerInfoObject* FindLayerInfo(const ALandscape* Landscape, const FString& LayerName)
+	{
+		for (const TPair<FName, FLandscapeTargetLayerSettings>& Pair : Landscape->GetTargetLayers())
+		{
+			if (Pair.Key.ToString().Equals(LayerName, ESearchCase::IgnoreCase))
+			{
+				return Pair.Value.LayerInfoObj;
+			}
+		}
+		return nullptr;
+	}
+
+	float LayerWeightAt(const ALandscape* Landscape, ULandscapeInfo* Info, ULandscapeLayerInfoObject* LayerInfo, const FVector& WorldCm)
+	{
+		const FVector Local = Landscape->LandscapeActorToWorld().InverseTransformPosition(WorldCm);
+		const int32 CSQ = FMath::Max(Info->ComponentSizeQuads, 1);
+		const FIntPoint Key(FMath::FloorToInt32(Local.X / CSQ), FMath::FloorToInt32(Local.Y / CSQ));
+		ULandscapeComponent* Component = Info->XYtoComponentMap.FindRef(Key);
+		return Component ? Component->GetLayerWeightAtLocation(WorldCm, LayerInfo) : 0.0f;
 	}
 }
