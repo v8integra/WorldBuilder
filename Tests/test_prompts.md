@@ -262,3 +262,13 @@ Prereq: C++ build. Items: `raw_meat` (Food, stats Hunger 10 and Health -5), `hid
 4. Co-op: both players see the same creatures moving and dying; a wolf can chase either player; butchering by one removes the body for both.
 **Claude Code:** "Add wildlife from the design: deer and rabbits in the grasslands, wolves in the forest, bears in the mountains." → CreatureTools (+ ItemTools for loot), spawn zones from the world's paint layers and heights, then marks the M8 creature tasks.
 
+## Phase 18 — Combat and equipment
+
+Prereq: C++ build. Wolves/deer from Phase 17.
+1. `CreateItem` arrow (Resource-like ammo, stack 50). `CreateWeapon`: bow (Ranged, 30 dmg, 1.2 s, 150 uses, ammo arrow, 55 m/s), stone_spear (Thrown, 25 dmg, 30 m/s), stone_axe again as Melee + tool (15 dmg, 0.7 s, 120 uses, toolTags ["Tool.Axe"], harvestPower 2). `CreateArmor` leather_cap (Head, 8), leather_vest (Chest, 15, insulation 4), leather_pants (Legs, 10). Recipes for all (or `SetStartingItems` for a quick test).
+2. Hotbar: the axe shows a green durability bar; each hit on a tree/creature lowers it; at 0 → "Stone Axe broke!" and it is gone. Drop it and pick it up again → same durability.
+3. Bow + arrows: left click fires where the crosshair points (arcs over distance); a wolf hit takes 30; about half the arrows can be picked up again; with no arrows → "No Arrow". Spear: thrown, always recoverable.
+4. Hit a wolf: it is pushed back (and flinches with a pack hit animation). Wolf bites: red flash; wear the leather set → inventory title shows "Armor 33 (-25% damage)" and bites hurt less; armor bars go down per bite.
+5. Co-op: arrows fly for both players; the other player is never hurt by your arrows or swings.
+**Claude Code:** "Add weapons and armor from the design (spear, bow and arrows, leather armor) with recipes, and give tools durability." → CombatTools + ItemTools.SetItemStat + CraftingTools, then marks the M8 combat tasks.
+

@@ -341,4 +341,9 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   Animation assets carry an asset-registry tag "Skeleton" (object path), so a skeleton's clips can be listed without
   loading them. Spawn zones store points chosen in the editor (landscape-only traces, paint weights, water overlap)
   so the shipped game needs no landscape layer queries. `AController::GetPawn()` returns `TObjectPtr` (avoid mixing
-  it with raw pointers in `?:`).
+  it with raw pointers in `?:`).- **Combat (Phase 18):** per-instance durability lives on `FAGBItemStack` (replicated with the slot array); durable
+  items stack to 1 and transfer as whole stacks (`AddStack`), so durability survives moves, drops and bags.
+  Projectiles: `UProjectileMovementComponent` on a sphere root (BlockAllDynamic), `IgnoreActorWhenMoving(Instigator)`,
+  damage applied on the server in `OnComponentHit`; replicated movement. Client aims with a camera trace and sends
+  origin + direction; the server checks the origin is near the eyes and the fire rate. UHT does not accept default
+  values for `TArray` parameters of AICallable functions: make them required and put them before defaulted ones.

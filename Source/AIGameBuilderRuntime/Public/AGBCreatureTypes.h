@@ -65,6 +65,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body|Animations")
 	TSoftObjectPtr<UAnimSequenceBase> DeathAnim;
 
+	/** Played when hurt. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body|Animations")
+	TSoftObjectPtr<UAnimSequenceBase> HitAnim;
+
+	/** Knockback speed when hit (cm/s); 0 = none (big animals). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats", meta = (ClampMin = "0"))
+	float Knockback = 300.f;
+
 	/** Mesh turn: most character/animal meshes face +Y, so -90 makes them face forward. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body")
 	float MeshYawDeg = -90.f;

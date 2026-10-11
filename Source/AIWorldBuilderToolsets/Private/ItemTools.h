@@ -162,6 +162,20 @@ public:
 	 * @param AnimationPath Animation (sequence or montage) played on use: chop, mine, swing. "auto" keeps it, "none" uses the character's default swing.
 	 * @return The item.
 	 */
+	/**
+	 * Sets (or removes) one named stat on an item without changing anything else. Saved.
+	 * Common stats: Damage, SwingSeconds, Reach (cm), Durability, HarvestPower, Armor, Insulation, Cooling, Hunger, Thirst,
+	 * Health, Stamina (food restores), BurnSeconds (fuel), ProjectileSpeed (cm/s), AmmoRecoverChance.
+	 * Example: SetItemStat("stone_axe", "Durability", 120)
+	 * @param ItemId Item to change.
+	 * @param StatName Stat name.
+	 * @param Value New value.
+	 * @param bRemove Remove the stat instead.
+	 * @return The item.
+	 */
+	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Items")
+	static FGameItemResult SetItemStat(const FString& ItemId, const FString& StatName, double Value, bool bRemove = false);
+
 	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Items")
 	static FGameItemResult SetItemHandling(const FString& ItemId, double OffsetXCm, double OffsetYCm, double OffsetZCm, double PitchDeg, double YawDeg,
 		double RollDeg, double Scale = 1.0, const FString& AnimationPath = TEXT("auto"));

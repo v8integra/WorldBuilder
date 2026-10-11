@@ -341,6 +341,49 @@ FGameItemResult UItemTools::SetStartingItems(const TArray<FGameItemAmount>& Item
 	return R;
 }
 
+FGameItemResult UItemTools::SetItemStat(const FString& ItemId, const FString& StatName, double Value, bool bRemove)
+{
+	UAGBItemDefinition* Item = FindItem(ItemId);
+	if (!Item)
+	{
+		return Fail(FString::Printf(TEXT("No item with id '%s'. Known items: %s."), *ItemId, *KnownItemIds()));
+	}
+	const FName Name(*StatName.TrimStartAndEnd());
+	if (Name.IsNone())
+	{
+		return Fail(TEXT("statName is empty."));
+	}
+	Item->Modify();
+	FAGBItemStat* Existing = Item->Stats.FindByPredicate([Name](const FAGBItemStat& Stat) { return Stat.Name == Name; });
+	if (bRemove)
+	{
+		Item->Stats.RemoveAll([Name](const FAGBItemStat& Stat) { return Stat.Name == Name; });
+	}
+	else if (Existing)
+	{
+		Existing->Value = static_cast<float>(Value);
+	}
+	else
+	{
+		FAGBItemStat& Added = Item->Stats.AddDefaulted_GetRef();
+		Added.Name = Name;
+		Added.Value = static_cast<float>(Value);
+	}
+	if (Name == TEXT("Durability") && !bRemove && Item->MaxStack > 1)
+	{
+		Item->MaxStack = 1; // Each worn item keeps its own durability.
+	}
+	Item->MarkPackageDirty();
+	UEditorLoadingAndSavingUtils::SavePackages({ Item->GetPackage() }, /*bOnlyDirty=*/false);
+
+	FGameItemResult R;
+	R.bSuccess = true;
+	R.Items.Add(Describe(Item));
+	R.Message = bRemove ? FString::Printf(TEXT("Removed stat %s from '%s'."), *Name.ToString(), *Item->ItemId.ToString())
+		: FString::Printf(TEXT("'%s' %s = %g."), *Item->ItemId.ToString(), *Name.ToString(), Value);
+	return R;
+}
+
 FGameItemResult UItemTools::SetItemHandling(const FString& ItemId, double OffsetXCm, double OffsetYCm, double OffsetZCm, double PitchDeg, double YawDeg,
 	double RollDeg, double Scale, const FString& AnimationPath)
 {

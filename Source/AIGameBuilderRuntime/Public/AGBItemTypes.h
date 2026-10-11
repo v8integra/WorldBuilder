@@ -102,6 +102,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Equip")
 	TSoftObjectPtr<UAnimSequenceBase> UseAnimation;
 
+	/** Ranged weapons: the ammunition used per shot (bow -> arrow). Thrown weapons use themselves. Empty = melee. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Combat")
+	TObjectPtr<UAGBItemDefinition> Ammo;
+
+	/** Durability a new stack of this item starts with (its "Durability" stat), or -1. */
+	float GetMaxDurability() const { return GetStat(TEXT("Durability"), -1.f); }
+
 	/** Placeable items: the building piece this item places (select it on the hotbar, aim, left-click; R rotates). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Placeable")
 	TObjectPtr<UAGBBuildPieceDefinition> PlacesPiece;
@@ -148,8 +155,15 @@ struct AIGAMEBUILDERRUNTIME_API FAGBItemStack
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item", meta = (ClampMin = "0"))
 	int32 Count = 0;
 
-	bool IsEmpty() const { return Item == nullptr || Count <= 0; }
-	void Clear() { Item = nullptr; Count = 0; }
+	/** Remaining durability of this stack (items with a "Durability" stat; they stack to 1). -1 = not used. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
+	float Durability = -1.f;
 
-	bool operator==(const FAGBItemStack& Other) const { return Item == Other.Item && Count == Other.Count; }
+	bool IsEmpty() const { return Item == nullptr || Count <= 0; }
+	void Clear() { Item = nullptr; Count = 0; Durability = -1.f; }
+
+	/** Whether this stack tracks its own durability. */
+	bool HasDurability() const { return Durability >= 0.f; }
+
+	bool operator==(const FAGBItemStack& Other) const { return Item == Other.Item && Count == Other.Count && Durability == Other.Durability; }
 };

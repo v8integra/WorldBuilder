@@ -474,6 +474,23 @@ respawns after kills, removes the population 30 s after players leave). Players 
 | `CreateSpawnZone(creatureId, centerXM, centerYM, radiusM, maxAlive = 4, minHeightM, maxHeightM, maxSlopeDeg = 30, paintLayer = "none", minLayerWeight = 0.4, respawnMinutes = 2, label)` | Biome-filtered spawn points (landscape only, not under objects, no water); reports why spots were rejected. |
 | `SpawnCreature(creatureId, xM, yM)` | One creature (tests). |
 
+## `AIWorldBuilderToolsets.CombatTools` (C++, weapons and armor)
+Runtime: every item stack can carry its own `Durability` (items with a `Durability` stat start full; they stack to 1;
+kept through moves, drops, pickups and death bags; a bar shows it). Tools/weapons lose 1 per hit (creature hit or
+successful harvest) or shot; worn armor loses 1 per hit taken; 0 = broken and removed ("Stone Axe broke!").
+Melee: swing with per-item `Damage`, `SwingSeconds`, `Reach` (cm). Ranged: items with `Ammo` (bow -> arrow; thrown
+spear -> itself) fire an `AAGBProjectile` (replicated, gravity) along the crosshair; it damages creatures (PvE: players
+are not hurt) and may leave its ammo as a pickup (`AmmoRecoverChance`). Armor: worn `Armor` stats reduce damage to
+`damage x 100 / (100 + armor)`. Hit reactions: creatures are knocked back (`Knockback`) and play `HitAnim`; players see
+a red flash. The inventory title shows total armor.
+
+| Tool | Use |
+|---|---|
+| `CreateWeapon(itemId, displayName, weaponType, damage, attackSeconds, durability, toolTags, reachM = 2.5, ammoItemId = "none", projectileSpeedMs = 50, ammoRecoverChance = 0.5, meshPath = "auto", harvestPower = 0, weight = 2)` | Melee / Ranged / Thrown weapon item (also a tool when toolTags are given). |
+| `CreateArmor(itemId, displayName, slot, armor, insulation = 0, durability = 150, meshPath = "auto", weight = 2)` | Head / Chest / Legs / Feet. |
+
+`ItemTools.SetItemStat(itemId, statName, value, bRemove = false)` changes one stat (e.g. add `Durability` to an existing tool).
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

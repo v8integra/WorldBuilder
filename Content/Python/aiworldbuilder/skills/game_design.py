@@ -167,6 +167,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   If a zone finds few points, read the rejection counts and adjust (height, slope, layer).
 - Playtest: fleeing, hunting/attacks, leash and return, butchering loot, respawn, co-op.
 
+## Combat and equipment (milestone M8)
+
+- `AIWorldBuilderToolsets.CombatTools.CreateWeapon` for each weapon in the design: melee (spears, clubs, swords),
+  ranged (bow + an arrow ammo item made first with ItemTools), thrown (spears, rocks). Tools that also fight
+  (axes, pickaxes) are melee weapons with toolTags. Typical: stone tier 120-150 uses, metal 300+; damage stone 15-25,
+  metal 35-50; bow 30 at 55 m/s.
+- `CreateArmor` per slot (Head/Chest/Legs/Feet); a full early set ~30-40 armor (-25%), late ~100 (-50%); fur adds
+  Insulation for cold biomes.
+- Add durability to earlier tools with `ItemTools.SetItemStat(id, "Durability", n)`; recipes with CraftingTools.
+- Playtest: durability bars and breaking, bow/arrow recovery, spear throw, armor in the inventory title, hit flash.
+
 ---
 
 # Things the user must do themselves

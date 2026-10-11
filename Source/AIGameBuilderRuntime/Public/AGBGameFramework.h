@@ -74,6 +74,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void UseHoveredSlot();
 
+	/** Red flash around the screen when the player is hurt (stronger for bigger hits). */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
+	void FlashDamage(float Amount);
+
 	/** Short message at the bottom right for a few seconds ("+3 Wood"). Warnings are shown in orange. */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void AddNotification(const FText& Message, bool bWarning);
@@ -102,6 +106,8 @@ private:
 	TArray<FNotification> Notifications;
 
 	bool bInventoryOpen = false;
+	double DamageFlashTime = -100.0;
+	float DamageFlashStrength = 0.f;
 	TWeakObjectPtr<class AAGBCraftingStation> CurrentStation;
 	TWeakObjectPtr<UAGBInventoryComponent> CurrentContainer;
 	/** Recipes as drawn this frame (hit box AGBR_<index>). */

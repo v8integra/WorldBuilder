@@ -141,6 +141,15 @@ float AAGBCreature::TakeDamage(float DamageAmount, FDamageEvent const& DamageEve
 	if (Health <= 0.f)
 	{
 		Die();
+		return Applied;
+	}
+	// Hit reaction: flinch animation everywhere, and a shove away from the attacker.
+	++HitCount;
+	OnRep_HitCount();
+	if (Definition && Definition->Knockback > 0.f && DamageCauser)
+	{
+		const FVector Away = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+		LaunchCharacter(Away * Definition->Knockback + FVector(0.0, 0.0, Definition->Knockback * 0.4), true, true);
 	}
 	return Applied;
 }
@@ -212,12 +221,28 @@ void AAGBCreature::OnRep_AttackCount()
 
 void AAGBCreature::PlayAttackAnimation()
 {
-	UAnimSequenceBase* Attack = Definition ? Definition->AttackAnim.LoadSynchronous() : nullptr;
-	if (Attack && GetMesh()->GetSkeletalMeshAsset() && UsesSequences())
+	if (Definition)
 	{
-		GetMesh()->PlayAnimation(Attack, /*bLooping=*/false);
-		CurrentAnimation = Attack;
-		AttackAnimationEnds = GetWorld()->GetTimeSeconds() + Attack->GetPlayLength();
+		PlayOneShot(Definition->AttackAnim);
+	}
+}
+
+void AAGBCreature::OnRep_HitCount()
+{
+	if (Definition && !bDead)
+	{
+		PlayOneShot(Definition->HitAnim);
+	}
+}
+
+void AAGBCreature::PlayOneShot(const TSoftObjectPtr<UAnimSequenceBase>& Clip)
+{
+	UAnimSequenceBase* Animation = Clip.LoadSynchronous();
+	if (Animation && GetMesh()->GetSkeletalMeshAsset() && UsesSequences())
+	{
+		GetMesh()->PlayAnimation(Animation, /*bLooping=*/false);
+		CurrentAnimation = Animation;
+		AttackAnimationEnds = GetWorld()->GetTimeSeconds() + Animation->GetPlayLength();
 	}
 }
 
@@ -306,6 +331,7 @@ void AAGBCreature::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AAGBCreature, bDead);
 	DOREPLIFETIME(AAGBCreature, bButchered);
 	DOREPLIFETIME(AAGBCreature, AttackCount);
+	DOREPLIFETIME(AAGBCreature, HitCount);
 }
 
 #undef LOCTEXT_NAMESPACE

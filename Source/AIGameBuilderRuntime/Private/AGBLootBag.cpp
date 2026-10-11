@@ -64,7 +64,7 @@ AAGBLootBag* AAGBLootBag::CreateFrom(UWorld* World, const TArray<UAGBInventoryCo
 			const FAGBItemStack Stack = Source->GetSlot(Index);
 			if (!Stack.IsEmpty())
 			{
-				const int32 Added = Bag->Contents->AddItem(Stack.Item, Stack.Count);
+				const int32 Added = Stack.HasDurability() ? Bag->Contents->AddStack(Stack) : Bag->Contents->AddItem(Stack.Item, Stack.Count);
 				Source->RemoveFromSlot(Index, Added);
 			}
 		}
@@ -98,7 +98,7 @@ void AAGBLootBag::Interact_Implementation(APawn* Interactor)
 		const FAGBItemStack Stack = Contents->GetSlot(Index);
 		if (!Stack.IsEmpty())
 		{
-			const int32 Added = Character->GiveItem(Stack.Item, Stack.Count);
+			const int32 Added = Character->GiveStack(Stack);
 			Contents->RemoveFromSlot(Index, Added);
 			bLeftOver |= Added < Stack.Count;
 		}

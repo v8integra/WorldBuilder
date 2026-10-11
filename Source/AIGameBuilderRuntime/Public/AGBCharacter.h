@@ -114,6 +114,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Items")
 	int32 GiveItem(UAGBItemDefinition* Item, int32 Count = 1);
 
+	/** Gives a stack keeping its durability (worn tools/weapons/armor); plain stacks go through GiveItem. Server only. */
+	int32 GiveStack(const FAGBItemStack& Stack);
+
 	/** Total of an item across hotbar and inventory. */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
 	int32 CountItem(const UAGBItemDefinition* Item) const;
@@ -186,6 +189,20 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Harvesting")
 	FName SwingAnimationSlot = TEXT("DefaultSlot");
+
+	/** Seconds between attacks with the selected item ("SwingSeconds" stat, else SwingInterval). */
+	float GetAttackInterval() const;
+
+	/** Melee reach (cm) of the selected item ("Reach" stat, else the harvest range). */
+	float GetMeleeReach() const;
+
+	/** Total "Armor" of worn equipment. */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Combat")
+	float GetArmor() const;
+
+	/** Fires the selected ranged/thrown weapon where the player aims (uses one ammo). */
+	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Combat")
+	void Fire();
 
 	/** Swings the selected item (or bare hands) at what the player is looking at: harvests resources in reach. */
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Harvesting")
@@ -261,6 +278,16 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlaceSelectedItem(FVector_NetQuantize Location, float Yaw);
+
+	UFUNCTION(Server, Reliable)
+	void ServerFire(FVector_NetQuantize Origin, FVector_NetQuantizeNormal Direction);
+
+	/** Owning player: red flash when hurt. */
+	UFUNCTION(Client, Unreliable)
+	void ClientShowHit(float Amount);
+
+	/** Server: wears the selected tool/weapon by one use; announces it if it breaks. */
+	void WearSelectedItem();
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlacePiece(FVector_NetQuantize Point, FVector_NetQuantizeNormal Normal, AActor* HitActor, float ExtraYaw);

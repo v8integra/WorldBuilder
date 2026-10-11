@@ -167,6 +167,7 @@ int32 UAGBInventoryComponent::AddItem(UAGBItemDefinition* Item, int32 Count, boo
 		{
 			const int32 Moved = FMath::Min(Remaining, MaxStack);
 			Slots[Index] = FAGBItemStack(Item, Moved);
+			Slots[Index].Durability = Item->GetMaxDurability();
 			Remaining -= Moved;
 		}
 	}
@@ -177,6 +178,52 @@ int32 UAGBInventoryComponent::AddItem(UAGBItemDefinition* Item, int32 Count, boo
 		NotifyChanged();
 	}
 	return Added;
+}
+
+int32 UAGBInventoryComponent::AddStack(const FAGBItemStack& Stack, bool bOnlyEmptySlots)
+{
+	if (Stack.IsEmpty())
+	{
+		return 0;
+	}
+	if (!Stack.HasDurability())
+	{
+		return bOnlyEmptySlots ? 0 : AddItem(Stack.Item, Stack.Count);
+	}
+	// Worn items keep their own durability: one per empty slot.
+	if (MaxWeight > 0.f && Stack.Item->Weight > GetRemainingWeight())
+	{
+		return 0;
+	}
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		if (Slots[Index].IsEmpty() && CanSlotHold(Index, Stack.Item))
+		{
+			Slots[Index] = FAGBItemStack(Stack.Item, 1);
+			Slots[Index].Durability = Stack.Durability;
+			NotifyChanged();
+			return 1;
+		}
+	}
+	return 0;
+}
+
+bool UAGBInventoryComponent::DamageSlot(int32 SlotIndex, float Amount)
+{
+	if (!Slots.IsValidIndex(SlotIndex) || Slots[SlotIndex].IsEmpty() || !Slots[SlotIndex].HasDurability() || Amount <= 0.f)
+	{
+		return false;
+	}
+	FAGBItemStack& Stack = Slots[SlotIndex];
+	Stack.Durability -= Amount;
+	if (Stack.Durability <= 0.f)
+	{
+		Stack.Clear();
+		NotifyChanged();
+		return true;
+	}
+	NotifyChanged();
+	return false;
 }
 
 int32 UAGBInventoryComponent::RemoveItem(const UAGBItemDefinition* Item, int32 Count)
@@ -268,6 +315,10 @@ bool UAGBInventoryComponent::MoveItem(int32 FromSlot, UAGBInventoryComponent* Ta
 		if (Moved <= 0)
 		{
 			return false;
+		}
+		if (Destination.IsEmpty())
+		{
+			Destination.Durability = Source.Durability;
 		}
 		Destination.Item = Item;
 		Destination.Count += Moved;

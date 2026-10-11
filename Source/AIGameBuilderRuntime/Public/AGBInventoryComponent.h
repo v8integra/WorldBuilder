@@ -84,6 +84,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Inventory")
 	int32 AddItem(UAGBItemDefinition* Item, int32 Count = 1, bool bOnlyExistingStacks = false);
 
+	/** Adds a stack keeping its durability (worn tools, weapons, armor). Returns how many were added. */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Inventory")
+	int32 AddStack(const FAGBItemStack& Stack, bool bOnlyEmptySlots = false);
+
+	/** Wears down the item in a slot. Returns true if it broke (and was removed). */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Inventory")
+	bool DamageSlot(int32 SlotIndex, float Amount = 1.f);
+
 	/** Removes up to Count (from the last slots first). Returns how many were removed. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Inventory")
 	int32 RemoveItem(const UAGBItemDefinition* Item, int32 Count = 1);

@@ -349,6 +349,12 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 	}
 }
 
+void AAGBHUD::FlashDamage(float Amount)
+{
+	DamageFlashTime = GetWorld()->GetTimeSeconds();
+	DamageFlashStrength = FMath::Clamp(0.25f + Amount / 40.f, 0.25f, 0.7f);
+}
+
 void AAGBHUD::AddNotification(const FText& Message, bool bWarning)
 {
 	const FString Text = Message.ToString();
@@ -459,6 +465,14 @@ void AAGBHUD::DrawSlot(UAGBInventoryComponent* Inventory, int32 InventoryIndex, 
 			GetTextSize(Name, W, H, SmallFont, TextScale);
 			DrawText(Name, TextColor, X + (Size - W) * 0.5f, Y + (Size - H) * 0.5f, SmallFont, TextScale);
 		}
+		if (Stack.HasDurability())
+		{
+			const float Max = Stack.Item->GetMaxDurability();
+			const float Fraction = Max > 0.f ? FMath::Clamp(Stack.Durability / Max, 0.f, 1.f) : 1.f;
+			const FLinearColor BarColor = Fraction > 0.5f ? FLinearColor(0.4f, 0.85f, 0.35f) : (Fraction > 0.2f ? FLinearColor(0.95f, 0.75f, 0.2f) : FLinearColor(0.95f, 0.3f, 0.2f));
+			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), X + 4.f, Y + Size - 7.f, Size - 8.f, 4.f);
+			DrawRect(BarColor, X + 4.f, Y + Size - 7.f, (Size - 8.f) * Fraction, 4.f);
+		}
 		if (Stack.Count > 1)
 		{
 			const FString Count = FString::FromInt(Stack.Count);
@@ -548,7 +562,10 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 
 	// Title with weight.
 	const float Weight = Backpack->GetTotalWeight() + Character->Hotbar->GetTotalWeight() + Equipment->GetTotalWeight();
-	const FString Title = FString::Printf(TEXT("%s    %.1f kg"), *Backpack->DisplayName.ToString(), Weight);
+	const float Armor = Character->GetArmor();
+	const FString Title = Armor > 0.f
+		? FString::Printf(TEXT("%s    %.1f kg    Armor %.0f (-%.0f%% damage)"), *Backpack->DisplayName.ToString(), Weight, Armor, 100.f * Armor / (100.f + Armor))
+		: FString::Printf(TEXT("%s    %.1f kg"), *Backpack->DisplayName.ToString(), Weight);
 	DrawText(Title, TextColor, PanelX + Padding, PanelY + Padding, Font, Scale);
 
 	const float ContentY = PanelY + Padding + TitleHeight;
@@ -737,6 +754,20 @@ void AAGBHUD::DrawHUD()
 	const float CenterX = Canvas->ClipX * 0.5f;
 	const float CenterY = Canvas->ClipY * 0.5f;
 	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
+
+	const double SinceHit = GetWorld()->GetTimeSeconds() - DamageFlashTime;
+	if (SinceHit < 0.45)
+	{
+		// Red edges fading out.
+		const float Alpha = DamageFlashStrength * static_cast<float>(1.0 - SinceHit / 0.45);
+		const FLinearColor Red(0.8f, 0.f, 0.f, Alpha);
+		const float Edge = Canvas->ClipY * 0.12f;
+		DrawRect(Red, 0.f, 0.f, Canvas->ClipX, Edge);
+		DrawRect(Red, 0.f, Canvas->ClipY - Edge, Canvas->ClipX, Edge);
+		DrawRect(Red, 0.f, Edge, Edge, Canvas->ClipY - Edge * 2.f);
+		DrawRect(Red, Canvas->ClipX - Edge, Edge, Edge, Canvas->ClipY - Edge * 2.f);
+		DrawRect(FLinearColor(0.6f, 0.f, 0.f, Alpha * 0.25f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
+	}
 	if (!Character)
 	{
 		if (bInventoryOpen)

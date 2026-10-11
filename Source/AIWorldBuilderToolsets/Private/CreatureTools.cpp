@@ -227,6 +227,7 @@ FCreatureResult UCreatureTools::CreateCreature(const FString& CreatureId, const 
 		Creature->RunAnim = FindAnimation(Matching, { TEXT("run"), TEXT("gallop"), TEXT("trot"), TEXT("sprint"), TEXT("jog") });
 		Creature->AttackAnim = FindAnimation(Matching, { TEXT("attack"), TEXT("bite"), TEXT("claw"), TEXT("swipe") });
 		Creature->DeathAnim = FindAnimation(Matching, { TEXT("death"), TEXT("die"), TEXT("dead") });
+		Creature->HitAnim = FindAnimation(Matching, { TEXT("hit"), TEXT("hurt"), TEXT("react"), TEXT("damage") });
 		AnimationNote = FString::Printf(TEXT(" %d animation(s) share its skeleton."), Matching.Num());
 	}
 	Creature->MarkPackageDirty();

@@ -5,6 +5,7 @@
 #include "AGBInteractionComponent.h"
 #include "AGBBuildingTypes.h"
 #include "AGBCraftingComponent.h"
+#include "AGBProjectile.h"
 #include "AGBCreature.h"
 #include "AGBCreatureTypes.h"
 #include "Kismet/GameplayStatics.h"
@@ -140,9 +141,21 @@ AAGBHUD* AAGBCharacter::GetAGBHUD() const
 
 float AAGBCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	const float Applied = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	float Applied = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (Applied > 0.f && HasAuthority())
 	{
+		// Armor: diminishing reduction (100 armor halves damage); every worn piece wears a little.
+		const float Armor = GetArmor();
+		Applied *= 100.f / (100.f + FMath::Max(0.f, Armor));
+		for (int32 Index = 0; Index < Equipment->GetNumSlots(); ++Index)
+		{
+			const FAGBItemStack Worn = Equipment->GetSlot(Index);
+			if (!Worn.IsEmpty() && Equipment->DamageSlot(Index, 1.f))
+			{
+				ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Broke", "{0} broke!"), Worn.Item->GetDisplayNameOrId()), true);
+			}
+		}
+		ClientShowHit(Applied);
 		const AAGBCreature* Creature = Cast<AAGBCreature>(DamageCauser);
 		const FString Cause = Creature && Creature->Definition ? Creature->Definition->GetDisplayNameOrId().ToString()
 			: (DamageCauser ? DamageCauser->GetName() : FString());
@@ -301,6 +314,32 @@ int32 AAGBCharacter::GiveItem(UAGBItemDefinition* Item, int32 Count)
 		ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Gained", "+{0} {1}"), Added, Item->GetDisplayNameOrId()), false);
 	}
 	if (Added < Count)
+	{
+		ClientShowMessage(NSLOCTEXT("AIGameBuilder", "InventoryFull", "Inventory full"), true);
+	}
+	return Added;
+}
+
+int32 AAGBCharacter::GiveStack(const FAGBItemStack& Stack)
+{
+	if (Stack.IsEmpty())
+	{
+		return 0;
+	}
+	if (!Stack.HasDurability())
+	{
+		return GiveItem(Stack.Item, Stack.Count);
+	}
+	int32 Added = Hotbar->AddStack(Stack, /*bOnlyEmptySlots=*/true);
+	if (Added == 0)
+	{
+		Added = Inventory->AddStack(Stack, /*bOnlyEmptySlots=*/true);
+	}
+	if (Added > 0)
+	{
+		ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "GainedOne", "+1 {0}"), Stack.Item->GetDisplayNameOrId()), false);
+	}
+	else
 	{
 		ClientShowMessage(NSLOCTEXT("AIGameBuilder", "InventoryFull", "Inventory full"), true);
 	}
@@ -793,16 +832,135 @@ void AAGBCharacter::OnUseItem(const FInputActionValue& Value)
 	{
 		PlaceSelectedItem();
 	}
+	else if (!Selected.IsEmpty() && Selected.Item->Ammo)
+	{
+		Fire();
+	}
 	else
 	{
 		Swing(); // Tools, weapons and bare hands.
 	}
 }
 
+float AAGBCharacter::GetAttackInterval() const
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	return Selected.IsEmpty() ? SwingInterval : FMath::Max(0.1f, Selected.Item->GetStat(TEXT("SwingSeconds"), SwingInterval));
+}
+
+float AAGBCharacter::GetMeleeReach() const
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	return Selected.IsEmpty() ? Interaction->HarvestRange : Selected.Item->GetStat(TEXT("Reach"), Interaction->HarvestRange);
+}
+
+float AAGBCharacter::GetArmor() const
+{
+	float Armor = 0.f;
+	for (const FAGBItemStack& Stack : Equipment->GetSlots())
+	{
+		Armor += Stack.IsEmpty() ? 0.f : Stack.Item->GetStat(TEXT("Armor"));
+	}
+	return Armor;
+}
+
+void AAGBCharacter::WearSelectedItem()
+{
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (!Selected.IsEmpty() && Selected.HasDurability() && Hotbar->DamageSlot(SelectedHotbarSlot, 1.f))
+	{
+		ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Broke", "{0} broke!"), Selected.Item->GetDisplayNameOrId()), true);
+	}
+}
+
+void AAGBCharacter::Fire()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (IsDead() || Selected.IsEmpty() || !Selected.Item->Ammo || !Controller || Now - LastSwingTime < GetAttackInterval())
+	{
+		return;
+	}
+	if (CountItem(Selected.Item->Ammo) <= 0)
+	{
+		if (AAGBHUD* HUD = GetAGBHUD())
+		{
+			HUD->AddNotification(FText::Format(NSLOCTEXT("AIGameBuilder", "NoAmmo", "No {0}"), Selected.Item->Ammo->GetDisplayNameOrId()), true);
+		}
+		return;
+	}
+	LastSwingTime = Now;
+	PlaySwingAnimation();
+
+	// Aim where the crosshair points (camera trace), launch from just in front of the eyes.
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	FVector AimPoint = ViewLocation + ViewRotation.Vector() * 10000.0;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBFireAim), false, this);
+	FHitResult Hit;
+	if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, AimPoint, ECC_Visibility, Params))
+	{
+		AimPoint = Hit.ImpactPoint;
+	}
+	const FVector Origin = GetPawnViewLocation() + GetActorForwardVector() * 40.0;
+	const FVector Direction = (AimPoint - Origin).GetSafeNormal();
+	if (HasAuthority())
+	{
+		ServerFire_Implementation(Origin, Direction);
+	}
+	else
+	{
+		ServerFire(Origin, Direction);
+	}
+}
+
+void AAGBCharacter::ServerFire_Implementation(FVector_NetQuantize Origin, FVector_NetQuantizeNormal Direction)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const FAGBItemStack Selected = GetSelectedItem();
+	if (IsDead() || Selected.IsEmpty() || !Selected.Item->Ammo || FVector::Dist(Origin, GetPawnViewLocation()) > 200.f
+		|| (!IsLocallyControlled() && Now - LastSwingTime < GetAttackInterval() * 0.8))
+	{
+		return;
+	}
+	UAGBItemDefinition* Weapon = Selected.Item;
+	UAGBItemDefinition* Ammo = Weapon->Ammo;
+	if (TakeItem(Ammo, 1) <= 0)
+	{
+		return;
+	}
+	LastSwingTime = Now;
+	MulticastPlaySwing();
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	if (AAGBProjectile* Projectile = GetWorld()->SpawnActor<AAGBProjectile>(AAGBProjectile::StaticClass(), Origin, Direction.Rotation(), SpawnParams))
+	{
+		const float Speed = Weapon->GetStat(TEXT("ProjectileSpeed"), 5000.f);
+		Projectile->Launch(Ammo, Direction * Speed, Weapon->GetStat(TEXT("Damage"), 20.f), Weapon->GetStat(TEXT("AmmoRecoverChance"), Ammo == Weapon ? 1.f : 0.5f));
+	}
+	if (Ammo != Weapon)
+	{
+		WearSelectedItem();
+	}
+	OnItemUsed.Broadcast(Weapon);
+}
+
+void AAGBCharacter::ClientShowHit_Implementation(float Amount)
+{
+	if (AAGBHUD* HUD = GetAGBHUD())
+	{
+		HUD->FlashDamage(Amount);
+	}
+}
+
 void AAGBCharacter::Swing()
 {
 	const double Now = GetWorld()->GetTimeSeconds();
-	if (IsDead() || Now - LastSwingTime < SwingInterval)
+	if (IsDead() || Now - LastSwingTime < GetAttackInterval())
 	{
 		return;
 	}
@@ -819,11 +977,11 @@ void AAGBCharacter::Swing()
 		FRotator ViewRotation;
 		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
 		const FVector Eyes = GetPawnViewLocation();
-		const FVector End = ViewLocation + ViewRotation.Vector() * (FVector::Dist(ViewLocation, Eyes) + Interaction->HarvestRange);
+		const FVector End = ViewLocation + ViewRotation.Vector() * (FVector::Dist(ViewLocation, Eyes) + GetMeleeReach());
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBSwingTrace), /*bTraceComplex=*/false, this);
 		FHitResult Hit;
 		if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, End, ECC_Visibility, Params)
-			&& FVector::Dist(Hit.ImpactPoint, Eyes) <= Interaction->HarvestRange)
+			&& FVector::Dist(Hit.ImpactPoint, Eyes) <= GetMeleeReach())
 		{
 			Target = Hit.GetComponent();
 			InstanceIndex = Hit.Item;
@@ -844,7 +1002,7 @@ void AAGBCharacter::Swing()
 void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int32 InstanceIndex, FVector_NetQuantize ImpactPoint)
 {
 	const double Now = GetWorld()->GetTimeSeconds();
-	if (IsDead() || (!IsLocallyControlled() && Now - LastSwingTime < SwingInterval * 0.8))
+	if (IsDead() || (!IsLocallyControlled() && Now - LastSwingTime < GetAttackInterval() * 0.8))
 	{
 		return; // Swinging faster than allowed.
 	}
@@ -856,7 +1014,7 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 	{
 		// Server checks: the hit point is within reach and on the target.
 		const FVector Eyes = GetPawnViewLocation();
-		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= Interaction->HarvestRange + 150.f
+		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= GetMeleeReach() + 150.f
 			&& FVector::Dist(ImpactPoint, Target->Bounds.Origin) <= Target->Bounds.SphereRadius + 100.f;
 		AAGBCreature* Creature = Cast<AAGBCreature>(Target->GetOwner());
 		if (bInReach && Creature && !Creature->IsDead())
@@ -866,6 +1024,7 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 			UGameplayStatics::ApplyDamage(Creature, Damage, Controller, this, nullptr);
 			if (!Selected.IsEmpty())
 			{
+				WearSelectedItem();
 				OnItemUsed.Broadcast(Selected.Item);
 			}
 			return;
@@ -883,6 +1042,10 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		if (bInReach && Harvesting)
 		{
 			const FAGBHarvestResult Result = Harvesting->Harvest(this, Target, InstanceIndex, Selected.Item, ImpactPoint);
+			if (Result.bHarvested)
+			{
+				WearSelectedItem();
+			}
 			if (!Result.Message.IsEmpty())
 			{
 				ClientShowMessage(Result.Message, /*bWarning=*/!Result.bHarvested);

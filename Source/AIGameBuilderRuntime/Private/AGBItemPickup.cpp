@@ -142,7 +142,7 @@ void AAGBItemPickup::Interact_Implementation(APawn* Interactor)
 	int32 Added = 0;
 	if (AAGBCharacter* Character = Cast<AAGBCharacter>(Interactor))
 	{
-		Added = Character->GiveItem(Stack.Item, Stack.Count);
+		Added = Character->GiveStack(Stack);
 	}
 	else if (UAGBInventoryComponent* Inventory = Interactor->FindComponentByClass<UAGBInventoryComponent>())
 	{

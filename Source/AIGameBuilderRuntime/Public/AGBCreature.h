@@ -73,6 +73,13 @@ protected:
 	UPROPERTY(Replicated)
 	bool bButchered = false;
 
+	/** Incremented per hit taken so clients play the hit reaction. */
+	UPROPERTY(ReplicatedUsing = OnRep_HitCount)
+	uint8 HitCount = 0;
+
+	UFUNCTION()
+	void OnRep_HitCount();
+
 	/** Incremented per attack so clients play the attack animation. */
 	UPROPERTY(ReplicatedUsing = OnRep_AttackCount)
 	uint8 AttackCount = 0;
@@ -100,6 +107,7 @@ private:
 	void Die();
 	void ApplyDeathVisuals();
 	void PlayAttackAnimation();
+	void PlayOneShot(const TSoftObjectPtr<UAnimSequenceBase>& Clip);
 	void UpdateAnimation();
 	bool UsesSequences() const;
 
