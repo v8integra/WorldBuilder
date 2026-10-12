@@ -6,6 +6,10 @@
 #include "AGBCraftingTypes.h"
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
+#include "AGBMenus.h"
+#include "AGBPlayerSettings.h"
+#include "AGBUITheme.h"
+#include "Engine/Font.h"
 #include "AGBSaveGame.h"
 #include "Misc/ScopeExit.h"
 #include "AGBSurvivalConfig.h"
@@ -26,12 +30,15 @@ namespace
 	constexpr int32 ContainerIndex = 3;
 	constexpr int32 InventoryColumns = 6;
 
-	const FLinearColor SlotColor(0.f, 0.f, 0.f, 0.55f);
-	const FLinearColor SelectedColor(1.f, 0.8f, 0.2f, 1.f);
+	// Set from the UI theme each frame (AAGBHUD::ApplyTheme).
+	FLinearColor SlotColor(0.f, 0.f, 0.f, 0.55f);
+	FLinearColor SelectedColor(1.f, 0.8f, 0.2f, 1.f);
 	const FLinearColor HeldColor(0.3f, 0.8f, 1.f, 1.f);
-	const FLinearColor LabelColor(1.f, 1.f, 1.f, 0.45f);
-	const FLinearColor GoodColor(0.55f, 0.9f, 0.45f);
-	const FLinearColor BadColor(1.f, 0.45f, 0.35f);
+	FLinearColor LabelColor(1.f, 1.f, 1.f, 0.45f);
+	FLinearColor GoodColor(0.55f, 0.9f, 0.45f);
+	FLinearColor BadColor(1.f, 0.45f, 0.35f);
+	FLinearColor WarningColor(1.f, 0.65f, 0.25f);
+	FLinearColor PanelColor(0.05f, 0.05f, 0.06f, 0.85f);
 	constexpr float CraftingPanelWidth = 440.f;
 	constexpr TCHAR DegreeSign = 0x00B0;
 
@@ -63,6 +70,18 @@ AAGBGameMode::AAGBGameMode()
 	DefaultPawnClass = AAGBCharacter::StaticClass();
 	PlayerControllerClass = AAGBPlayerController::StaticClass();
 	HUDClass = AAGBHUD::StaticClass();
+}
+
+void AAGBPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	if (IsLocalController())
+	{
+		if (UAGBPlayerSettingsSubsystem* Settings = UAGBPlayerSettingsSubsystem::Get(this))
+		{
+			Settings->ApplyAudio(GetWorld());
+		}
+	}
 }
 
 void AAGBPlayerController::AGBSave()
@@ -232,17 +251,67 @@ void AAGBGameMode::ScheduleRespawn(AController* Controller, float DelaySeconds)
 FString AAGBHUD::GetInteractKeyName() const
 {
 	const AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
-	if (Character && Character->Input.MappingContext && Character->Input.Interact)
+	return KeyName(Character ? Character->Input.Interact.Get() : nullptr, TEXT("E"));
+}
+
+FString AAGBHUD::KeyName(const UInputAction* Action, const TCHAR* Fallback) const
+{
+	const AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
+	const FKey Key = Character && Action ? Character->GetActionKey(Action) : FKey();
+	return Key.IsValid() ? Key.GetDisplayName().ToString() : FString(Fallback);
+}
+
+void AAGBHUD::ApplyTheme()
+{
+	Theme = UAGBUISettings::GetTheme();
+	TextColor = Theme->TextColor;
+	SlotColor = Theme->SlotColor;
+	SelectedColor = Theme->AccentColor;
+	LabelColor = Theme->DimTextColor;
+	GoodColor = Theme->GoodColor;
+	BadColor = Theme->BadColor;
+	WarningColor = Theme->WarningColor;
+	PanelColor = Theme->PanelColor;
+}
+
+UFont* AAGBHUD::GetHUDFont(int32 Size)
+{
+	UFont* Source = Theme ? Theme->Font.LoadSynchronous() : nullptr;
+	if (!Source)
 	{
-		for (const FEnhancedActionKeyMapping& Mapping : Character->Input.MappingContext->GetMappings())
+		switch (Size)
 		{
-			if (Mapping.Action == Character->Input.Interact && !Mapping.Key.IsGamepadKey())
-			{
-				return Mapping.Key.GetDisplayName().ToString();
-			}
+		case 0: return GEngine->GetTinyFont();
+		case 1: return GEngine->GetSmallFont();
+		case 2: return GEngine->GetMediumFont();
+		default: return GEngine->GetLargeFont();
 		}
 	}
-	return TEXT("E");
+	// The canvas draws a font at its own size: keep a copy per size.
+	if (ThemeFontSource != Source || ThemeFonts.Num() != 4)
+	{
+		ThemeFontSource = Source;
+		ThemeFonts.Reset();
+		const float Base = Theme->BodySize / 18.f;
+		const float Sizes[] = { 10.f, 13.f, 17.f, 30.f };
+		for (const float FontSize : Sizes)
+		{
+			UFont* Copy = DuplicateObject<UFont>(Source, this);
+			Copy->LegacyFontSize = FMath::Max(6, FMath::RoundToInt(FontSize * Base));
+			ThemeFonts.Add(Copy);
+		}
+	}
+	return ThemeFonts[FMath::Clamp(Size, 0, 3)];
+}
+
+void AAGBHUD::DrawBox(const TSoftObjectPtr<UTexture2D>& Texture, const FLinearColor& Color, float X, float Y, float W, float H)
+{
+	if (UTexture2D* Loaded = Texture.LoadSynchronous())
+	{
+		DrawTexture(Loaded, X, Y, W, H, 0.f, 0.f, 1.f, 1.f, Color);
+		return;
+	}
+	DrawRect(Color, X, Y, W, H);
 }
 
 // ---------------------------------------------------------------- inventory screen state
@@ -317,8 +386,8 @@ void AAGBHUD::DrawContainerPanel(AAGBCharacter* Character, float Scale)
 	}
 	const float Padding = 16.f * Scale;
 	const float Width = CraftingPanelWidth * Scale;
-	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), CraftingPanelX, CraftingPanelY, Width, CraftingPanelHeight);
-	DrawText(Container->DisplayName.ToString(), TextColor, CraftingPanelX + Padding, CraftingPanelY + Padding, GEngine->GetMediumFont(), Scale);
+	DrawBox(Theme->PanelTexture, PanelColor, CraftingPanelX, CraftingPanelY, Width, CraftingPanelHeight);
+	DrawText(Container->DisplayName.ToString(), TextColor, CraftingPanelX + Padding, CraftingPanelY + Padding, GetHUDFont(2), Scale);
 
 	const float Size = 60.f * Scale;
 	const float Step = Size + 6.f * Scale;
@@ -446,7 +515,7 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 	{
 		return;
 	}
-	UFont* Font = GEngine->GetSmallFont();
+	UFont* Font = GetHUDFont(1);
 	const float Width = 220.f * Scale;
 	const float Height = 14.f * Scale;
 	const float Gap = 6.f * Scale;
@@ -578,13 +647,13 @@ void AAGBHUD::DrawNotifications(float Scale)
 	const double Now = GetWorld()->GetTimeSeconds();
 	Notifications.RemoveAll([Now](const FNotification& Entry) { return Now - Entry.Time > Lifetime; });
 
-	UFont* Font = GEngine->GetMediumFont();
+	UFont* Font = GetHUDFont(2);
 	float Y = Canvas->ClipY - 140.f * Scale;
 	for (int32 Index = Notifications.Num() - 1; Index >= 0; --Index)
 	{
 		const FNotification& Entry = Notifications[Index];
 		const float Alpha = static_cast<float>(FMath::Clamp((Lifetime - (Now - Entry.Time)) / FadeTime, 0.0, 1.0));
-		FLinearColor Color = Entry.bWarning ? FLinearColor(1.f, 0.65f, 0.25f) : TextColor;
+		FLinearColor Color = Entry.bWarning ? WarningColor : TextColor;
 		Color.A = Alpha;
 		float W = 0.f, H = 0.f;
 		GetTextSize(Entry.Text, W, H, Font, Scale);
@@ -604,7 +673,7 @@ void AAGBHUD::DrawDeathScreen(float Scale)
 		return;
 	}
 	DrawRect(FLinearColor(0.15f, 0.f, 0.f, 0.35f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
-	UFont* Font = GEngine->GetLargeFont();
+	UFont* Font = GetHUDFont(3);
 	const FString Title = TEXT("You died");
 	float W = 0.f, H = 0.f;
 	GetTextSize(Title, W, H, Font, Scale * 1.5f);
@@ -613,8 +682,8 @@ void AAGBHUD::DrawDeathScreen(float Scale)
 
 	const FString Detail = FString::Printf(TEXT("%s. Respawning..."), *Body->Vitals->GetDeathCause());
 	float DW = 0.f, DH = 0.f;
-	GetTextSize(Detail, DW, DH, GEngine->GetMediumFont(), Scale);
-	DrawText(Detail, TextColor, (Canvas->ClipX - DW) * 0.5f, Y + H * 1.5f + 10.f * Scale, GEngine->GetMediumFont(), Scale);
+	GetTextSize(Detail, DW, DH, GetHUDFont(2), Scale);
+	DrawText(Detail, TextColor, (Canvas->ClipX - DW) * 0.5f, Y + H * 1.5f + 10.f * Scale, GetHUDFont(2), Scale);
 }
 
 void AAGBHUD::DropHoveredSlot()
@@ -644,11 +713,11 @@ void AAGBHUD::DrawSlot(UAGBInventoryComponent* Inventory, int32 InventoryIndex, 
 {
 	const FAGBItemStack Stack = Inventory->GetSlot(SlotIndex);
 	const FSlotRef This{ Inventory, SlotIndex };
-	UFont* SmallFont = GEngine->GetSmallFont();
-	UFont* TinyFont = GEngine->GetTinyFont();
+	UFont* SmallFont = GetHUDFont(1);
+	UFont* TinyFont = GetHUDFont(0);
 	const float TextScale = FMath::Max(1.f, Size / 60.f);
 
-	DrawRect(SlotColor, X, Y, Size, Size);
+	DrawBox(Theme->SlotTexture, SlotColor, X, Y, Size, Size);
 	if (bInventoryOpen && Hovered == This)
 	{
 		DrawRect(FLinearColor(1.f, 1.f, 1.f, 0.15f), X, Y, Size, Size);
@@ -729,8 +798,8 @@ void AAGBHUD::DrawHotbar(AAGBCharacter* Character, float Scale)
 	{
 		const FString Name = Selected.Item->GetDisplayNameOrId().ToString();
 		float W = 0.f, H = 0.f;
-		GetTextSize(Name, W, H, GEngine->GetSmallFont(), Scale);
-		DrawText(Name, TextColor, (Canvas->ClipX - W) * 0.5f, Y - H - 6.f * Scale, GEngine->GetSmallFont(), Scale);
+		GetTextSize(Name, W, H, GetHUDFont(1), Scale);
+		DrawText(Name, TextColor, (Canvas->ClipX - W) * 0.5f, Y - H - 6.f * Scale, GetHUDFont(1), Scale);
 	}
 }
 
@@ -738,8 +807,8 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 {
 	UAGBInventoryComponent* Backpack = Character->Inventory;
 	UAGBInventoryComponent* Equipment = Character->Equipment;
-	UFont* Font = GEngine->GetMediumFont();
-	UFont* SmallFont = GEngine->GetSmallFont();
+	UFont* Font = GetHUDFont(2);
+	UFont* SmallFont = GetHUDFont(1);
 
 	const float Size = 60.f * Scale;
 	const float Gap = 6.f * Scale;
@@ -761,7 +830,7 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 	CraftingPanelHeight = PanelHeight;
 
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.35f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
-	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), PanelX, PanelY, PanelWidth, PanelHeight);
+	DrawBox(Theme->PanelTexture, PanelColor, PanelX, PanelY, PanelWidth, PanelHeight);
 
 	// Title with weight.
 	const float Weight = Backpack->GetTotalWeight() + Character->Hotbar->GetTotalWeight() + Equipment->GetTotalWeight();
@@ -804,7 +873,9 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 	}
 	const float FooterY = PanelY + PanelHeight - Padding - 30.f * Scale;
 	DrawText(Info, TextColor, PanelX + Padding, FooterY, SmallFont, Scale);
-	DrawText(TEXT("Click: pick up / place    Shift+click: half    E: eat / use    Q: drop    Tab: close"), LabelColor, PanelX + Padding, FooterY + 16.f * Scale, SmallFont, Scale);
+	const FString Help = FString::Printf(TEXT("Click: pick up / place    Shift+click: half    %s: eat / use    %s: drop    %s: close"),
+		*KeyName(Character->Input.Interact, TEXT("E")), *KeyName(Character->Input.Drop, TEXT("Q")), *KeyName(Character->Input.Inventory, TEXT("Tab")));
+	DrawText(Help, LabelColor, PanelX + Padding, FooterY + 16.f * Scale, SmallFont, Scale);
 }
 
 void AAGBHUD::DrawCraftingPanel(AAGBCharacter* Character, float Scale)
@@ -814,14 +885,14 @@ void AAGBHUD::DrawCraftingPanel(AAGBCharacter* Character, float Scale)
 	{
 		return;
 	}
-	UFont* Font = GEngine->GetMediumFont();
-	UFont* SmallFont = GEngine->GetSmallFont();
+	UFont* Font = GetHUDFont(2);
+	UFont* SmallFont = GetHUDFont(1);
 	const float Padding = 16.f * Scale;
 	const float Width = CraftingPanelWidth * Scale;
 	const float X = CraftingPanelX;
 	const float Bottom = CraftingPanelY + CraftingPanelHeight;
 	float Y = CraftingPanelY;
-	DrawRect(FLinearColor(0.05f, 0.05f, 0.06f, 0.85f), X, Y, Width, CraftingPanelHeight);
+	DrawBox(Theme->PanelTexture, PanelColor, X, Y, Width, CraftingPanelHeight);
 	Y += Padding;
 
 	// Station header (fuel, out of reach).
@@ -953,7 +1024,10 @@ void AAGBHUD::DrawHUD()
 		return;
 	}
 
-	const float Scale = FMath::Max(0.6f, Canvas->ClipY / 1080.f);
+	ApplyTheme();
+	const UAGBPlayerSettingsSubsystem* PlayerSettings = UAGBPlayerSettingsSubsystem::Get(this);
+	const float PlayerScale = PlayerSettings ? PlayerSettings->GetSettings().HUDScale : 1.f;
+	const float Scale = FMath::Max(0.6f, Canvas->ClipY / 1080.f) * Theme->HUDScale * PlayerScale;
 	const float CenterX = Canvas->ClipX * 0.5f;
 	const float CenterY = Canvas->ClipY * 0.5f;
 	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
@@ -1005,7 +1079,7 @@ void AAGBHUD::DrawHUD()
 		return;
 	}
 
-	if (bShowCrosshair)
+	if (bShowCrosshair && (!PlayerSettings || PlayerSettings->GetSettings().bShowCrosshair))
 	{
 		const float Size = 4.f;
 		DrawRect(FLinearColor(1.f, 1.f, 1.f, 0.8f), CenterX - Size * 0.5f, CenterY - Size * 0.5f, Size, Size);
@@ -1016,7 +1090,7 @@ void AAGBHUD::DrawHUD()
 	if (Interaction && Interaction->HasFocus())
 	{
 		const FString Prompt = FString::Printf(TEXT("[%s] %s"), *GetInteractKeyName(), *Interaction->GetFocusedPrompt().ToString());
-		UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;
+		UFont* Font = GetHUDFont(2);
 		float Width = 0.f, Height = 0.f;
 		GetTextSize(Prompt, Width, Height, Font, Scale);
 		const float X = CenterX - Width * 0.5f;
@@ -1027,20 +1101,20 @@ void AAGBHUD::DrawHUD()
 	else if (Character->IsBuilding())
 	{
 		const FAGBPlacement& Placement = Character->GetBuildPlacement();
-		const FString Text = Placement.bValid ? FString(TEXT("Left click: place    R: rotate")) : Placement.Reason.ToString();
-		UFont* Font = GEngine->GetSmallFont();
+		const FString Text = Placement.bValid ? FString::Printf(TEXT("%s: place    %s: rotate"), *KeyName(Character->Input.UseItem, TEXT("Left click")), *KeyName(Character->Input.Rotate, TEXT("R"))) : Placement.Reason.ToString();
+		UFont* Font = GetHUDFont(1);
 		float Width = 0.f, Height = 0.f;
 		GetTextSize(Text, Width, Height, Font, Scale);
-		DrawText(Text, Placement.bValid ? TextColor : FLinearColor(1.f, 0.65f, 0.25f), CenterX - Width * 0.5f, CenterY + 24.f * Scale, Font, Scale);
+		DrawText(Text, Placement.bValid ? TextColor : WarningColor, CenterX - Width * 0.5f, CenterY + 24.f * Scale, Font, Scale);
 	}
 	else if (Interaction && !Interaction->GetFocusedResourceText().IsEmpty())
 	{
 		// Harvestable in reach: its name, or what tool it needs.
 		const FString Text = Interaction->GetFocusedResourceText().ToString();
-		UFont* Font = GEngine->GetSmallFont();
+		UFont* Font = GetHUDFont(1);
 		float Width = 0.f, Height = 0.f;
 		GetTextSize(Text, Width, Height, Font, Scale);
-		const FLinearColor Color = Interaction->CanHarvestFocusedResource() ? TextColor : FLinearColor(1.f, 0.65f, 0.25f);
+		const FLinearColor Color = Interaction->CanHarvestFocusedResource() ? TextColor : WarningColor;
 		DrawText(Text, Color, CenterX - Width * 0.5f, CenterY + 24.f * Scale, Font, Scale);
 	}
 }

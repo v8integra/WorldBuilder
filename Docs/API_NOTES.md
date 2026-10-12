@@ -361,3 +361,13 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   `CoreOnline` module for `FUniqueNetIdWrapper::ToString`), the local host is "Host". World Partition: harvested
   instances of not-yet-loaded actors are kept pending and applied when the actor streams in. Saving in
   `AGameModeBase::EndPlay` works for PIE stop and quit; players are restored in `RestartPlayer` (ON_SCOPE_EXIT).
+- **UI (Phase 21):** UMG widgets built in C++ (`RebuildWidget` fills `WidgetTree->RootWidget` before `Super`); UMG
+  events are dynamic delegates, so a small `UObject` proxy with `UFUNCTION`s forwards them to lambdas. Rounded
+  panels/buttons with `FSlateRoundedBoxBrush`; a texture brush with `DrawAs = Box` and 0.25 margins gives 9-slice.
+  `UInputKeySelector` handles key capture. Rebinding without Enhanced Input user settings: duplicate the mapping
+  context at runtime (`DuplicateObject`), `UnmapKey` + `MapKey`, add the copy instead of the asset. Escape stops
+  Play-in-Editor, so the pause action also has P. `SetPause` only in `NM_Standalone`. Resolution/window changes
+  are skipped in the editor (`GIsEditor`) because they resize the editor window. Canvas text uses a UFont at its
+  `LegacyFontSize`: duplicate the theme font per size. Level assets without opening them: `UWorldFactory` via
+  `IAssetTools::CreateAsset`. Maps referenced only from config (GameMap) must be added to the cook list when
+  packaging (Phase 25).

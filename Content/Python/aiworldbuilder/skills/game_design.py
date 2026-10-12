@@ -198,6 +198,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
 - Tell the user: console `AGBSave`, `AGBLoad`, `AGBNewWorld` while playing; a fresh world after big level edits
   avoids old buildings floating where the terrain changed.
 
+## User interface (milestone M9)
+
+- With the game level open: `AIWorldBuilderToolsets.UITools.SetupUI(gameTitle)` from the design's title. It makes
+  the main menu the startup level; the open level becomes New Game / Continue.
+- Pick the look from the setting with `SetUITheme(preset)`: Survival (default), Frost (snow/arctic), Forest
+  (woodland), Desert, SciFi, Horror; mention the colors chosen. When the user adds a UI pack (asset wishlist),
+  point the theme at its font and panel/button/slot textures.
+- Decide yourself: settings contents, pause behaviour (multiplayer never pauses). Ask only about the title,
+  subtitle and overall mood if the design doc does not say.
+- Tell the user: P (Escape in the packaged game) opens the pause menu; play the MainMenu level to test the menu.
+
 ---
 
 # Things the user must do themselves

@@ -8,6 +8,9 @@
 #include "AGBGameFramework.generated.h"
 
 class UAGBInventoryComponent;
+class UFont;
+class UInputAction;
+class UTexture2D;
 
 /** Game mode for AI Game Builder games: AGB character, player controller and HUD. Blueprint subclasses set the classes. */
 UCLASS()
@@ -50,7 +53,7 @@ private:
 	FTimerHandle AutosaveTimer;
 };
 
-/** Player controller for AI Game Builder games (menus and input modes are added in later phases). */
+/** Player controller for AI Game Builder games (menus: UAGBMenuSubsystem; settings: UAGBPlayerSettingsSubsystem). */
 UCLASS()
 class AIGAMEBUILDERRUNTIME_API AAGBPlayerController : public APlayerController
 {
@@ -59,6 +62,8 @@ class AIGAMEBUILDERRUNTIME_API AAGBPlayerController : public APlayerController
 public:
 	/** Server: where this player respawns (a bed). Empty = a player start. */
 	TWeakObjectPtr<AActor> RespawnPoint;
+
+	virtual void BeginPlay() override;
 
 	/** Console (testing): jumps the clock to an hour, e.g. "AGBTime 22". */
 	UFUNCTION(Exec)
@@ -93,9 +98,9 @@ protected:
 };
 
 /**
- * Placeholder HUD drawn on the canvas (replaced by UMG in the UI phase): crosshair, interaction prompt, hotbar, and an
- * inventory screen (Tab) where clicking a slot picks its stack up and clicking another slot puts it there
- * (Shift+click takes half, Q drops the hovered stack).
+ * In-game HUD drawn on the canvas, styled by the UI theme (UAGBUISettings): crosshair, interaction prompt, hotbar,
+ * vitals, and an inventory screen (Tab) where clicking a slot picks its stack up and clicking another slot puts it
+ * there (Shift+click takes half, Q drops the hovered stack). Menus are UMG (AGBMenus.h).
  */
 UCLASS()
 class AIGAMEBUILDERRUNTIME_API AAGBHUD : public AHUD
@@ -106,7 +111,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|HUD")
 	bool bShowCrosshair = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Game Builder|HUD")
+	/** Set from the UI theme every frame. */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "AI Game Builder|HUD")
 	FLinearColor TextColor = FLinearColor::White;
 
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
@@ -197,4 +203,19 @@ private:
 	void DrawContainerPanel(class AAGBCharacter* Character, float Scale);
 	bool HandleCraftingClick(const FString& BoxName);
 	void DrawFrame(float X, float Y, float W, float H, float Thickness, const FLinearColor& Color);
+	/** A themed box: the texture tinted with the color, or a plain rectangle. */
+	void DrawBox(const TSoftObjectPtr<UTexture2D>& Texture, const FLinearColor& Color, float X, float Y, float W, float H);
+	void ApplyTheme();
+	/** 0 = tiny, 1 = small, 2 = medium, 3 = large: the theme font at that size, else the engine font. */
+	UFont* GetHUDFont(int32 Size);
+	/** Display name of the key bound to an action, e.g. "E". */
+	FString KeyName(const UInputAction* Action, const TCHAR* Fallback) const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<const class UAGBUITheme> Theme;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UFont>> ThemeFonts;
+
+	TWeakObjectPtr<UFont> ThemeFontSource;
 };

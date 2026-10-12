@@ -523,6 +523,26 @@ the host as "Host". Console (PIE, also from clients): `AGBSave`, `AGBLoad`, `AGB
 | `GetSaveStatus()` | Settings and save files (size, date). |
 | `DeleteSave(saveName)` | Deletes a save file, e.g. "World_TestWorld" (ask first). |
 
+## `AIWorldBuilderToolsets.UITools` (C++, menus, settings, UI theme)
+Runtime: one **UI theme** (`UAGBUITheme`, `/Game/AIGameBuilder/UI/DA_AGB_UITheme`: colors, fonts, panel/slot/button
+textures, menu background, logo, HUD scale) styles both the UMG menus and the canvas HUD; project settings live in
+`UAGBUISettings` (Project Settings > Game > AI Game Builder UI, `DefaultGame.ini`). Menus: **main menu** level
+(`AAGBMenuGameMode`; Continue when the game level has a save, New Game (asks before deleting the save), Settings,
+Quit; looks through the first Camera Actor placed in the menu level), **pause menu** (Pause action: Escape / P /
+gamepad Menu; Resume, Settings, Save Game (host), Main Menu, Quit; pauses single-player only), **settings** (Graphics:
+display mode, resolution, quality preset, render scale, VSync, frame limit, auto-detect; Audio: master, music,
+effects, ambience, interface; Controls: mouse sensitivity, invert Y, keyboard rebinding of 10 actions; Gameplay:
+field of view, HUD size, crosshair). Player settings are saved per machine (`AGBPlayerSettings.sav`, graphics in
+GameUserSettings.ini). The death screen and inventory/crafting panels stay on the canvas HUD, themed.
+Custom menus: Widget Blueprints calling the "AI Game Builder|Menu" functions (`UAGBMenuLibrary`).
+
+| Tool | Use |
+|---|---|
+| `SetupUI(gameTitle = "", bSetStartupMap = true)` | Theme asset, volume groups (`SC_AGB_Master/Music/Effects/Ambient/UI` + `SCM_AGB_Volumes`), `/Game/AIGameBuilder/Maps/MainMenu`, game level = the open level, startup map = main menu. Rerunnable. |
+| `SetUITheme(preset, gameTitle, subtitle, textColor, accentColor, panelColor, buttonColor, buttonHoverColor, fontPath, titleFontPath, panelTexturePath, slotTexturePath, buttonTexturePath, menuBackgroundPath, logoPath, hudScale)` | Re-skin. Presets: Survival, Frost, Forest, Desert, SciFi, Horror. Colors "#RRGGBB[AA]"; "" = unchanged; "none" clears an asset. |
+| `SetMenuWidgets(mainMenuWidget, pauseMenuWidget, settingsWidget)` | Use your own Widget Blueprints ("default" = built-in). |
+| `GetUIStatus()` | Maps, theme, menus, volume groups, startup map. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

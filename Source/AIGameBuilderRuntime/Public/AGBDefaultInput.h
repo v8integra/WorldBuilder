@@ -68,6 +68,10 @@ struct AIGAMEBUILDERRUNTIME_API FAGBInputSet
 	/** Rotate the piece being placed by 90 degrees. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> Rotate;
+
+	/** Open the pause menu (closes the inventory first). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> Pause;
 };
 
 namespace AGBInput
@@ -78,7 +82,8 @@ namespace AGBInput
 	/**
 	 * Builds the default survival-style bindings (keyboard + mouse and gamepad):
 	 * WASD / left stick move, mouse / right stick look, Space / A jump, Shift / L3 sprint, C / B crouch,
-	 * E / X interact, V / View camera, Tab / Y inventory, Q / d-pad down drop, 1-0 hotbar, wheel / d-pad left-right cycle.
+	 * E / X interact, V / View camera, Tab / Y inventory, Q / d-pad down drop, 1-0 hotbar, wheel / d-pad left-right cycle,
+	 * Escape or P / Menu pause.
 	 * With Existing, only its missing actions are created and mapped into its mapping context (upgrades older sets
 	 * without touching the user's bindings).
 	 */

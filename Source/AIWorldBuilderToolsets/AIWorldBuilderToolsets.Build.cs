@@ -15,6 +15,7 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"AssetRegistry",
+			"AssetTools",
 			"EngineSettings",
 			"EnhancedInput",
 			"Foliage",
@@ -29,6 +30,7 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"RenderCore",
 			"RHI",
 			"ToolsetRegistry",
+			"UMG",
 			"UnrealEd",
 			"Water",
 		});

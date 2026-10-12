@@ -1,4 +1,4 @@
-﻿using UnrealBuildTool;
+using UnrealBuildTool;
 
 // Game systems that ship with the game (unlike the editor-only world-building modules).
 // Every system here is data-driven and replication-ready.
@@ -16,6 +16,11 @@ public class AIGameBuilderRuntime : ModuleRules
 			"EnhancedInput",
 			"InputCore",
 			"NetCore",
+			// Public headers expose UI settings and UMG menus.
+			"DeveloperSettings",
+			"Slate",
+			"SlateCore",
+			"UMG",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

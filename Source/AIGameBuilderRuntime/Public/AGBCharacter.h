@@ -223,6 +223,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Camera")
 	void SetCameraMode(EAGBCameraMode NewMode);
 
+	/** Applies the player's settings: field of view, key bindings (local player only). */
+	void ApplyPlayerSettings();
+
+	/** The keyboard/mouse key bound to an action (with the player's rebinding). */
+	FKey GetActionKey(const UInputAction* Action) const;
+
+	/** The mapping contexts in use (copies with the player's keys). */
+	const TArray<TObjectPtr<UInputMappingContext>>& GetBoundContexts() const { return BoundContexts; }
+
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Camera")
 	void ToggleCameraMode();
 
@@ -299,6 +308,13 @@ private:
 	/** Runtime mappings for actions an older input set lacks (until SetupGameFoundation upgrades the assets). */
 	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> SupplementContext;
+
+	/** Contexts added to the local player (rebuilt when keys change). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UInputMappingContext>> BoundContexts;
+
+	void RefreshInputBindings();
+	void OnPause(const FInputActionValue& Value);
 
 	void ApplyAppearance();
 	void ApplyCameraMode();

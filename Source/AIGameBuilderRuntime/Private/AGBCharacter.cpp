@@ -15,6 +15,8 @@
 #include "EngineUtils.h"
 #include "AGBInventoryComponent.h"
 #include "AGBLootBag.h"
+#include "AGBMenus.h"
+#include "AGBPlayerSettings.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
 #include "AGBSurvivalConfig.h"
@@ -738,19 +740,78 @@ void AAGBCharacter::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();
 
+	ApplyPlayerSettings();
+}
+
+void AAGBCharacter::ApplyPlayerSettings()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	if (const UAGBPlayerSettingsSubsystem* Settings = UAGBPlayerSettingsSubsystem::Get(this))
+	{
+		Camera->SetFieldOfView(Settings->GetSettings().FieldOfView);
+	}
+	RefreshInputBindings();
+}
+
+void AAGBCharacter::RefreshInputBindings()
+{
 	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
 	ULocalPlayer* LocalPlayer = PlayerController ? PlayerController->GetLocalPlayer() : nullptr;
-	if (LocalPlayer)
+	UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer ? LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr;
+	if (!Subsystem)
 	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		return;
+	}
+	EnsureInput();
+	for (UInputMappingContext* Old : BoundContexts)
+	{
+		if (Old)
 		{
-			EnsureInput();
-			Subsystem->AddMappingContext(Input.MappingContext, 0);
-			if (SupplementContext)
-			{
-				Subsystem->AddMappingContext(SupplementContext, 0);
-			}
+			Subsystem->RemoveMappingContext(Old);
 		}
+	}
+	BoundContexts.Reset();
+	// Runtime copies carry the player's rebound keys; the assets stay untouched.
+	const UAGBPlayerSettingsSubsystem* Settings = UAGBPlayerSettingsSubsystem::Get(this);
+	for (UInputMappingContext* Source : { Input.MappingContext.Get(), SupplementContext.Get() })
+	{
+		if (UInputMappingContext* Bound = Source && Settings ? Settings->MakeBoundContext(Source, Input, this) : Source)
+		{
+			Subsystem->AddMappingContext(Bound, 0);
+			BoundContexts.Add(Bound);
+		}
+	}
+}
+
+FKey AAGBCharacter::GetActionKey(const UInputAction* Action) const
+{
+	if (BoundContexts.Num() > 0)
+	{
+		return UAGBPlayerSettingsSubsystem::FindKey(BoundContexts, Action);
+	}
+	TArray<TObjectPtr<UInputMappingContext>> Sources = { Input.MappingContext, SupplementContext };
+	return UAGBPlayerSettingsSubsystem::FindKey(Sources, Action);
+}
+
+void AAGBCharacter::OnPause(const FInputActionValue& Value)
+{
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (!PlayerController)
+	{
+		return;
+	}
+	AAGBHUD* HUD = PlayerController->GetHUD<AAGBHUD>();
+	if (HUD && HUD->IsInventoryOpen())
+	{
+		HUD->ToggleInventory();
+		return;
+	}
+	if (UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(PlayerController))
+	{
+		Menus->OpenPauseMenu();
 	}
 }
 
@@ -819,6 +880,10 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	if (Input.Rotate)
 	{
 		EnhancedInput->BindAction(Input.Rotate, ETriggerEvent::Started, this, &AAGBCharacter::OnRotate);
+	}
+	if (Input.Pause)
+	{
+		EnhancedInput->BindAction(Input.Pause, ETriggerEvent::Started, this, &AAGBCharacter::OnPause);
 	}
 }
 
@@ -1151,7 +1216,12 @@ void AAGBCharacter::OnMove(const FInputActionValue& Value)
 
 void AAGBCharacter::OnLook(const FInputActionValue& Value)
 {
-	const FVector2D Axis = Value.Get<FVector2D>();
+	FVector2D Axis = Value.Get<FVector2D>();
+	if (const UAGBPlayerSettingsSubsystem* Settings = UAGBPlayerSettingsSubsystem::Get(this))
+	{
+		Axis *= Settings->GetSettings().MouseSensitivity;
+		Axis.Y *= Settings->GetSettings().bInvertY ? -1.0 : 1.0;
+	}
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(Axis.Y);
 }

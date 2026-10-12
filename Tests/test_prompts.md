@@ -296,3 +296,16 @@ Prereq: C++ build. Open TestWorld.
 8. Co-op (2 players, listen server): both build and carry items, stop and Play → the host and the client each get their own position and inventory back (the client is matched by its online id; if PIE gives it a new id each run, the client starts fresh: report it).
 **Claude Code:** "Make the game save automatically every 10 minutes." → SaveTools.SetSaveSettings.
 
+## Phase 21 — User interface
+
+Prereq: C++ build (new UMG dependency). Open TestWorld (the game level).
+1. `SetupUI` `{"gameTitle":"Test Survival"}` → creates the theme, 5 sound classes + mix, `/Game/AIGameBuilder/Maps/MainMenu`; status shows game level TestWorld and "Game starts in .../MainMenu". Optional: `SetupGameFoundation` again adds the Pause action to the input assets (it works without).
+2. Play TestWorld: HUD looks as before (amber accents). Press **P** → "Paused" menu, game frozen (creatures and clock stop), mouse cursor. Resume (or P / Esc-in-standalone / gamepad B) → back to the game, cursor hidden. With the inventory open, P closes the inventory first.
+3. Pause → Settings: four tabs. Audio sliders move and show %. Controls: click "Jump", press J → Back, J jumps, Space does nothing; the inventory hint and "[E] ..." prompts show the new keys after rebinding Interact. "Reset keys to default". Mouse sensitivity / invert Y change looking. Gameplay: FOV changes the view at once, HUD size scales hotbar/vitals, crosshair toggles. Graphics: quality Low → visibly lower; auto-detect picks a level.
+4. Stop and Play again → settings kept (FOV, keys, volumes).
+5. Pause → Save Game → "Game saved". Pause → Main Menu → main menu level opens (the world saves on the way).
+6. Open the MainMenu level and Play: title, Continue (save exists), New Game, Settings, Quit. Continue → TestWorld with the saved world. Back to menu → New Game → confirm dialog → fresh world. Quit → Play ends.
+7. `SetUITheme` `{"preset":"Frost","gameTitle":"Frozen North","subtitle":"Survive the winter"}` → menus and HUD turn blue on next Play. `{"preset":"Survival"}` back. Optional with a UI pack: `{"fontPath":"/Game/.../Font","panelTexturePath":"/Game/.../T_Panel"}`.
+8. Co-op (2 players): P on the client opens "Menu" ("game keeps running"), no Save Game button on the client; the host's world does not pause.
+**Claude Code:** "Give the game a main menu and a cold, icy look." → UITools.SetupUI + SetUITheme Frost.
+
