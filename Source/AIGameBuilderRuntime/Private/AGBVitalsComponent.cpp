@@ -67,6 +67,34 @@ float UAGBVitalsComponent::GetFraction(FName Stat) const
 	return Max > 0.f ? GetValue(Stat) / Max : 0.f;
 }
 
+TMap<FName, float> UAGBVitalsComponent::GetSavedValues() const
+{
+	TMap<FName, float> Saved;
+	const TArray<FAGBStatConfig>& Stats = GetConfig()->Stats;
+	for (int32 Index = 0; Index < Stats.Num() && ServerValues.IsValidIndex(Index); ++Index)
+	{
+		Saved.Add(Stats[Index].Id, ServerValues[Index]);
+	}
+	return Saved;
+}
+
+void UAGBVitalsComponent::RestoreValues(const TMap<FName, float>& Saved)
+{
+	if (ServerValues.Num() != GetConfig()->Stats.Num())
+	{
+		ResetStats();
+	}
+	for (const TPair<FName, float>& Pair : Saved)
+	{
+		const int32 Index = FindStatIndex(Pair.Key);
+		if (ServerValues.IsValidIndex(Index))
+		{
+			ServerValues[Index] = FMath::Clamp(Pair.Value, 0.f, GetConfig()->Stats[Index].MaxValue);
+		}
+	}
+	Replicate();
+}
+
 bool UAGBVitalsComponent::CanSprint() const
 {
 	return !bDead && (!HasStat(StaminaStat) || GetValue(StaminaStat) > 1.f);

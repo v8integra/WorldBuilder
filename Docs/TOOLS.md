@@ -508,6 +508,21 @@ night. HUD: "Day 2  21:40  Rain    12 degC". Console (PIE, also from clients): `
 | `CreateClimateZone(centerXM, centerYM, radiusM, temperatureOffsetC, edgeM = 50, label)` | Warmer/colder biome area. |
 | `GetWorldEnvironment()` | Settings, weathers, lighting actors (mobility), climate zones. |
 
+## `AIWorldBuilderToolsets.SaveTools` (C++, save and load)
+Runtime: `UAGBSaveSubsystem` + `UAGBSaveGame` (one file per level: `Saved/SaveGames/<SlotName>_<Map>.sav`). Saved: clock
+and weather; every player (position, view, vitals, backpack, hotbar, equipment with durability, selected slot, camera
+mode, known recipes, crafting queue, bed); building pieces (health, door open, storage); crafting stations (fuel);
+items on the ground; death bags; depleted resource nodes and harvested foliage instances with regrow time. Not saved:
+creatures (spawn zones repopulate). The game mode loads the save when play starts, autosaves every AutosaveMinutes
+("Game saved" message) and saves when play ends (quit, server close, stopping PIE). Players are matched by online id,
+the host as "Host". Console (PIE, also from clients): `AGBSave`, `AGBLoad`, `AGBNewWorld` (deletes the save).
+
+| Tool | Use |
+|---|---|
+| `SetSaveSettings(slotName = "World", autosaveMinutes = 5, bLoadOnStart = true, bSaveOnEnd = true)` | Save behaviour on the game mode Blueprint (saved). |
+| `GetSaveStatus()` | Settings and save files (size, date). |
+| `DeleteSave(saveName)` | Deletes a save file, e.g. "World_TestWorld" (ask first). |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

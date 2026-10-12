@@ -189,6 +189,15 @@ continue without it. After `start_game_project`, check that `get_project_memory`
 - Rain/snow particles when a VFX pack is added (`SetWeatherEffects`).
 - Playtest with the console: `AGBTime 22`, `AGBWeather Rain`.
 
+## Saving (milestone M9)
+
+- Saving works out of the box: the world and every player are saved per level, loaded at start, autosaved every 5
+  min and saved when play ends. Change it with `AIWorldBuilderToolsets.SaveTools.SetSaveSettings` from the design
+  (e.g. hardcore: no autosave). Creatures are not saved; spawn zones repopulate.
+- `GetSaveStatus` shows the files. `DeleteSave` only after the user agrees (it wipes their progress).
+- Tell the user: console `AGBSave`, `AGBLoad`, `AGBNewWorld` while playing; a fresh world after big level edits
+  avoids old buildings floating where the terrain changed.
+
 ---
 
 # Things the user must do themselves

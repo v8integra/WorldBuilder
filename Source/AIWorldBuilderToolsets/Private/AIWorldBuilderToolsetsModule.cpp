@@ -16,6 +16,7 @@
 #include "LandscapeSculptTools.h"
 #include "MeshConversionTools.h"
 #include "PCGWorldTools.h"
+#include "SaveTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WaterTools.h"
 #include "WorldEnvironmentTools.h"
@@ -66,6 +67,7 @@ private:
 			UCreatureTools::StaticClass(),
 			UCombatTools::StaticClass(),
 			UWorldEnvironmentTools::StaticClass(),
+			USaveTools::StaticClass(),
 		};
 	}
 };

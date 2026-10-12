@@ -10,6 +10,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 
@@ -187,6 +188,72 @@ void AAGBHarvestState::AddHarvested(UInstancedStaticMeshComponent* Component, in
 	}
 }
 
+TArray<FAGBSavedHarvest> AAGBHarvestState::GetSaveData() const
+{
+	TArray<FAGBSavedHarvest> Saved;
+	const double Now = GetWorld()->GetTimeSeconds();
+	for (const FAGBHarvestedInstance& Entry : Harvested.Items)
+	{
+		if (const UInstancedStaticMeshComponent* Component = Entry.Component)
+		{
+			FAGBSavedHarvest& Out = Saved.AddDefaulted_GetRef();
+			Out.ActorName = Component->GetOwner() ? Component->GetOwner()->GetFName().ToString() : FString();
+			Out.ComponentName = Component->GetFName().ToString();
+			Out.InstanceIndex = Entry.InstanceIndex;
+			Out.RegrowRemaining = Entry.RegrowAt > 0.0 ? static_cast<float>(FMath::Max(1.0, Entry.RegrowAt - Now)) : 0.f;
+		}
+	}
+	for (const FAGBSavedHarvest& Waiting : Pending)
+	{
+		Saved.Add(Waiting); // Still unloaded: keep it.
+	}
+	return Saved;
+}
+
+void AAGBHarvestState::RestoreSaved(const TArray<FAGBSavedHarvest>& Saved)
+{
+	for (const FAGBHarvestedInstance& Entry : Harvested.Items)
+	{
+		Entry.Restore();
+	}
+	Harvested.Items.Reset();
+	Harvested.MarkArrayDirty();
+	Pending = Saved;
+	ResolvePending();
+}
+
+void AAGBHarvestState::ResolvePending()
+{
+	if (Pending.Num() == 0)
+	{
+		return;
+	}
+	TMap<FString, AActor*> Owners;
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		Owners.Add(It->GetFName().ToString(), *It);
+	}
+	Pending.RemoveAll([this, &Owners](const FAGBSavedHarvest& Saved)
+	{
+		AActor* const* Owner = Owners.Find(Saved.ActorName);
+		if (!Owner)
+		{
+			return false; // Not loaded yet (World Partition): try again later.
+		}
+		TArray<UInstancedStaticMeshComponent*> Components;
+		(*Owner)->GetComponents<UInstancedStaticMeshComponent>(Components);
+		for (UInstancedStaticMeshComponent* Component : Components)
+		{
+			if (Component->GetFName().ToString() == Saved.ComponentName && Component->IsValidInstance(Saved.InstanceIndex))
+			{
+				AddHarvested(Component, Saved.InstanceIndex, Saved.RegrowRemaining, /*bFall=*/false, /*FallYaw=*/0.f);
+				break;
+			}
+		}
+		return true;
+	});
+}
+
 bool AAGBHarvestState::IsHarvested(const UInstancedStaticMeshComponent* Component, int32 InstanceIndex) const
 {
 	return Harvested.Items.ContainsByPredicate([Component, InstanceIndex](const FAGBHarvestedInstance& Entry)
@@ -221,6 +288,10 @@ void AAGBHarvestState::Tick(float DeltaSeconds)
 	if (Now >= NextReapplyTime)
 	{
 		NextReapplyTime = Now + ReapplyInterval;
+		if (HasAuthority())
+		{
+			ResolvePending();
+		}
 		for (const FAGBHarvestedInstance& Entry : Harvested.Items)
 		{
 			Entry.Hide();

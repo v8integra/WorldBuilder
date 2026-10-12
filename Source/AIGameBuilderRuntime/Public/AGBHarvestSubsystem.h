@@ -76,6 +76,26 @@ struct TStructOpsTypeTraits<FAGBHarvestedArray> : public TStructOpsTypeTraitsBas
 	enum { WithNetDeltaSerializer = true };
 };
 
+/** A harvested instance in a save game, found again by its actor and component names. */
+USTRUCT()
+struct AIGAMEBUILDERRUNTIME_API FAGBSavedHarvest
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString ActorName;
+
+	UPROPERTY()
+	FString ComponentName;
+
+	UPROPERTY()
+	int32 InstanceIndex = INDEX_NONE;
+
+	/** Seconds until it regrows; 0 = never. */
+	UPROPERTY()
+	float RegrowRemaining = 0.f;
+};
+
 /** Replicates which foliage/PCG instances are harvested, so every player (including late joiners) sees the same world. */
 UCLASS(NotPlaceable, Transient)
 class AIGAMEBUILDERRUNTIME_API AAGBHarvestState : public AActor
@@ -90,6 +110,12 @@ public:
 
 	bool IsHarvested(const UInstancedStaticMeshComponent* Component, int32 InstanceIndex) const;
 
+	/** Save games (server). */
+	TArray<FAGBSavedHarvest> GetSaveData() const;
+
+	/** Save games: regrows everything, then re-harvests the saved instances as their foliage loads (server). */
+	void RestoreSaved(const TArray<FAGBSavedHarvest>& Saved);
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -99,7 +125,10 @@ protected:
 	FAGBHarvestedArray Harvested;
 
 private:
+	void ResolvePending();
+
 	double NextReapplyTime = 0.0;
+	TArray<FAGBSavedHarvest> Pending;
 };
 
 /**
@@ -160,6 +189,8 @@ public:
 	FAGBHarvestResult Harvest(AAGBCharacter* Harvester, UPrimitiveComponent* Component, int32 InstanceIndex, const UAGBItemDefinition* Tool, const FVector& ImpactPoint);
 
 	void RegisterState(AAGBHarvestState* InState) { State = InState; }
+
+	AAGBHarvestState* GetState() const { return State.Get(); }
 
 	/** Rebuild the mesh -> resource map (after resources were created or edited). */
 	void InvalidateResourceMap() { bMapBuilt = false; }

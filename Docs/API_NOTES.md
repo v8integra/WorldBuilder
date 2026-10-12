@@ -346,10 +346,18 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   Projectiles: `UProjectileMovementComponent` on a sphere root (BlockAllDynamic), `IgnoreActorWhenMoving(Instigator)`,
   damage applied on the server in `OnComponentHit`; replicated movement. Client aims with a camera trace and sends
   origin + direction; the server checks the origin is near the eyes and the fire rate. UHT does not accept default
-  values for `TArray` parameters of AICallable functions: make them required and put them before defaulted ones.- **World systems (Phase 19):** the clock replicates as one float (`CycleOrigin`, server world time at 06:00 of day 1)
+  values for `TArray` parameters of AICallable functions: make them required and put them before defaulted ones.
+- **World systems (Phase 19):** the clock replicates as one float (`CycleOrigin`, server world time at 06:00 of day 1)
   and is derived from `AGameStateBase::GetServerWorldTimeSeconds` on every machine; weather replicates as indices and a
   change time, blended locally. Moving the sun needs a Movable directional light (`IsUsedAsAtmosphereSunLight`), and
   the sky light should use real-time capture (else `RecaptureSky` periodically). Night darkness: a moon
   `UDirectionalLightComponent` (not an atmosphere sun) plus an unbound `UPostProcessComponent` overriding
   `AutoExposureBias`. `UFUNCTION(Exec)` on the PlayerController gives PIE console commands; forward them to the server
   with a Server RPC.
+- **Save (Phase 20):** `USaveGame` subclass with `UPROPERTY` structs, written with `UGameplayStatics::SaveGameToSlot`
+  (`Saved/SaveGames/<slot>.sav`). Assets are saved as `FSoftObjectPath`, actors spawned deferred
+  (`SpawnActorDeferred` + `FinishSpawning`) so state is set before BeginPlay. PIE map names carry a `UEDPIE_N_`
+  prefix: strip with `UWorld::RemovePIEPrefix`. Player keys come from `PlayerState->GetUniqueId()` (needs the
+  `CoreOnline` module for `FUniqueNetIdWrapper::ToString`), the local host is "Host". World Partition: harvested
+  instances of not-yet-loaded actors are kept pending and applied when the actor streams in. Saving in
+  `AGameModeBase::EndPlay` works for PIE stop and quit; players are restored in `RestartPlayer` (ON_SCOPE_EXIT).

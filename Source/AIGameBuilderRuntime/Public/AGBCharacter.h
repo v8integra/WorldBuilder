@@ -117,6 +117,9 @@ public:
 	/** Gives a stack keeping its durability (worn tools/weapons/armor); plain stacks go through GiveItem. Server only. */
 	int32 GiveStack(const FAGBItemStack& Stack);
 
+	/** Save games: restores the hotbar selection and camera (server). */
+	void RestoreSelection(int32 HotbarSlot, EAGBCameraMode Mode);
+
 	/** Total of an item across hotbar and inventory. */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Items")
 	int32 CountItem(const UAGBItemDefinition* Item) const;

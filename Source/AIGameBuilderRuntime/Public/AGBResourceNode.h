@@ -36,6 +36,9 @@ public:
 	/** Server: hides the node and brings it back after RegrowSeconds (0 = never). */
 	void Deplete(float RegrowSeconds);
 
+	/** Seconds until it regrows; -1 = not depleted; 0 = never regrows (save games). */
+	float GetRegrowRemaining() const;
+
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -48,4 +51,5 @@ protected:
 
 private:
 	void ApplyDepleted();
+	double RegrowAt = 0.0;
 };

@@ -21,7 +21,33 @@ public:
 	/** Respawns a player after a delay (at their bed, else a player start). */
 	void ScheduleRespawn(AController* Controller, float DelaySeconds);
 
+	/** Save file base name; each level gets "<SaveSlotName>_<Map>". */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Saving")
+	FString SaveSlotName = TEXT("World");
+
+	/** Minutes between autosaves; 0 = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Saving", meta = (ClampMin = "0"))
+	float AutosaveMinutes = 5.f;
+
+	/** Load the level's save when play starts. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Saving")
+	bool bLoadOnStart = true;
+
+	/** Save when play ends (quitting, closing the server, stopping Play in the editor). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Saving")
+	bool bSaveOnEnd = true;
+
+	/** Saves now and tells the players. Server. */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Saving")
+	bool SaveGameNow(bool bAnnounce = true);
+
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual void StartPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+private:
+	void Announce(const FString& Message, bool bWarning);
+	FTimerHandle AutosaveTimer;
 };
 
 /** Player controller for AI Game Builder games (menus and input modes are added in later phases). */
@@ -42,12 +68,28 @@ public:
 	UFUNCTION(Exec)
 	void AGBWeather(const FString& Weather);
 
+	/** Console: saves the world now. */
+	UFUNCTION(Exec)
+	void AGBSave();
+
+	/** Console: loads the last save of this level (replaces buildings and items, restores players). */
+	UFUNCTION(Exec)
+	void AGBLoad();
+
+	/** Console: deletes this level's save (the next start is a fresh world). */
+	UFUNCTION(Exec)
+	void AGBNewWorld();
+
 protected:
 	UFUNCTION(Server, Reliable)
 	void ServerSetTime(float Hour);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetWeather(const FString& Weather);
+
+	/** 0 = save, 1 = load, 2 = delete. */
+	UFUNCTION(Server, Reliable)
+	void ServerSaveCommand(uint8 Command);
 };
 
 /**

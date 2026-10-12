@@ -262,6 +262,29 @@ void UAGBCraftingComponent::LearnRecipe(UAGBRecipeDefinition* Recipe)
 	}
 }
 
+void UAGBCraftingComponent::RestoreState(const TArray<UAGBRecipeDefinition*>& Learned, const TArray<FAGBCraftJob>& SavedQueue)
+{
+	LearnedRecipes.Reset();
+	for (UAGBRecipeDefinition* Recipe : Learned)
+	{
+		if (Recipe)
+		{
+			LearnedRecipes.AddUnique(Recipe);
+		}
+	}
+	Queue.Reset();
+	const float Now = ServerTime();
+	for (const FAGBCraftJob& Saved : SavedQueue)
+	{
+		if (Saved.Recipe && Saved.Remaining > 0)
+		{
+			FAGBCraftJob& Job = Queue.Add_GetRef(Saved);
+			Job.UpdateServerTime = Now;
+			Job.bPaused = false;
+		}
+	}
+}
+
 void UAGBCraftingComponent::CheckDiscoveries()
 {
 	const AAGBCharacter* Character = GetCharacter();

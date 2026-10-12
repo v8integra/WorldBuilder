@@ -73,6 +73,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Building")
 	float GetMaxHealth() const;
 
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Building")
+	bool IsDoorOpen() const { return bDoorOpen; }
+
+	/** Save games: restores health and door state (server). */
+	void RestoreState(float SavedHealth, bool bSavedDoorOpen);
+
+	/** Recomputes what holds this piece up (server; after loading a saved base). */
+	void RebuildSupports();
+
 	/** Server: heals up to max. Returns how much. */
 	float Repair(float Amount);
 

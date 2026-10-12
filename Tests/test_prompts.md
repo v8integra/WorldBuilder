@@ -283,3 +283,16 @@ Prereq: C++ build (new Niagara dependency). Open TestWorld; Save All first.
 6. Co-op: both players see the same time and weather; `AGBTime` typed on the client changes it for both.
 **Claude Code:** "Set up day/night, weather and biome climate from the design: 60-minute days, colder nights, snowy mountains, a warm valley." → WorldEnvironmentTools, then marks the M9 world tasks.
 
+## Phase 20 — Save and persistence
+
+Prereq: C++ build. Open TestWorld.
+1. `GetSaveStatus` `{}` → settings line "Slot 'World_<Map>', autosave every 5.0 min, load on start yes, save on end yes", no saves yet.
+2. Play: harvest a few trees/rocks, craft and place a campfire (fuelled) and a foundation + wall + door (open it) + storage box with items in it, drop an item on the ground, sleep in/set a bed, eat or get hungry, damage a tool, `AGBTime 20`, `AGBWeather Rain`. Console `AGBSave` → "Game saved".
+3. Stop PIE and Play again → same time and weather, buildings with the door open and storage contents, campfire fuel, item on the ground, trees still felled (and regrowing on schedule), you stand where you were with the same vitals, inventory, durability, equipment, recipes. `GetSaveStatus` lists the file.
+4. Change things (place more, move away), then `AGBLoad` → world and you return to the saved state; extra pieces disappear.
+5. `SetSaveSettings` `{"autosaveMinutes":1}` → after a minute of Play "Game saved" appears; set back to 5.
+6. Death: die, respawn at the bed, `AGBSave`, restart Play → still respawned state, death bag still there.
+7. `AGBNewWorld` then stop and Play → fresh world (editor-placed layout, starting items).
+8. Co-op (2 players, listen server): both build and carry items, stop and Play → the host and the client each get their own position and inventory back (the client is matched by its online id; if PIE gives it a new id each run, the client starts fresh: report it).
+**Claude Code:** "Make the game save automatically every 10 minutes." → SaveTools.SetSaveSettings.
+

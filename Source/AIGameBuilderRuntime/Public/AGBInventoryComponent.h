@@ -115,6 +115,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Inventory")
 	void ClearAll();
 
+	/** Save games: replaces the contents (server). */
+	void RestoreSlots(const TArray<FAGBItemStack>& Saved);
+
 	// ---- Player requests: call on the requesting player's OWN inventory (it carries the RPC), on client or server.
 
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|Inventory")

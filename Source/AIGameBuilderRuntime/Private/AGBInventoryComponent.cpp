@@ -374,6 +374,16 @@ bool UAGBInventoryComponent::DropItem(int32 SlotIndex, int32 Count)
 	return true;
 }
 
+void UAGBInventoryComponent::RestoreSlots(const TArray<FAGBItemStack>& Saved)
+{
+	Slots.SetNum(FMath::Max(NumSlots, SlotTypes.Num()));
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		Slots[Index] = Saved.IsValidIndex(Index) ? Saved[Index] : FAGBItemStack();
+	}
+	NotifyChanged();
+}
+
 void UAGBInventoryComponent::ClearAll()
 {
 	for (FAGBItemStack& Stack : Slots)

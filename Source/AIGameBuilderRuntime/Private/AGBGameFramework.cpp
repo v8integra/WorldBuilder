@@ -6,6 +6,8 @@
 #include "AGBCraftingTypes.h"
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
+#include "AGBSaveGame.h"
+#include "Misc/ScopeExit.h"
 #include "AGBSurvivalConfig.h"
 #include "AGBVitalsComponent.h"
 #include "AGBWorldEnvironment.h"
@@ -63,6 +65,52 @@ AAGBGameMode::AAGBGameMode()
 	HUDClass = AAGBHUD::StaticClass();
 }
 
+void AAGBPlayerController::AGBSave()
+{
+	ServerSaveCommand(0);
+}
+
+void AAGBPlayerController::AGBLoad()
+{
+	ServerSaveCommand(1);
+}
+
+void AAGBPlayerController::AGBNewWorld()
+{
+	ServerSaveCommand(2);
+}
+
+void AAGBPlayerController::ServerSaveCommand_Implementation(uint8 Command)
+{
+	AAGBGameMode* GameMode = GetWorld()->GetAuthGameMode<AAGBGameMode>();
+	UAGBSaveSubsystem* Saving = GetWorld()->GetSubsystem<UAGBSaveSubsystem>();
+	AAGBCharacter* MyCharacter = Cast<AAGBCharacter>(GetPawn());
+	if (!GameMode || !Saving)
+	{
+		return;
+	}
+	FString Message;
+	if (Command == 0)
+	{
+		GameMode->SaveGameNow(true);
+		return;
+	}
+	if (Command == 1)
+	{
+		const bool bOk = Saving->LoadWorld(Message);
+		if (MyCharacter)
+		{
+			MyCharacter->ClientShowMessage(FText::FromString(bOk ? FString(TEXT("Game loaded")) : Message), !bOk);
+		}
+		return;
+	}
+	Saving->DeleteSave();
+	if (MyCharacter)
+	{
+		MyCharacter->ClientShowMessage(NSLOCTEXT("AIGameBuilder", "SaveDeleted", "Save deleted: restart the level for a fresh world"), true);
+	}
+}
+
 void AAGBPlayerController::AGBTime(float Hour)
 {
 	ServerSetTime(Hour);
@@ -89,8 +137,68 @@ void AAGBPlayerController::ServerSetWeather_Implementation(const FString& Weathe
 	}
 }
 
+void AAGBGameMode::StartPlay()
+{
+	Super::StartPlay();
+	if (UAGBSaveSubsystem* Saving = GetWorld()->GetSubsystem<UAGBSaveSubsystem>())
+	{
+		Saving->SlotBase = SaveSlotName.IsEmpty() ? FString(TEXT("World")) : SaveSlotName;
+		if (bLoadOnStart && Saving->HasSave())
+		{
+			FString Message;
+			Saving->LoadWorld(Message);
+		}
+	}
+	if (AutosaveMinutes > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(AutosaveTimer, FTimerDelegate::CreateWeakLambda(this, [this]() { SaveGameNow(true); }),
+			AutosaveMinutes * 60.f, true);
+	}
+}
+
+void AAGBGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (bSaveOnEnd && HasAuthority() && (EndPlayReason == EEndPlayReason::Quit || EndPlayReason == EEndPlayReason::EndPlayInEditor
+		|| EndPlayReason == EEndPlayReason::LevelTransition))
+	{
+		SaveGameNow(false);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+bool AAGBGameMode::SaveGameNow(bool bAnnounce)
+{
+	UAGBSaveSubsystem* Saving = GetWorld()->GetSubsystem<UAGBSaveSubsystem>();
+	FString Message;
+	const bool bOk = Saving && Saving->SaveWorld(Message);
+	if (bAnnounce)
+	{
+		Announce(bOk ? FString(TEXT("Game saved")) : Message, !bOk);
+	}
+	return bOk;
+}
+
+void AAGBGameMode::Announce(const FString& Message, bool bWarning)
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (AAGBCharacter* Character = It->Get() ? Cast<AAGBCharacter>(It->Get()->GetPawn()) : nullptr)
+		{
+			Character->ClientShowMessage(FText::FromString(Message), bWarning);
+		}
+	}
+}
+
 void AAGBGameMode::RestartPlayer(AController* NewPlayer)
 {
+	ON_SCOPE_EXIT
+	{
+		// A player's first spawn after a load gets their saved state.
+		if (UAGBSaveSubsystem* Saving = GetWorld()->GetSubsystem<UAGBSaveSubsystem>())
+		{
+			Saving->RestorePlayer(Cast<APlayerController>(NewPlayer));
+		}
+	};
 	const AAGBPlayerController* PlayerController = Cast<AAGBPlayerController>(NewPlayer);
 	const AActor* Bed = PlayerController ? PlayerController->RespawnPoint.Get() : nullptr;
 	if (Bed)

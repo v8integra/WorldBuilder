@@ -169,6 +169,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|World")
 	bool SetWeather(FName WeatherId);
 
+	/** Save games: sets the day number and clock (server). */
+	void RestoreClock(int32 Day, float Hour);
+
 	/** The level's environment, or null. */
 	static AAGBWorldEnvironment* Get(const UWorld* World);
 

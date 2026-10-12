@@ -346,6 +346,14 @@ int32 AAGBCharacter::GiveStack(const FAGBItemStack& Stack)
 	return Added;
 }
 
+void AAGBCharacter::RestoreSelection(int32 HotbarSlot, EAGBCameraMode Mode)
+{
+	SelectedHotbarSlot = FMath::Clamp(HotbarSlot, 0, FMath::Max(0, Hotbar->GetNumSlots() - 1));
+	CameraMode = Mode;
+	ApplyCameraMode();
+	UpdateHeldItem();
+}
+
 int32 AAGBCharacter::CountItem(const UAGBItemDefinition* Item) const
 {
 	return Hotbar->CountItem(Item) + Inventory->CountItem(Item);

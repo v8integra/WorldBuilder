@@ -32,6 +32,7 @@ void AAGBResourceNode::Deplete(float RegrowSeconds)
 {
 	bDepleted = true;
 	ApplyDepleted();
+	RegrowAt = RegrowSeconds > 0.f ? GetWorld()->GetTimeSeconds() + RegrowSeconds : 0.0;
 	if (RegrowSeconds > 0.f)
 	{
 		FTimerHandle Handle;
@@ -41,6 +42,15 @@ void AAGBResourceNode::Deplete(float RegrowSeconds)
 			ApplyDepleted();
 		}), RegrowSeconds, false);
 	}
+}
+
+float AAGBResourceNode::GetRegrowRemaining() const
+{
+	if (!bDepleted)
+	{
+		return -1.f;
+	}
+	return RegrowAt > 0.0 ? static_cast<float>(FMath::Max(1.0, RegrowAt - GetWorld()->GetTimeSeconds())) : 0.f;
 }
 
 void AAGBResourceNode::OnRep_Depleted()

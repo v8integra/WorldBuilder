@@ -432,6 +432,19 @@ void AAGBBuildPiece::ComputeSupports()
 	}
 }
 
+void AAGBBuildPiece::RestoreState(float SavedHealth, bool bSavedDoorOpen)
+{
+	Health = FMath::Clamp(SavedHealth, 1.f, GetMaxHealth());
+	bDoorOpen = bSavedDoorOpen;
+	OnRep_DoorOpen();
+}
+
+void AAGBBuildPiece::RebuildSupports()
+{
+	bGrounded = false;
+	ComputeSupports();
+}
+
 void AAGBBuildPiece::OnSupportRemoved(AAGBBuildPiece* Support)
 {
 	Supports.RemoveAll([Support](const TWeakObjectPtr<AAGBBuildPiece>& Entry) { return !Entry.IsValid() || Entry.Get() == Support; });

@@ -149,6 +149,12 @@ float AAGBWorldEnvironment::GetNightAmount() const
 	return FMath::Clamp((2.f - GetSunElevation()) / 8.f, 0.f, 1.f);
 }
 
+void AAGBWorldEnvironment::RestoreClock(int32 Day, float Hour)
+{
+	const float Cycle = FMath::Max(1.f, DayLengthMinutes) * 60.f;
+	CycleOrigin = ServerTime() - (static_cast<float>(FMath::Max(1, Day) - 1) + HourToFraction(Hour)) * Cycle;
+}
+
 void AAGBWorldEnvironment::SetHour(float Hour)
 {
 	const float Cycle = FMath::Max(1.f, DayLengthMinutes) * 60.f;

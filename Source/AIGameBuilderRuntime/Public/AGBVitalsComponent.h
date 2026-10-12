@@ -96,6 +96,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Vitals")
 	void ResetStats();
 
+	/** Save games: current value of every stat (server). */
+	TMap<FName, float> GetSavedValues() const;
+
+	/** Save games: restores stat values (server). Unknown stats are ignored. */
+	void RestoreValues(const TMap<FName, float>& Saved);
+
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

@@ -96,6 +96,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "AI Game Builder|Crafting")
 	void LearnRecipe(UAGBRecipeDefinition* Recipe);
 
+	/** Save games. */
+	const TArray<TObjectPtr<UAGBRecipeDefinition>>& GetLearnedRecipes() const { return LearnedRecipes; }
+
+	/** Save games: restores learned recipes and the queue (server). */
+	void RestoreState(const TArray<UAGBRecipeDefinition*>& Learned, const TArray<FAGBCraftJob>& SavedQueue);
+
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
