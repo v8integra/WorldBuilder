@@ -4,6 +4,8 @@
 #include "AGBHarvestTypes.h"
 #include "Engine/DataAsset.h"
 
+class USoundBase;
+
 #include "AGBCreatureTypes.generated.h"
 
 class UAnimInstance;
@@ -68,6 +70,10 @@ public:
 	/** Played when hurt. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body|Animations")
 	TSoftObjectPtr<UAnimSequenceBase> HitAnim;
+
+	/** Its own voice: "Hurt", "Attack", "Death", "Idle" (others use the game's Creature.* cues). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds")
+	TMap<FName, TSoftObjectPtr<USoundBase>> Sounds;
 
 	/** Knockback speed when hit (cm/s); 0 = none (big animals). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats", meta = (ClampMin = "0"))

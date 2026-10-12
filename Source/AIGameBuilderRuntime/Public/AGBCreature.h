@@ -93,6 +93,10 @@ protected:
 	UFUNCTION()
 	void OnRep_AttackCount();
 
+	/** Plays "Creature.<Kind>" (or the definition's own sound for it). */
+	void PlayVoice(const TCHAR* Kind);
+	double NextIdleSound = 0.0;
+
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> CubeMesh;
 

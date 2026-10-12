@@ -15,6 +15,8 @@
 #include "EngineUtils.h"
 #include "AGBInventoryComponent.h"
 #include "AGBLootBag.h"
+#include "AGBAudioFX.h"
+#include "AGBHarvestTypes.h"
 #include "AGBMenus.h"
 #include "AGBPlayerSettings.h"
 #include "Animation/AnimInstance.h"
@@ -75,6 +77,7 @@ AAGBCharacter::AAGBCharacter(const FObjectInitializer& ObjectInitializer)
 	Camera->bUsePawnControlRotation = false;
 
 	Interaction = CreateDefaultSubobject<UAGBInteractionComponent>(TEXT("Interaction"));
+	Footsteps = CreateDefaultSubobject<UAGBFootstepComponent>(TEXT("Footsteps"));
 
 	Inventory = CreateDefaultSubobject<UAGBInventoryComponent>(TEXT("Inventory"));
 	Inventory->NumSlots = 30;
@@ -232,12 +235,18 @@ void AAGBCharacter::UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex)
 	if (Vitals->TryStartUse())
 	{
 		Vitals->ApplyItemEffects(Stack.Item);
+		const bool bDrink = Stack.Item->GetStat(UAGBVitalsComponent::ThirstStat, 0.f) > Stack.Item->GetStat(TEXT("Hunger"), 0.f);
+		MulticastPlayCue(bDrink ? FName(TEXT("Event.Drink")) : FName(TEXT("Event.Eat")), GetActorLocation());
 		From->RemoveFromSlot(SlotIndex, 1);
 	}
 }
 
 void AAGBCharacter::HandleDeath(const FString& Cause)
 {
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue(TEXT("Event.Death"), GetActorLocation());
+	}
 	// Everyone: ragdoll and stop moving.
 	GetCharacterMovement()->DisableMovement();
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -475,6 +484,7 @@ void AAGBCharacter::ServerPlacePiece_Implementation(FVector_NetQuantize Point, F
 	{
 		Placed->Definition = Piece;
 		Placed->FinishSpawning(Placement.Transform);
+		MulticastPlayCue(TEXT("Event.Place"), Placement.Transform.GetLocation());
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
 }
@@ -564,6 +574,7 @@ void AAGBCharacter::ServerPlaceSelectedItem_Implementation(FVector_NetQuantize L
 	{
 		Station->Definition = Selected.Item->PlacesStation;
 		Station->FinishSpawning(Transform);
+		MulticastPlayCue(TEXT("Event.Place"), Transform.GetLocation());
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
 }
@@ -1014,6 +1025,7 @@ void AAGBCharacter::ServerFire_Implementation(FVector_NetQuantize Origin, FVecto
 	{
 		const float Speed = Weapon->GetStat(TEXT("ProjectileSpeed"), 5000.f);
 		Projectile->Launch(Ammo, Direction * Speed, Weapon->GetStat(TEXT("Damage"), 20.f), Weapon->GetStat(TEXT("AmmoRecoverChance"), Ammo == Weapon ? 1.f : 0.5f));
+		MulticastPlayCue(TEXT("Event.Shoot"), Origin);
 	}
 	if (Ammo != Weapon)
 	{
@@ -1024,6 +1036,11 @@ void AAGBCharacter::ServerFire_Implementation(FVector_NetQuantize Origin, FVecto
 
 void AAGBCharacter::ClientShowHit_Implementation(float Amount)
 {
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue2D(TEXT("Event.Hurt"));
+		Audio->NotifyDanger();
+	}
 	if (AAGBHUD* HUD = GetAGBHUD())
 	{
 		HUD->FlashDamage(Amount);
@@ -1095,6 +1112,7 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 			// Hands hit for 5; tools and weapons for their "Damage" stat.
 			const float Damage = Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f);
 			UGameplayStatics::ApplyDamage(Creature, Damage, Controller, this, nullptr);
+			MulticastPlayCue(TEXT("Impact.Flesh"), ImpactPoint);
 			if (!Selected.IsEmpty())
 			{
 				WearSelectedItem();
@@ -1105,6 +1123,8 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		AAGBBuildPiece* Piece = Cast<AAGBBuildPiece>(Target->GetOwner());
 		if (bInReach && Piece && !Selected.IsEmpty() && Selected.Item->HasTag(TEXT("Tool.Hammer")))
 		{
+			const EAGBSurface PieceSurface = Piece->Definition ? AGBAudioFX::SurfaceFromName(Piece->Definition->Tier.ToString()) : EAGBSurface::Default;
+			MulticastPlayCue(AGBAudioFX::CueName(TEXT("Impact"), PieceSurface == EAGBSurface::Default ? EAGBSurface::Wood : PieceSurface), ImpactPoint);
 			const float Repaired = Piece->Repair(Piece->GetMaxHealth() * 0.2f * Selected.Item->GetStat(TEXT("HarvestPower"), 1.f));
 			ClientShowMessage(FText::Format(NSLOCTEXT("AIGameBuilder", "Repaired", "{0}: {1}/{2}"),
 				Repaired > 0.f ? NSLOCTEXT("AIGameBuilder", "RepairedWord", "Repaired") : NSLOCTEXT("AIGameBuilder", "FullHealth", "Fully repaired"),
@@ -1115,6 +1135,10 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		if (bInReach && Harvesting)
 		{
 			const FAGBHarvestResult Result = Harvesting->Harvest(this, Target, InstanceIndex, Selected.Item, ImpactPoint);
+			if (Result.Resource)
+			{
+				MulticastPlayCue(AGBAudioFX::CueName(TEXT("Impact"), ResourceSurface(Result.Resource)), ImpactPoint);
+			}
 			if (Result.bHarvested)
 			{
 				WearSelectedItem();
@@ -1131,6 +1155,37 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 	}
 }
 
+EAGBSurface AAGBCharacter::ResourceSurface(const UAGBResourceDefinition* Resource)
+{
+	// Axes chop wood, pickaxes hit stone, bare-hand resources are plants.
+	if (Resource->ToolTags.Contains(TEXT("Tool.Axe")))
+	{
+		return EAGBSurface::Wood;
+	}
+	if (Resource->ToolTags.Contains(TEXT("Tool.Pickaxe")))
+	{
+		return EAGBSurface::Stone;
+	}
+	const EAGBSurface ByName = AGBAudioFX::SurfaceFromName(Resource->ResourceId.ToString());
+	return ByName != EAGBSurface::Default ? ByName : (Resource->ToolTags.IsEmpty() || Resource->bAllowHands ? EAGBSurface::Plant : EAGBSurface::Default);
+}
+
+void AAGBCharacter::MulticastPlayCue_Implementation(FName Cue, FVector_NetQuantize Location)
+{
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue(Cue, Location);
+	}
+}
+
+void AAGBCharacter::ClientPlayCue_Implementation(FName Cue)
+{
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue2D(Cue);
+	}
+}
+
 void AAGBCharacter::MulticastPlaySwing_Implementation()
 {
 	if (!IsLocallyControlled())
@@ -1141,6 +1196,10 @@ void AAGBCharacter::MulticastPlaySwing_Implementation()
 
 void AAGBCharacter::PlaySwingAnimation()
 {
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue(TEXT("Event.Swing"), GetActorLocation());
+	}
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	const FAGBItemStack Selected = GetSelectedItem();
 	UAnimSequenceBase* Animation = (!Selected.IsEmpty() && !Selected.Item->UseAnimation.IsNull())

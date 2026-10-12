@@ -71,6 +71,7 @@ Agents should start with `AIWorldBuilderToolsets.WorldBuilderDiagnosticsToolset.
 | `WorldEnvironmentTools` | Day and night, weather, seasons, biome climate zones |
 | `SaveTools` | Save and load the world and players, autosave |
 | `UITools` | Main menu, pause menu, settings (graphics, audio, controls, key rebinding), one theme for menus and HUD |
+| `AudioFXTools` | Footsteps by surface, hits, ambience by biome/time/weather, music states, fire and water sounds and effects; placeholder sounds until a pack is added |
 | `WorldCaptureTools` | Viewport captures (view, look-at, orbit, top-down) and exact height/slope maps (PNG files) |
 | `aiworldbuilder...GameDesignTools` (Python) | Game project memory: design doc, decision log, task board, asset wishlist, genre templates |
 | `aiworldbuilder...WorldBuilderInfoTools` (Python) | `ping` |

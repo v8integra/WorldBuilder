@@ -394,6 +394,7 @@ FAGBHarvestResult UAGBHarvestSubsystem::Harvest(AAGBCharacter* Harvester, UPrimi
 		return Result;
 	}
 	Result.bResource = true;
+	Result.Resource = Resource;
 
 	float Power = 0.f;
 	if (!Resource->GetHarvestPower(Tool, Power))

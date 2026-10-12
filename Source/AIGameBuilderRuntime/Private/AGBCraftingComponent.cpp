@@ -354,6 +354,7 @@ void UAGBCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 
 	// One craft finished.
+	Character->ClientPlayCue(TEXT("Event.Craft"));
 	for (const FAGBItemAmount& Output : Job.Recipe->Outputs)
 	{
 		if (Output.Item)

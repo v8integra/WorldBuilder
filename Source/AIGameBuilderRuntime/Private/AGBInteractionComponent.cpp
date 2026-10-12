@@ -183,6 +183,10 @@ void UAGBInteractionComponent::DrinkWater()
 	if (CanDrink() && IsWaterNear())
 	{
 		GetOwner()->FindComponentByClass<UAGBVitalsComponent>()->DrinkWater();
+		if (AAGBCharacter* Drinker = Cast<AAGBCharacter>(GetOwner()))
+		{
+			Drinker->MulticastPlayCue(TEXT("Event.Drink"), Drinker->GetActorLocation());
+		}
 	}
 }
 

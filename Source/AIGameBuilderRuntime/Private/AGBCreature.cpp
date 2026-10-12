@@ -1,5 +1,7 @@
 #include "AGBCreature.h"
 
+#include "AGBAudioFX.h"
+
 #include "AGBCharacter.h"
 #include "AGBCreatureAIController.h"
 #include "AGBCreatureTypes.h"
@@ -177,6 +179,7 @@ void AAGBCreature::OnRep_Dead()
 
 void AAGBCreature::ApplyDeathVisuals()
 {
+	PlayVoice(TEXT("Death"));
 	GetCharacterMovement()->DisableMovement();
 	// Other pawns walk through the body; traces still hit it (to butcher it).
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
@@ -217,6 +220,25 @@ void AAGBCreature::PerformAttack(AActor* Target)
 void AAGBCreature::OnRep_AttackCount()
 {
 	PlayAttackAnimation();
+	PlayVoice(TEXT("Attack"));
+	// Attacked near the local player: danger music.
+	const APawn* Local = GetWorld()->GetFirstPlayerController() ? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr;
+	UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this);
+	if (Audio && Local && FVector::Dist(Local->GetActorLocation(), GetActorLocation()) < 3000.0)
+	{
+		Audio->NotifyDanger();
+	}
+}
+
+void AAGBCreature::PlayVoice(const TCHAR* Kind)
+{
+	UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this);
+	if (!Audio || !Audio->IsActive())
+	{
+		return;
+	}
+	const TSoftObjectPtr<USoundBase>* Own = Definition ? Definition->Sounds.Find(Kind) : nullptr;
+	Audio->PlayCue(FName(*FString::Printf(TEXT("Creature.%s"), Kind)), GetActorLocation(), 1.f, Own ? Own->LoadSynchronous() : nullptr);
 }
 
 void AAGBCreature::PlayAttackAnimation()
@@ -229,6 +251,10 @@ void AAGBCreature::PlayAttackAnimation()
 
 void AAGBCreature::OnRep_HitCount()
 {
+	if (!bDead)
+	{
+		PlayVoice(TEXT("Hurt"));
+	}
 	if (Definition && !bDead)
 	{
 		PlayOneShot(Definition->HitAnim);
@@ -250,6 +276,18 @@ void AAGBCreature::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	UpdateAnimation();
+	// Now and then a call, when a player is near enough to hear it.
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (!bDead && Now >= NextIdleSound && GetNetMode() != NM_DedicatedServer)
+	{
+		const bool bFirst = NextIdleSound == 0.0;
+		NextIdleSound = Now + FMath::FRandRange(10.f, 30.f);
+		const APawn* Local = GetWorld()->GetFirstPlayerController() ? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr;
+		if (!bFirst && Local && FVector::Dist(Local->GetActorLocation(), GetActorLocation()) < 4000.0)
+		{
+			PlayVoice(TEXT("Idle"));
+		}
+	}
 }
 
 void AAGBCreature::UpdateAnimation()

@@ -371,3 +371,13 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   `LegacyFontSize`: duplicate the theme font per size. Level assets without opening them: `UWorldFactory` via
   `IAssetTools::CreateAsset`. Maps referenced only from config (GameMap) must be added to the cook list when
   packaging (Phase 25).
+- **Audio (Phase 22):** placeholder audio without files: subclass `USoundWaveProcedural` and override
+  `OnGeneratePCMAudio` (audio render thread; size `OutAudio` yourself, int16 mono, return samples written; return
+  0 when done). Procedural one-shots never finish by themselves, so stop the component on a timer. Needs the
+  `AudioExtensions` module (IAudioProxyDataFactory) and `PhysicsCore` for `UPhysicalMaterial`. Per-component
+  `SoundClassOverride` puts any imported sound into the Settings volume groups; `bOverrideAttenuation` with
+  `FalloffDistance` gives imported sounds without attenuation a range; `bIsUISound` keeps UI/music playing while
+  paused. Footstep surfaces: `bReturnPhysicalMaterial` traces; landscape layers' `SetPhysicalMaterial` then
+  `ALandscapeProxy::ChangedPhysMaterial()` rebuilds collision materials. Water bodies answer Pawn-channel traces
+  (WaterBodyCollision profile). Engine Niagara templates (`/Niagara/DefaultAssets/Templates/Systems/...`) work as
+  placeholder effects.

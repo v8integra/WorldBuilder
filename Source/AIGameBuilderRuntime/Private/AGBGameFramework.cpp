@@ -1,5 +1,6 @@
 #include "AGBGameFramework.h"
 
+#include "AGBAudioFX.h"
 #include "AGBCharacter.h"
 #include "AGBCraftingComponent.h"
 #include "AGBCraftingStation.h"
@@ -324,6 +325,10 @@ void AAGBHUD::ToggleInventory()
 		return;
 	}
 	bInventoryOpen = !bInventoryOpen;
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue2D(bInventoryOpen ? FName(TEXT("UI.Open")) : FName(TEXT("UI.Close")));
+	}
 	CurrentStation.Reset();
 	CurrentContainer.Reset();
 	Held = FSlotRef();
@@ -451,6 +456,10 @@ bool AAGBHUD::HandleCraftingClick(const FString& BoxName)
 
 void AAGBHUD::NotifyHitBoxClick(FName BoxName)
 {
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue2D(TEXT("UI.Click"));
+	}
 	Super::NotifyHitBoxClick(BoxName);
 	if (HandleCraftingClick(BoxName.ToString()))
 	{

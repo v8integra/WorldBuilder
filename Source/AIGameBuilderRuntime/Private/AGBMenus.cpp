@@ -1,5 +1,6 @@
 #include "AGBMenus.h"
 
+#include "AGBAudioFX.h"
 #include "AGBCharacter.h"
 #include "AGBDefaultInput.h"
 #include "AGBGameFramework.h"
@@ -86,6 +87,26 @@ namespace
 	APlayerController* FirstLocalPlayer(const UObject* WorldContext)
 	{
 		return UGameplayStatics::GetPlayerController(WorldContext, 0);
+	}
+}
+
+void UAGBUIProxy::HandleClick()
+{
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(GetOuter()))
+	{
+		Audio->PlayCue2D(TEXT("UI.Click"));
+	}
+	if (Click)
+	{
+		Click();
+	}
+}
+
+void UAGBUIProxy::HandleHover()
+{
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(GetOuter()))
+	{
+		Audio->PlayCue2D(TEXT("UI.Hover"));
 	}
 }
 
@@ -223,6 +244,7 @@ UButton* UAGBMenuWidget::MakeButton(const FText& Label, TFunction<void()> OnClic
 	UAGBUIProxy* Proxy = NewProxy();
 	Proxy->Click = MoveTemp(OnClick);
 	Button->OnClicked.AddDynamic(Proxy, &UAGBUIProxy::HandleClick);
+	Button->OnHovered.AddDynamic(Proxy, &UAGBUIProxy::HandleHover);
 	if (!FirstFocus)
 	{
 		FirstFocus = Button;
@@ -807,6 +829,10 @@ UUserWidget* UAGBMenuSubsystem::Push(UUserWidget* Widget)
 	}
 	Widget->AddToViewport(100 + Stack.Num());
 	Stack.Add(Widget);
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(Widget))
+	{
+		Audio->PlayCue2D(TEXT("UI.Open"));
+	}
 	UpdateInputMode();
 	return Widget;
 }
@@ -852,7 +878,12 @@ void UAGBMenuSubsystem::CloseTop()
 	{
 		return;
 	}
-	Stack.Pop()->RemoveFromParent();
+	UUserWidget* Closing = Stack.Pop().Get();
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(Closing))
+	{
+		Audio->PlayCue2D(TEXT("UI.Close"));
+	}
+	Closing->RemoveFromParent();
 	if (Stack.Num() > 0)
 	{
 		Stack.Last()->SetVisibility(ESlateVisibility::SelfHitTestInvisible);

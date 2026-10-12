@@ -209,6 +209,18 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   subtitle and overall mood if the design doc does not say.
 - Tell the user: P (Escape in the packaged game) opens the pause menu; play the MainMenu level to test the menu.
 
+## Audio and effects (milestone M9)
+
+- `AIWorldBuilderToolsets.AudioFXTools.SetupAudioFX` once the landscape is painted and water is placed (footstep
+  surfaces from paint layer names, water sounds along lakes/rivers). The game is never silent: empty cue slots play
+  generated placeholders; say so, and put real packs on the asset pack list (footsteps, nature ambience, impacts,
+  UI sounds, music, fire/water VFX).
+- After the user adds packs: `AutoAssignSounds(folder)`, then `ListSoundSlots` and fix leftovers with
+  `SetSoundCue`. Creatures with their own voices: `SetCreatureSounds`.
+- One `CreateAmbienceZone` per biome from the world builder (forest, desert, beach, snowfields, caves, swamps);
+  `PlaceSoundEmitter` for waterfalls (spray), streams, insect spots.
+- Decide yourself: cue volumes, music gaps; ask about the music mood only if the design doc does not say.
+
 ---
 
 # Things the user must do themselves

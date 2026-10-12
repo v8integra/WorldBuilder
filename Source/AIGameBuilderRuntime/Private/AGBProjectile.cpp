@@ -1,5 +1,7 @@
 #include "AGBProjectile.h"
 
+#include "AGBBuildPiece.h"
+
 #include "AGBCharacter.h"
 #include "AGBItemPickup.h"
 #include "AGBItemTypes.h"
@@ -81,6 +83,11 @@ void AAGBProjectile::HandleHit(UPrimitiveComponent* HitComponent, AActor* OtherA
 	}
 	bHit = true;
 	Movement->StopMovementImmediately();
+	if (AAGBCharacter* Shooter = Cast<AAGBCharacter>(GetInstigator()))
+	{
+		const EAGBSurface Surface = Cast<APawn>(OtherActor) ? EAGBSurface::Flesh : (OtherActor && OtherActor->IsA<AAGBBuildPiece>() ? EAGBSurface::Wood : EAGBSurface::Default);
+		Shooter->MulticastPlayCue(AGBAudioFX::CueName(TEXT("Impact"), Surface), Hit.ImpactPoint);
+	}
 
 	// PvE: creatures and other damageable things are hurt, players are not.
 	if (OtherActor && !OtherActor->IsA<AAGBCharacter>())

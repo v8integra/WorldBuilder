@@ -29,6 +29,8 @@ public class AIGameBuilderRuntime : ModuleRules
 			"CoreOnline",
 			"AssetRegistry",
 			"Niagara",
+			"PhysicsCore",
+			"AudioExtensions",
 		});
 	}
 }

@@ -168,6 +168,8 @@ struct FAGBHarvestResult
 	/** The hit counted (right tool). */
 	bool bHarvested = false;
 	bool bDepleted = false;
+	/** What was hit (for its sound). */
+	const UAGBResourceDefinition* Resource = nullptr;
 	/** For the player ("Needs a tool: Axe"). */
 	FText Message;
 };

@@ -150,6 +150,10 @@ void AAGBItemPickup::Interact_Implementation(APawn* Interactor)
 	}
 	if (Added > 0)
 	{
+		if (AAGBCharacter* Picker = Cast<AAGBCharacter>(Interactor))
+		{
+			Picker->ClientPlayCue(TEXT("Event.Pickup"));
+		}
 		SetStack(FAGBItemStack(Stack.Item, Stack.Count - Added));
 	}
 }

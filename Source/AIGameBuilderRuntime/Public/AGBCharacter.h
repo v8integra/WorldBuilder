@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AGBBuildPiece.h"
+#include "AGBAudioFX.h"
 #include "AGBDefaultInput.h"
 #include "AGBItemTypes.h"
 #include "GameFramework/Character.h"
@@ -9,6 +10,7 @@
 #include "AGBCharacter.generated.h"
 
 class UAGBCharacterMovementComponent;
+class UAGBFootstepComponent;
 class UAGBCraftingComponent;
 class UAGBInventoryComponent;
 class UAGBSurvivalConfig;
@@ -54,6 +56,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Interaction")
 	TObjectPtr<UAGBInteractionComponent> Interaction;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Audio")
+	TObjectPtr<UAGBFootstepComponent> Footsteps;
 
 	/** Simple stand-in body, visible only while no skeletal mesh is assigned. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Appearance")
@@ -215,6 +220,14 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientShowMessage(const FText& Message, bool bWarning);
 
+	/** Everyone near: plays a sound/effect cue at a point (hits, eating, placing). */
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlayCue(FName Cue, FVector_NetQuantize Location);
+
+	/** Only this player hears it (pickup, crafting done). */
+	UFUNCTION(Client, Unreliable)
+	void ClientPlayCue(FName Cue);
+
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual void OnJumped_Implementation() override;
@@ -349,4 +362,8 @@ private:
 
 	double LastSwingTime = -1000.0;
 	class AAGBHUD* GetAGBHUD() const;
+
+public:
+	/** What a resource sounds like when hit. */
+	static EAGBSurface ResourceSurface(const class UAGBResourceDefinition* Resource);
 };

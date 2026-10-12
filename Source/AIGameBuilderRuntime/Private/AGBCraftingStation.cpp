@@ -1,5 +1,9 @@
 #include "AGBCraftingStation.h"
 
+#include "AGBAudioFX.h"
+#include "Components/AudioComponent.h"
+#include "NiagaraComponent.h"
+
 #include "AGBClimate.h"
 #include "AGBCraftingTypes.h"
 #include "AGBGameFramework.h"
@@ -96,6 +100,46 @@ void AAGBCraftingStation::ApplyWorking()
 	bWasWorking = bWorking;
 	Light->SetVisibility(bWorking && Definition && Definition->LightIntensity > 0.f);
 	Heat->bActive = bWorking && Definition && Definition->WarmthC != 0.f;
+	UpdateFireEffects(bWorking && Definition && Definition->bNeedsFuel);
+}
+
+void AAGBCraftingStation::UpdateFireEffects(bool bBurning)
+{
+	UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this);
+	if (!Audio || !Audio->IsActive() || bBurning == (FireSound != nullptr || FireEffects.Num() > 0))
+	{
+		return;
+	}
+	if (bBurning)
+	{
+		FireSound = Audio->StartLoop(TEXT("Loop.Fire"), GetRootComponent());
+		for (const TCHAR* Cue : { TEXT("Effect.Fire"), TEXT("Effect.Smoke") })
+		{
+			if (UNiagaraComponent* Effect = Audio->SpawnEffect(Cue, GetRootComponent(), GetActorLocation()))
+			{
+				FireEffects.Add(Effect);
+			}
+		}
+		if (!FireSound && FireEffects.IsEmpty())
+		{
+			FireEffects.Add(nullptr); // Nothing to show: remember that it is burning anyway.
+		}
+		return;
+	}
+	if (FireSound)
+	{
+		FireSound->FadeOut(1.f, 0.f);
+		FireSound = nullptr;
+	}
+	for (UNiagaraComponent* Effect : FireEffects)
+	{
+		if (Effect)
+		{
+			Effect->Deactivate();
+			Effect->SetAutoDestroy(true);
+		}
+	}
+	FireEffects.Reset();
 }
 
 bool AAGBCraftingStation::AddFuel(const UAGBItemDefinition* Item)
@@ -112,6 +156,13 @@ bool AAGBCraftingStation::AddFuel(const UAGBItemDefinition* Item)
 void AAGBCraftingStation::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bWasWorking && Definition && Definition->bNeedsFuel && Definition->LightIntensity > 0.f && GetNetMode() != NM_DedicatedServer)
+	{
+		// Firelight flickers.
+		const float Time = static_cast<float>(GetWorld()->GetTimeSeconds());
+		const float Flicker = 0.85f + 0.1f * FMath::Sin(Time * 11.f) * FMath::Sin(Time * 7.3f + 1.f) + 0.05f * FMath::Sin(Time * 23.f);
+		Light->SetIntensity(Definition->LightIntensity * Flicker);
+	}
 	if (HasAuthority() && FuelSeconds > 0.f)
 	{
 		FuelSeconds = FMath::Max(0.f, FuelSeconds - DeltaSeconds);

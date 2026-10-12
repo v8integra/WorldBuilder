@@ -543,6 +543,34 @@ Custom menus: Widget Blueprints calling the "AI Game Builder|Menu" functions (`U
 | `SetMenuWidgets(mainMenuWidget, pauseMenuWidget, settingsWidget)` | Use your own Widget Blueprints ("default" = built-in). |
 | `GetUIStatus()` | Maps, theme, menus, volume groups, startup map. |
 
+## `AIWorldBuilderToolsets.AudioFXTools` (C++, sounds, music, effects)
+Runtime: every sound is a named **cue slot** in `UAGBAudioFXConfig` (`/Game/AIGameBuilder/Audio/DA_AGB_AudioFX`, set in
+`UAGBUISettings::AudioFX`): random sound from a list + optional Niagara effect + volume. Empty slots fall back to
+the family's `.Default` sounds, then to **generated placeholder sounds** (`UAGBSynthSound`: filtered noise, tones,
+crackle, chirps; no files) and engine Niagara templates for hits and waterfall spray, so the game is never
+silent. Slots: `Footstep.<Surface>` (Default, Grass, Dirt, Rock, Sand, Snow, Wood, Stone, Metal, Water, Mud,
+Gravel), `Impact.<Default|Wood|Stone|Flesh|Plant|Metal>`, `Event.<Swing|Hurt|Death|Eat|Drink|Pickup|Craft|Place|Shoot|Land|Splash>`,
+`UI.<Click|Hover|Open|Close|Error>`, `Creature.<Hurt|Attack|Death|Idle>`, `Ambience.<Day|Night|Rain|Wind>`,
+`Loop.<Fire|Water|River|Waterfall|Insects|Wind|Birds>`, `Effect.<Fire|Smoke|Waterfall>`, `Music.<Day|Night|Danger|Menu>`.
+`UAGBAudioFXSubsystem` (each player's machine): footsteps by surface (`UAGBFootstepComponent` on the character;
+landscape layer physical materials, build-piece tier, water), landings and splashes; hits by what was hit
+(resources: axe = wood, pickaxe = stone, hands = plant); ambience crossfades day/night, biome zones
+(`AAGBAmbienceZone`), rain (quieter under a roof), wind (altitude, storms, snow); music by state (day/night tracks
+with silence between, danger when hurt or attacked nearby, menu); campfires crackle, flicker and get fire/smoke
+effects while burning; `AAGBSoundEmitter` for lakes, rivers, waterfalls (+ spray), insects. Sounds use the
+Settings volume groups (Effects, Ambient, Music, UI) and get a default falloff range.
+
+| Tool | Use |
+|---|---|
+| `SetupAudioFX(bAssignLandscapeSurfaces = true, bAddWaterSounds = true)` | Config asset; `PM_AGB_<Surface>` physical materials assigned to paint layers by name; shore/river emitters along water bodies (replaces its own). |
+| `SetSoundCue(soundPaths, slot, effectPath = "", volume = 0, bAdd = false)` | Sounds/effect of a slot. `[]` keep, `["none"]` placeholder, `["mute"]` silent. |
+| `AutoAssignSounds(folder = "/Game", bOverwrite = false)` | Fill slots from asset names/folders after adding a sound or VFX pack. |
+| `ListSoundSlots()` | Every slot: sounds or placeholder, effect, description. |
+| `CreateAmbienceZone(centerXM, centerYM, radiusM = 150, preset = "Forest", daySoundPath, nightSoundPath, edgeM = 40, label)` | Biome ambience (Forest, Desert, Beach, Snow, Cave, Swamp, Plains). |
+| `PlaceSoundEmitter(xM, yM, preset = "Water", heightM = 1, radiusM = 30, soundPath, effectPath, label)` | Water, River, Waterfall, Fire, Insects, Wind, Birds. |
+| `SetCreatureSounds(creatureId, hurtSoundPath, attackSoundPath, deathSoundPath, idleSoundPath)` | A creature's own voice. |
+| `GetAudioFXStatus()` | Config, filled/placeholder slots, surfaces, zones, emitters. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

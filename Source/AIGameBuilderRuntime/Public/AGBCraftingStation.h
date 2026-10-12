@@ -81,5 +81,12 @@ protected:
 private:
 	void ApplyDefinition();
 	void ApplyWorking();
+	void UpdateFireEffects(bool bBurning);
 	bool bWasWorking = false;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UAudioComponent> FireSound;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<class UNiagaraComponent>> FireEffects;
 };

@@ -34,7 +34,10 @@ public:
 	TFunction<void(const FInputChord&)> Chord;
 
 	UFUNCTION()
-	void HandleClick() { if (Click) { Click(); } }
+	void HandleClick();
+
+	UFUNCTION()
+	void HandleHover();
 
 	UFUNCTION()
 	void HandleFloat(float Value) { if (Float) { Float(Value); } }

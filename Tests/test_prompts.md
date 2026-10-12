@@ -309,3 +309,19 @@ Prereq: C++ build (new UMG dependency). Open TestWorld (the game level).
 8. Co-op (2 players): P on the client opens "Menu" ("game keeps running"), no Save Game button on the client; the host's world does not pause.
 **Claude Code:** "Give the game a main menu and a cold, icy look." → UITools.SetupUI + SetUITheme Frost.
 
+## Phase 22 — Audio and VFX
+
+Prereq: C++ build. Open TestWorld. Everything below works with the generated placeholder sounds (no audio assets).
+1. `GetAudioFXStatus` `{}` → "Not set up yet: placeholders play everywhere". Play: a soft windy day ambience with occasional chirps; after a few seconds a quiet chord pad (day music).
+2. `SetupAudioFX` `{}` → config + 7 PM_AGB_* materials; lines like "Layer 'Grass' -> Grass footsteps" for your paint layers; "<lake>: N shore sound(s)". Save All.
+3. Play and walk: footsteps every stride, louder sprinting, quiet crouching, different on grass vs rock/sand/snow layers, on wooden build pieces (hollow), splashy in the lake shallows; a thump when landing a jump. Near the lake shore: lapping water.
+4. Swing (whoosh), chop a tree (wood knock + small burst effect), mine rock (sharp click), pick a bush (rustle), hit a wolf (thud + creature yelp); wolves growl when attacking and the music switches to a low pulsing danger chord; it calms back after ~12 s.
+5. Eat (crunch) / drink from an item or the lake (gulp), pick up an item (blip, only you), craft (ding, only you), place a piece (thud), shoot the bow (twang). Menus and inventory: clicks, hover ticks, open/close swooshes; P menu sounds work while paused.
+6. Light the campfire: crackling loop, the light flickers; it stops when the fuel runs out.
+7. `AGBTime 22` → night ambience (crickets), night music later; `AGBWeather Rain` → rain hiss, much quieter under a roof; wind grows on mountain tops.
+8. `CreateAmbienceZone` `{"centerXM":..,"centerYM":..,"radiusM":80,"preset":"Swamp"}` → frogs inside, fading at the edge. `PlaceSoundEmitter` `{"xM":..,"yM":..,"preset":"Waterfall"}` → loud rushing + fountain spray.
+9. Settings > Audio: Effects/Ambience/Music/Interface sliders change their groups; Master all.
+10. Optional with a sound pack (e.g. a free Fab footsteps/ambience pack): `AutoAssignSounds` `{"folder":"/Game/<Pack>"}` → "Footstep.Grass <- 6 sound(s): ..."; Play: real sounds replace placeholders. `ListSoundSlots` shows what is left.
+11. Co-op: the other player's footsteps, swings and hits are heard at their position; pickups/crafting only by the player who did them.
+**Claude Code:** "The game needs sound. I added the 'Nature Ambience' and 'Footsteps' packs." → SetupAudioFX + AutoAssignSounds + ambience zones per biome.
+

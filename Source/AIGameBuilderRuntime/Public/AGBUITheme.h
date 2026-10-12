@@ -6,6 +6,7 @@
 
 #include "AGBUITheme.generated.h"
 
+class UAGBAudioFXConfig;
 class UFont;
 class USoundClass;
 class USoundMix;
@@ -157,6 +158,10 @@ public:
 	/** Sound mix that carries the volume settings. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Audio")
 	TSoftObjectPtr<USoundMix> VolumeMix;
+
+	/** The game's sounds, music and effects (AudioFXTools). Empty = placeholders. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Audio")
+	TSoftObjectPtr<UAGBAudioFXConfig> AudioFX;
 
 	virtual FName GetCategoryName() const override { return TEXT("Game"); }
 
