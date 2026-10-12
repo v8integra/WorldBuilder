@@ -18,6 +18,7 @@
 #include "AGBAudioFX.h"
 #include "AGBHarvestTypes.h"
 #include "AGBMenus.h"
+#include "AGBMultiplayer.h"
 #include "AGBPlayerSettings.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
@@ -152,6 +153,7 @@ float AAGBCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		// Armor: diminishing reduction (100 armor halves damage); every worn piece wears a little.
 		const float Armor = GetArmor();
 		Applied *= 100.f / (100.f + FMath::Max(0.f, Armor));
+		Applied *= AAGBGameState::GetRules(this).DamageTakenMultiplier;
 		for (int32 Index = 0; Index < Equipment->GetNumSlots(); ++Index)
 		{
 			const FAGBItemStack Worn = Equipment->GetSlot(Index);
@@ -807,6 +809,14 @@ FKey AAGBCharacter::GetActionKey(const UInputAction* Action) const
 	return UAGBPlayerSettingsSubsystem::FindKey(Sources, Action);
 }
 
+void AAGBCharacter::OnChat(const FInputActionValue& Value)
+{
+	if (AAGBPlayerController* PlayerController = Cast<AAGBPlayerController>(Controller))
+	{
+		PlayerController->OpenChat();
+	}
+}
+
 void AAGBCharacter::OnPause(const FInputActionValue& Value)
 {
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
@@ -895,6 +905,10 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	if (Input.Pause)
 	{
 		EnhancedInput->BindAction(Input.Pause, ETriggerEvent::Started, this, &AAGBCharacter::OnPause);
+	}
+	if (Input.Chat)
+	{
+		EnhancedInput->BindAction(Input.Chat, ETriggerEvent::Started, this, &AAGBCharacter::OnChat);
 	}
 }
 
@@ -1107,6 +1121,14 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		const bool bInReach = FVector::Dist(ImpactPoint, Eyes) <= GetMeleeReach() + 150.f
 			&& FVector::Dist(ImpactPoint, Target->Bounds.Origin) <= Target->Bounds.SphereRadius + 100.f;
 		AAGBCreature* Creature = Cast<AAGBCreature>(Target->GetOwner());
+		AAGBCharacter* OtherPlayer = Cast<AAGBCharacter>(Target->GetOwner());
+		if (bInReach && OtherPlayer && OtherPlayer != this && !OtherPlayer->IsDead() && AAGBGameState::GetRules(this).bPvP)
+		{
+			const float Damage = Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f);
+			UGameplayStatics::ApplyDamage(OtherPlayer, Damage, Controller, this, nullptr);
+			MulticastPlayCue(TEXT("Impact.Flesh"), ImpactPoint);
+			return;
+		}
 		if (bInReach && Creature && !Creature->IsDead())
 		{
 			// Hands hit for 5; tools and weapons for their "Damage" stat.

@@ -4,6 +4,7 @@
 #include "AGBCharacter.h"
 #include "AGBDefaultInput.h"
 #include "AGBGameFramework.h"
+#include "AGBMultiplayer.h"
 #include "AGBPlayerSettings.h"
 #include "AGBUITheme.h"
 #include "Blueprint/WidgetTree.h"
@@ -13,6 +14,7 @@
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
 #include "Components/CheckBox.h"
+#include "Components/EditableTextBox.h"
 #include "Components/ComboBoxString.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
@@ -325,6 +327,15 @@ UWidget* UAGBMenuWidget::MakeComboRow(const FText& Label, const TArray<FString>&
 	return MakeLabeledRow(Label, Combo);
 }
 
+UEditableTextBox* UAGBMenuWidget::MakeTextField(const FText& Hint, const FString& Initial, bool bPassword)
+{
+	UEditableTextBox* Field = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
+	Field->SetHintText(Hint);
+	Field->SetText(FText::FromString(Initial));
+	Field->SetIsPassword(bPassword);
+	return Field;
+}
+
 void UAGBMenuWidget::AddSpacer(UPanelWidget* Panel, float Height)
 {
 	USpacer* Spacer = WidgetTree->ConstructWidget<USpacer>(USpacer::StaticClass());
@@ -353,6 +364,17 @@ void UAGBMainMenuWidget::BuildContent(UVerticalBox* Panel)
 		UTextBlock* Subtitle = MakeText(Theme->Subtitle, Theme->BodySize, Theme->DimTextColor);
 		Subtitle->SetJustification(ETextJustify::Center);
 		Panel->AddChildToVerticalBox(Subtitle);
+	}
+	if (UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this))
+	{
+		const FText Error = Network->TakeLastError();
+		if (!Error.IsEmpty())
+		{
+			AddSpacer(Panel, 10.f);
+			UTextBlock* ErrorText = MakeText(Error, Theme->BodySize, Theme->WarningColor);
+			ErrorText->SetJustification(ETextJustify::Center);
+			Panel->AddChildToVerticalBox(ErrorText);
+		}
 	}
 	AddSpacer(Panel, 28.f);
 
@@ -388,6 +410,23 @@ void UAGBMainMenuWidget::BuildContent(UVerticalBox* Panel)
 		Missing->SetJustification(ETextJustify::Center);
 		Panel->AddChildToVerticalBox(Missing);
 	}
+	if (bHasGame)
+	{
+		AddButton(MakeButton(LOCTEXT("HostGame", "Host Game"), [this]()
+		{
+			if (UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(GetOwningPlayer()))
+			{
+				Menus->OpenMenu(UAGBHostMenuWidget::StaticClass());
+			}
+		}));
+	}
+	AddButton(MakeButton(LOCTEXT("JoinGame", "Join Game"), [this]()
+	{
+		if (UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(GetOwningPlayer()))
+		{
+			Menus->OpenMenu(UAGBJoinMenuWidget::StaticClass());
+		}
+	}));
 	AddButton(MakeButton(LOCTEXT("Settings", "Settings"), [this]() { UAGBMenuLibrary::OpenSettings(this); }));
 	AddButton(MakeButton(LOCTEXT("Quit", "Quit"), [this]() { UAGBMenuLibrary::QuitGame(this); }));
 }
@@ -431,6 +470,46 @@ void UAGBPauseMenuWidget::BuildContent(UVerticalBox* Panel)
 				[this]() { UAGBMenuLibrary::QuitGame(this); });
 		}
 	}));
+
+	// Players in the game; the host can remove them and sees the address friends join with.
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	if (bMultiplayer && GameState)
+	{
+		AddSpacer(Panel, 18.f);
+		Panel->AddChildToVerticalBox(MakeText(FText::Format(LOCTEXT("PlayersTitle", "Players ({0})"), GameState->PlayerArray.Num()), Theme->BodySize, Theme->AccentColor));
+		AAGBGameMode* GameMode = GetWorld()->GetAuthGameMode<AAGBGameMode>();
+		for (APlayerState* Other : GameState->PlayerArray)
+		{
+			if (!Other)
+			{
+				continue;
+			}
+			const AAGBPlayerState* AGBState = Cast<AAGBPlayerState>(Other);
+			const FString Label = Other->GetPlayerName() + (AGBState && AGBState->bIsHost ? TEXT("  (host)") : TEXT(""));
+			APlayerController* OtherController = Cast<APlayerController>(Other->GetOwner());
+			if (GameMode && OtherController && !OtherController->IsLocalController())
+			{
+				TWeakObjectPtr<APlayerController> Weak = OtherController;
+				UWidget* Kick = MakeButton(LOCTEXT("Kick", "Kick"), [GameMode, Weak]()
+				{
+					if (Weak.IsValid())
+					{
+						GameMode->KickPlayer(Weak.Get());
+					}
+				});
+				Panel->AddChildToVerticalBox(MakeLabeledRow(FText::FromString(Label), Kick))->SetPadding(FMargin(0.f, 2.f));
+			}
+			else
+			{
+				Panel->AddChildToVerticalBox(MakeText(FText::FromString(Label), Theme->BodySize, Theme->TextColor));
+			}
+		}
+		if (Player && Player->GetNetMode() == NM_ListenServer)
+		{
+			Panel->AddChildToVerticalBox(MakeText(FText::Format(LOCTEXT("JoinAddress", "Friends on your network join with: {0}"),
+				FText::FromString(UAGBNetworkSubsystem::GetLocalAddress())), Theme->BodySize - 3, Theme->DimTextColor));
+		}
+	}
 }
 
 FReply UAGBPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -760,6 +839,160 @@ void UAGBSettingsMenuWidget::BuildGameplay(UVerticalBox* Box)
 		[Change](float Value) { Change([Value](FAGBPlayerSettings& S) { S.HUDScale = Value; }); }));
 	AddRow(MakeCheckRow(LOCTEXT("Crosshair", "Show crosshair"), Settings->GetSettings().bShowCrosshair,
 		[Change](bool bValue) { Change([bValue](FAGBPlayerSettings& S) { S.bShowCrosshair = bValue; }); }));
+
+	UEditableTextBox* Name = MakeTextField(LOCTEXT("NameHint", "Your name in multiplayer"), Settings->GetSettings().PlayerName, false);
+	UAGBUIProxy* Proxy = NewProxy();
+	Proxy->TextCommit = [Change](const FText& Text, ETextCommit::Type Method)
+	{
+		const FString Clean = UAGBNetworkSubsystem::CleanOption(Text.ToString());
+		Change([Clean](FAGBPlayerSettings& S) { S.PlayerName = Clean; });
+	};
+	Name->OnTextCommitted.AddDynamic(Proxy, &UAGBUIProxy::HandleTextCommit);
+	AddRow(MakeLabeledRow(LOCTEXT("PlayerName", "Player name"), Name));
+}
+
+// ---------------------------------------------------------------- host / join
+
+void UAGBHostMenuWidget::BuildContent(UVerticalBox* Panel)
+{
+	Panel->AddChildToVerticalBox(MakeText(LOCTEXT("HostTitle", "Host a game"), Theme->HeadingSize + 8, Theme->AccentColor, true));
+	Panel->AddChildToVerticalBox(MakeText(FText::Format(LOCTEXT("HostInfo", "Friends on your network join with {0}. Over the internet they need your public address and UDP port 7777 forwarded on your router."),
+		FText::FromString(UAGBNetworkSubsystem::GetLocalAddress())), Theme->BodySize - 2, Theme->DimTextColor));
+	AddSpacer(Panel, 14.f);
+
+	const UAGBServerSettings* Server = GetDefault<UAGBServerSettings>();
+	UEditableTextBox* Password = MakeTextField(LOCTEXT("PasswordHint", "Optional"), Server->Password, true);
+	Panel->AddChildToVerticalBox(MakeLabeledRow(LOCTEXT("Password", "Password"), Password))->SetPadding(FMargin(0.f, 4.f));
+	TSharedRef<int32> MaxPlayers = MakeShared<int32>(Server->MaxPlayers);
+	Panel->AddChildToVerticalBox(MakeSliderRow(LOCTEXT("MaxPlayers", "Players"), static_cast<float>(*MaxPlayers), 2.f, 16.f, 1.f,
+		[](float Value) { return FText::AsNumber(FMath::RoundToInt(Value)); },
+		[MaxPlayers](float Value) { *MaxPlayers = FMath::RoundToInt(Value); }))->SetPadding(FMargin(0.f, 4.f));
+	TSharedRef<bool> bNewWorld = MakeShared<bool>(false);
+	if (UAGBMenuLibrary::HasSavedGame(this))
+	{
+		Panel->AddChildToVerticalBox(MakeCheckRow(LOCTEXT("NewWorld", "Start a new world (deletes the save)"), false, [bNewWorld](bool bValue) { *bNewWorld = bValue; }))->SetPadding(FMargin(0.f, 4.f));
+	}
+	AddSpacer(Panel, 16.f);
+	Panel->AddChildToVerticalBox(MakeButton(LOCTEXT("StartHosting", "Start Hosting"), [this, Password, MaxPlayers, bNewWorld]()
+	{
+		if (UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this))
+		{
+			Network->HostGame(*bNewWorld, Password->GetText().ToString(), *MaxPlayers);
+		}
+	}, true))->SetPadding(FMargin(0.f, 4.f));
+	Panel->AddChildToVerticalBox(MakeButton(LOCTEXT("Back", "Back"), [this]() { GoBack(); }))->SetPadding(FMargin(0.f, 4.f));
+}
+
+void UAGBJoinMenuWidget::BuildContent(UVerticalBox* Panel)
+{
+	Panel->AddChildToVerticalBox(MakeText(LOCTEXT("JoinTitle", "Join a game"), Theme->HeadingSize + 8, Theme->AccentColor, true));
+	AddSpacer(Panel, 12.f);
+	const UAGBPlayerSettingsSubsystem* Settings = UAGBPlayerSettingsSubsystem::Get(this);
+	UEditableTextBox* Address = MakeTextField(LOCTEXT("AddressHint", "192.168.1.20 or name:port"), Settings ? Settings->GetSettings().LastJoinAddress : FString(), false);
+	Panel->AddChildToVerticalBox(MakeLabeledRow(LOCTEXT("Address", "Address"), Address))->SetPadding(FMargin(0.f, 4.f));
+	PasswordField = MakeTextField(LOCTEXT("PasswordHint", "Optional"), FString(), true);
+	Panel->AddChildToVerticalBox(MakeLabeledRow(LOCTEXT("Password", "Password"), PasswordField))->SetPadding(FMargin(0.f, 4.f));
+	Panel->AddChildToVerticalBox(MakeButton(LOCTEXT("Join", "Join"), [this, Address]()
+	{
+		if (UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this))
+		{
+			Network->JoinGame(Address->GetText().ToString(), PasswordField->GetText().ToString());
+		}
+	}, true))->SetPadding(FMargin(0.f, 6.f));
+
+	AddSpacer(Panel, 14.f);
+	Panel->AddChildToVerticalBox(MakeText(LOCTEXT("LanTitle", "Games on your network"), Theme->BodySize + 2, Theme->AccentColor));
+	GameList = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	Panel->AddChildToVerticalBox(GameList)->SetPadding(FMargin(0.f, 4.f));
+	Panel->AddChildToVerticalBox(MakeButton(LOCTEXT("Refresh", "Refresh"), [this]() { Refresh(); }))->SetPadding(FMargin(0.f, 4.f));
+	Panel->AddChildToVerticalBox(MakeButton(LOCTEXT("Back", "Back"), [this]() { GoBack(); }))->SetPadding(FMargin(0.f, 4.f));
+	Refresh();
+}
+
+void UAGBJoinMenuWidget::Refresh()
+{
+	UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this);
+	if (!GameList || !Network)
+	{
+		return;
+	}
+	GameList->ClearChildren();
+	GameList->AddChildToVerticalBox(MakeText(LOCTEXT("Searching", "Searching..."), Theme->BodySize - 2, Theme->DimTextColor));
+	TWeakObjectPtr<UAGBJoinMenuWidget> WeakThis(this);
+	Network->FindLANGames([WeakThis](const TArray<FAGBFoundGame>& Games)
+	{
+		UAGBJoinMenuWidget* Self = WeakThis.Get();
+		if (!Self || !Self->GameList)
+		{
+			return;
+		}
+		Self->GameList->ClearChildren();
+		if (Games.IsEmpty())
+		{
+			Self->GameList->AddChildToVerticalBox(Self->MakeText(LOCTEXT("NoGames", "No games found. Type the host's address above."), Self->Theme->BodySize - 2, Self->Theme->DimTextColor));
+			return;
+		}
+		for (const FAGBFoundGame& Game : Games)
+		{
+			const FString Address = Game.Address;
+			const FText Label = FText::FromString(FString::Printf(TEXT("%s   %d/%d   %d ms"), *Game.Name, Game.Players, Game.MaxPlayers, Game.PingMs));
+			Self->GameList->AddChildToVerticalBox(Self->MakeButton(Label, [WeakThis, Address]()
+			{
+				UAGBJoinMenuWidget* Menu = WeakThis.Get();
+				UAGBNetworkSubsystem* Net = Menu ? UAGBNetworkSubsystem::Get(Menu) : nullptr;
+				if (Net)
+				{
+					Net->JoinGame(Address, Menu->PasswordField ? Menu->PasswordField->GetText().ToString() : FString());
+				}
+			}))->SetPadding(FMargin(0.f, 2.f));
+		}
+	});
+}
+
+// ---------------------------------------------------------------- chat line
+
+TSharedRef<SWidget> UAGBChatWidget::RebuildWidget()
+{
+	if (WidgetTree && !WidgetTree->RootWidget)
+	{
+		UOverlay* Root = WidgetTree->ConstructWidget<UOverlay>(UOverlay::StaticClass(), TEXT("Root"));
+		WidgetTree->RootWidget = Root;
+		USizeBox* Size = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+		Size->SetWidthOverride(560.f);
+		Input = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass(), TEXT("ChatInput"));
+		Input->SetHintText(LOCTEXT("ChatHint", "Say something (Enter to send, Esc to cancel)"));
+		Size->SetContent(Input);
+		UOverlaySlot* InputSlot = Root->AddChildToOverlay(Size);
+		InputSlot->SetHorizontalAlignment(HAlign_Left);
+		InputSlot->SetVerticalAlignment(VAlign_Bottom);
+		InputSlot->SetPadding(FMargin(18.f, 0.f, 0.f, 220.f));
+		Proxy = NewObject<UAGBUIProxy>(this);
+		TWeakObjectPtr<UAGBChatWidget> WeakThis(this);
+		Proxy->TextCommit = [WeakThis](const FText& Text, ETextCommit::Type Method)
+		{
+			UAGBChatWidget* Self = WeakThis.Get();
+			AAGBPlayerController* Player = Self ? Cast<AAGBPlayerController>(Self->GetOwningPlayer()) : nullptr;
+			if (!Player)
+			{
+				return;
+			}
+			if (Method == ETextCommit::OnEnter && !Text.IsEmpty())
+			{
+				Player->ServerSay(Text.ToString());
+			}
+			Player->CloseChat();
+		};
+		Input->OnTextCommitted.AddDynamic(Proxy, &UAGBUIProxy::HandleTextCommit);
+	}
+	return Super::RebuildWidget();
+}
+
+void UAGBChatWidget::FocusInput()
+{
+	if (Input)
+	{
+		Input->SetKeyboardFocus();
+	}
 }
 
 // ---------------------------------------------------------------- confirm

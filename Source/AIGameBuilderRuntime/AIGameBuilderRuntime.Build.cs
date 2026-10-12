@@ -31,6 +31,9 @@ public class AIGameBuilderRuntime : ModuleRules
 			"Niagara",
 			"PhysicsCore",
 			"AudioExtensions",
+			"OnlineSubsystem",
+			"OnlineSubsystemUtils",
+			"Sockets",
 		});
 	}
 }

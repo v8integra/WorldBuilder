@@ -73,6 +73,7 @@ namespace AGBInput
 		void MapRotate(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::R); C->MapKey(A, EKeys::Gamepad_DPad_Up); }
 		// Escape stops Play-in-Editor, so P opens the menu there too.
 		void MapPause(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Escape); C->MapKey(A, EKeys::P); C->MapKey(A, EKeys::Gamepad_Special_Right); }
+		void MapChat(UInputMappingContext* C, UInputAction* A) { C->MapKey(A, EKeys::Enter); }
 
 		void MapHotbarSelect(UInputMappingContext* C, UInputAction* A)
 		{
@@ -106,6 +107,7 @@ namespace AGBInput
 			{ &FAGBInputSet::UseItem, TEXT("IA_AGB_UseItem"), EInputActionValueType::Boolean, &MapUseItem },
 			{ &FAGBInputSet::Rotate, TEXT("IA_AGB_Rotate"), EInputActionValueType::Boolean, &MapRotate },
 			{ &FAGBInputSet::Pause, TEXT("IA_AGB_Pause"), EInputActionValueType::Boolean, &MapPause },
+			{ &FAGBInputSet::Chat, TEXT("IA_AGB_Chat"), EInputActionValueType::Boolean, &MapChat },
 		};
 	}
 

@@ -72,6 +72,10 @@ struct AIGAMEBUILDERRUNTIME_API FAGBInputSet
 	/** Open the pause menu (closes the inventory first). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> Pause;
+
+	/** Type a chat message (multiplayer). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> Chat;
 };
 
 namespace AGBInput

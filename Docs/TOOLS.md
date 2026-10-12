@@ -571,6 +571,26 @@ Settings volume groups (Effects, Ambient, Music, UI) and get a default falloff r
 | `SetCreatureSounds(creatureId, hurtSoundPath, attackSoundPath, deathSoundPath, idleSoundPath)` | A creature's own voice. |
 | `GetAudioFXStatus()` | Config, filled/placeholder slots, surfaces, zones, emitters. |
 
+## `AIWorldBuilderToolsets.MultiplayerTools` (C++, co-op, servers)
+Runtime: every system already replicates (server authority). Main menu **Host Game** (listen server on the game
+level; password, player limit, new world) and **Join Game** (address `ip[:port]`, default port 7777, or the
+**LAN list** through the Null online subsystem). Each player has a **lasting id** (made once, kept in the player
+settings; `_PIE<n>` in Play-in-Editor, `-AGBPlayer=<n>` for extra game windows on one PC) sent as `?AGBId=` with
+`?Name=`: saves key players by it, so they get their character back on any later session; a leaving player is
+saved at once. `AAGBGameState` replicates the server rules; `AAGBPlayerState` holds the id and host flag. Chat
+(Enter; console `Say`), join/leave messages and the message of the day; the pause menu lists players, the host can
+kick and sees the LAN address. Connection errors (wrong password, full, banned, host gone) show on the main menu.
+Server settings: `UAGBServerSettings` (`Config/DefaultAGBServer.ini`; server admins override in
+`Saved/Config/<Platform>/AGBServer.ini`): name, max players, password, message of the day, PvP, harvest / craft
+speed / hunger-thirst / damage-taken multipliers, LAN advertising, banned ids. Dedicated servers start in the game
+level (GameMapsSettings ServerDefaultMap); building one needs Unreal Engine from source (`<Project>Server.Target.cs`).
+
+| Tool | Use |
+|---|---|
+| `SetupMultiplayer(bCreateServerTarget = true)` | Null online subsystem for the LAN list (restart the editor), server settings file, dedicated server start level, Server target. |
+| `SetServerSettings(serverName, maxPlayers, password, messageOfTheDay, pvP, harvestMultiplier, craftSpeedMultiplier, statDecayMultiplier, damageTakenMultiplier)` | "" / 0 = unchanged; password "none" clears; pvP "on"/"off". |
+| `GetMultiplayerStatus()` | Settings, LAN discovery, server target, this PC's address, how to test. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

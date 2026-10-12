@@ -25,13 +25,17 @@
 			"Name": "AIWorldBuilderCore",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit",
-			"TargetAllowList": [ "Editor" ]
+			"TargetAllowList": [
+				"Editor"
+			]
 		},
 		{
 			"Name": "AIWorldBuilderToolsets",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit",
-			"TargetAllowList": [ "Editor" ]
+			"TargetAllowList": [
+				"Editor"
+			]
 		}
 	],
 	"Plugins": [
@@ -61,6 +65,18 @@
 		},
 		{
 			"Name": "Niagara",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystem",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemNull",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemUtils",
 			"Enabled": true
 		}
 	]

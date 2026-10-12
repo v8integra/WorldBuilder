@@ -381,3 +381,13 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   `ALandscapeProxy::ChangedPhysMaterial()` rebuilds collision materials. Water bodies answer Pawn-channel traces
   (WaterBodyCollision profile). Engine Niagara templates (`/Niagara/DefaultAssets/Templates/Systems/...`) work as
   placeholder effects.
+- **Multiplayer (Phase 23):** travel URL options reach the server's `Login` (`?Name=` sets the player name in
+  `InitNewPlayer`; custom ones like `?AGBId=` / `?Password=` are read with `UGameplayStatics::ParseOption`).
+  A listen host's own options come from the `OpenLevel(..., "listen?...")` URL, also read in `InitGame`
+  (ServerPassword, MaxPlayers -> `GameSession->MaxPlayers`). `PreLogin` errors reach the client as a
+  PendingConnectionFailure (`GEngine->OnNetworkFailure`). Several local players on one machine share the saved
+  settings, so suffix the id with the PIE instance (`FWorldContext::PIEInstance`) or a command-line value.
+  `PawnLeavingGame` (server, pawn still alive) is the moment to save a leaving player. LAN discovery: Null online
+  subsystem sessions (`bIsLANMatch`, `FindSessions`, `GetResolvedConnectString`); needs the OnlineSubsystem,
+  OnlineSubsystemNull and OnlineSubsystemUtils plugins and `[OnlineSubsystem] DefaultPlatformService=Null`.
+  The launcher engine cannot build Server targets; PIE "Play As Client" runs an in-process dedicated server.

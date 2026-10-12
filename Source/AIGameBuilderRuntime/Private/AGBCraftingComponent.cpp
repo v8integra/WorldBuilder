@@ -1,5 +1,7 @@
 #include "AGBCraftingComponent.h"
 
+#include "AGBMultiplayer.h"
+
 #include "AGBCharacter.h"
 #include "AGBCraftingStation.h"
 #include "AGBCraftingTypes.h"
@@ -97,7 +99,7 @@ float UAGBCraftingComponent::GetJobProgress(int32 Index) const
 		return 0.f;
 	}
 	const FAGBCraftJob& Job = Queue[Index];
-	const float Seconds = Job.Recipe->CraftSeconds;
+	const float Seconds = Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier);
 	if (Index > 0 || Seconds <= 0.f)
 	{
 		return 0.f;
@@ -348,7 +350,7 @@ void UAGBCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		Job.bPaused = false;
 		Job.UpdateServerTime = Now;
 	}
-	if (Job.Progress + (Now - Job.UpdateServerTime) < Job.Recipe->CraftSeconds)
+	if (Job.Progress + (Now - Job.UpdateServerTime) < Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier))
 	{
 		return;
 	}

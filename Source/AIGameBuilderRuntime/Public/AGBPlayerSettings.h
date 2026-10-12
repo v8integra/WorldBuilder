@@ -51,6 +51,17 @@ struct AIGAMEBUILDERRUNTIME_API FAGBPlayerSettings
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	bool bShowCrosshair = true;
+
+	/** Name shown to other players. Empty = the computer's user name. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Multiplayer")
+	FString PlayerName;
+
+	/** This player's lasting id (made once): servers keep their character under it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Multiplayer")
+	FString PlayerId;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Multiplayer")
+	FString LastJoinAddress;
 };
 
 UCLASS()

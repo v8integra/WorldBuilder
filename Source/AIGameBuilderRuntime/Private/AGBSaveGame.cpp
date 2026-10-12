@@ -1,5 +1,7 @@
 #include "AGBSaveGame.h"
 
+#include "AGBMultiplayer.h"
+
 #include "AGBBuildingTypes.h"
 #include "AGBBuildPiece.h"
 #include "AGBCharacter.h"
@@ -104,6 +106,11 @@ FString UAGBSaveSubsystem::PlayerKey(const APlayerController* Player)
 	if (!Player)
 	{
 		return FString();
+	}
+	const AAGBPlayerState* Lasting = Player->GetPlayerState<AAGBPlayerState>();
+	if (Lasting && !Lasting->PersistentId.IsEmpty())
+	{
+		return Lasting->PersistentId; // The id the player joins with: the same across sessions and servers.
 	}
 	if (Player->IsLocalController())
 	{
@@ -391,6 +398,14 @@ bool UAGBSaveSubsystem::LoadWorld(FString& OutMessage)
 	return true;
 }
 
+void UAGBSaveSubsystem::SavePlayerLeaving(APlayerController* Player)
+{
+	// Keep the leaving player's character, then let them get it back if they rejoin this session.
+	FString Message;
+	SaveWorld(Message);
+	RestoredPlayers.Remove(PlayerKey(Player));
+}
+
 void UAGBSaveSubsystem::RestorePlayer(APlayerController* Player)
 {
 	AAGBCharacter* Character = Player ? Cast<AAGBCharacter>(Player->GetPawn()) : nullptr;
@@ -400,6 +415,11 @@ void UAGBSaveSubsystem::RestorePlayer(APlayerController* Player)
 		return;
 	}
 	const FAGBSavedPlayer* Saved = Loaded->Players.FindByPredicate([&Key](const FAGBSavedPlayer& Entry) { return Entry.Key == Key; });
+	if (!Saved && Player->IsLocalController())
+	{
+		// Saves from before lasting ids kept the local player as "Host".
+		Saved = Loaded->Players.FindByPredicate([](const FAGBSavedPlayer& Entry) { return Entry.Key == TEXT("Host"); });
+	}
 	RestoredPlayers.Add(Key); // Only once per load: later respawns start fresh.
 	if (!Saved)
 	{

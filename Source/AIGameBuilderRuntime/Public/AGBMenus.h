@@ -50,6 +50,11 @@ public:
 
 	UFUNCTION()
 	void HandleChord(FInputChord Value) { if (Chord) { Chord(Value); } }
+
+	TFunction<void(const FText&, ETextCommit::Type)> TextCommit;
+
+	UFUNCTION()
+	void HandleTextCommit(const FText& Text, ETextCommit::Type Method) { if (TextCommit) { TextCommit(Text, Method); } }
 };
 
 /** Base of the built-in menus: builds its widgets in code from the UI theme. Escape / gamepad B goes back. */
@@ -87,6 +92,7 @@ protected:
 	UWidget* MakeComboRow(const FText& Label, const TArray<FString>& Options, const FString& Selected, TFunction<void(const FString&)> OnChanged, UComboBoxString** OutCombo = nullptr);
 	UWidget* MakeLabeledRow(const FText& Label, UWidget* Control);
 	void AddSpacer(UPanelWidget* Panel, float Height);
+	class UEditableTextBox* MakeTextField(const FText& Hint, const FString& Initial, bool bPassword);
 	UAGBUIProxy* NewProxy();
 
 	const UAGBUITheme* Theme = nullptr;
@@ -146,6 +152,56 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UComboBoxString> QualityCombo;
+};
+
+/** Host a game: friends join this computer (password, player limit, new world). */
+UCLASS()
+class AIGAMEBUILDERRUNTIME_API UAGBHostMenuWidget : public UAGBMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildContent(UVerticalBox* Panel) override;
+};
+
+/** Join a game: by address, or from the games found on the local network. */
+UCLASS()
+class AIGAMEBUILDERRUNTIME_API UAGBJoinMenuWidget : public UAGBMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildContent(UVerticalBox* Panel) override;
+	virtual float GetPanelWidth() const override { return 620.f; }
+
+private:
+	void Refresh();
+
+	UPROPERTY(Transient)
+	TObjectPtr<UVerticalBox> GameList;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UEditableTextBox> PasswordField;
+};
+
+/** The chat line (Enter): type and press Enter to send, Escape to cancel. */
+UCLASS()
+class AIGAMEBUILDERRUNTIME_API UAGBChatWidget : public UUserWidget
+{
+	GENERATED_BODY()
+
+public:
+	void FocusInput();
+
+protected:
+	virtual TSharedRef<SWidget> RebuildWidget() override;
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<class UEditableTextBox> Input;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAGBUIProxy> Proxy;
 };
 
 /** Yes/No question. */

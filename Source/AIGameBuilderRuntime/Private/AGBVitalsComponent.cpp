@@ -1,5 +1,7 @@
 #include "AGBVitalsComponent.h"
 
+#include "AGBMultiplayer.h"
+
 #include "AGBCharacter.h"
 #include "AGBCharacterMovementComponent.h"
 #include "AGBClimate.h"
@@ -313,6 +315,10 @@ void UAGBVitalsComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		const FAGBStatConfig& Stat = Stats[Index];
 		float Change = Stat.ChangePerSecond * DeltaTime;
+		if (Change < 0.f)
+		{
+			Change *= AAGBGameState::GetRules(this).StatDecayMultiplier; // Server rule: hunger/thirst speed.
+		}
 		if (Change > 0.f)
 		{
 			const bool bDelayed = Now - LastReducedTime[Index] < Stat.RegenDelaySeconds;

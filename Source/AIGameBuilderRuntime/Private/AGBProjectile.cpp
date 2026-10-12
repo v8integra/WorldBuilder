@@ -1,6 +1,7 @@
 #include "AGBProjectile.h"
 
 #include "AGBBuildPiece.h"
+#include "AGBMultiplayer.h"
 
 #include "AGBCharacter.h"
 #include "AGBItemPickup.h"
@@ -90,7 +91,8 @@ void AAGBProjectile::HandleHit(UPrimitiveComponent* HitComponent, AActor* OtherA
 	}
 
 	// PvE: creatures and other damageable things are hurt, players are not.
-	if (OtherActor && !OtherActor->IsA<AAGBCharacter>())
+	const bool bPlayer = OtherActor && OtherActor->IsA<AAGBCharacter>();
+	if (OtherActor && OtherActor != GetInstigator() && (!bPlayer || AAGBGameState::GetRules(this).bPvP))
 	{
 		UGameplayStatics::ApplyDamage(OtherActor, Damage, GetInstigatorController(), this, nullptr);
 	}

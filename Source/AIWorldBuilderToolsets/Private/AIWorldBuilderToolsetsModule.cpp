@@ -19,6 +19,7 @@
 #include "SaveTools.h"
 #include "UITools.h"
 #include "AudioFXTools.h"
+#include "MultiplayerTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WaterTools.h"
 #include "WorldEnvironmentTools.h"
@@ -72,6 +73,7 @@ private:
 			USaveTools::StaticClass(),
 			UUITools::StaticClass(),
 			UAudioFXTools::StaticClass(),
+			UMultiplayerTools::StaticClass(),
 		};
 	}
 };

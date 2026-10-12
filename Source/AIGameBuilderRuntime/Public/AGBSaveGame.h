@@ -243,6 +243,9 @@ public:
 	/** Restores a player's saved state onto their pawn, once per load. */
 	void RestorePlayer(APlayerController* Player);
 
+	/** A player leaves the game: saves (their character included). */
+	void SavePlayerLeaving(APlayerController* Player);
+
 	/** Stable key of a player in save games. */
 	static FString PlayerKey(const APlayerController* Player);
 

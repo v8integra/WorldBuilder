@@ -8,6 +8,10 @@
 #include "AGBInteractionComponent.h"
 #include "AGBInventoryComponent.h"
 #include "AGBMenus.h"
+#include "AGBMultiplayer.h"
+#include "AIGameBuilderRuntime.h"
+#include "GameFramework/GameSession.h"
+#include "Kismet/GameplayStatics.h"
 #include "AGBPlayerSettings.h"
 #include "AGBUITheme.h"
 #include "Engine/Font.h"
@@ -71,6 +75,8 @@ AAGBGameMode::AAGBGameMode()
 	DefaultPawnClass = AAGBCharacter::StaticClass();
 	PlayerControllerClass = AAGBPlayerController::StaticClass();
 	HUDClass = AAGBHUD::StaticClass();
+	GameStateClass = AAGBGameState::StaticClass();
+	PlayerStateClass = AAGBPlayerState::StaticClass();
 }
 
 void AAGBPlayerController::BeginPlay()
@@ -82,6 +88,77 @@ void AAGBPlayerController::BeginPlay()
 		{
 			Settings->ApplyAudio(GetWorld());
 		}
+	}
+}
+
+void AAGBPlayerController::PawnLeavingGame()
+{
+	// A player leaving the server: save so their character is there when they come back.
+	UAGBSaveSubsystem* Saving = GetWorld() ? GetWorld()->GetSubsystem<UAGBSaveSubsystem>() : nullptr;
+	if (HasAuthority() && Saving && !GetWorld()->bIsTearingDown && !IsLocalController() && GetPawn())
+	{
+		Saving->SavePlayerLeaving(this);
+	}
+	Super::PawnLeavingGame();
+}
+
+void AAGBPlayerController::OpenChat()
+{
+	const UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(this);
+	if (ChatWidget || (Menus && Menus->IsMenuOpen()))
+	{
+		return;
+	}
+	ChatWidget = CreateWidget<UAGBChatWidget>(this, UAGBChatWidget::StaticClass());
+	ChatWidget->AddToViewport(50);
+	FInputModeUIOnly Mode;
+	Mode.SetWidgetToFocus(ChatWidget->TakeWidget());
+	SetInputMode(Mode);
+	ChatWidget->FocusInput();
+}
+
+void AAGBPlayerController::CloseChat()
+{
+	if (!ChatWidget)
+	{
+		return;
+	}
+	ChatWidget->RemoveFromParent();
+	ChatWidget = nullptr;
+	const UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(this);
+	if (!Menus || !Menus->IsMenuOpen())
+	{
+		SetInputMode(FInputModeGameOnly());
+	}
+}
+
+void AAGBPlayerController::Say(const FString& Text)
+{
+	ServerSay(Text);
+}
+
+void AAGBPlayerController::ServerSay_Implementation(const FString& Text)
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const FString Clean = Text.TrimStartAndEnd().Left(200);
+	AAGBGameMode* GameMode = GetWorld()->GetAuthGameMode<AAGBGameMode>();
+	if (Clean.IsEmpty() || !GameMode || !PlayerState || Now - LastChatTime < 0.5)
+	{
+		return;
+	}
+	LastChatTime = Now;
+	GameMode->BroadcastChat(PlayerState->GetPlayerName(), Clean);
+}
+
+void AAGBPlayerController::ClientChat_Implementation(const FString& From, const FString& Text)
+{
+	if (AAGBHUD* AGBHUD = GetHUD<AAGBHUD>())
+	{
+		AGBHUD->AddChat(From, Text);
+	}
+	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+	{
+		Audio->PlayCue2D(TEXT("UI.Hover"));
 	}
 }
 
@@ -157,9 +234,119 @@ void AAGBPlayerController::ServerSetWeather_Implementation(const FString& Weathe
 	}
 }
 
+void AAGBGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+	const UAGBServerSettings* Server = GetDefault<UAGBServerSettings>();
+	// A host's choices (Host Game screen) come as URL options; dedicated servers use the settings file.
+	ServerPassword = UGameplayStatics::HasOption(Options, TEXT("ServerPassword")) ? UGameplayStatics::ParseOption(Options, TEXT("ServerPassword")) : Server->Password;
+	const int32 MaxPlayers = UGameplayStatics::HasOption(Options, TEXT("MaxPlayers"))
+		? FCString::Atoi(*UGameplayStatics::ParseOption(Options, TEXT("MaxPlayers"))) : Server->MaxPlayers;
+	if (GameSession)
+	{
+		GameSession->MaxPlayers = FMath::Clamp(MaxPlayers, 1, 64);
+	}
+}
+
+void AAGBGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	if (!ErrorMessage.IsEmpty())
+	{
+		return;
+	}
+	if (!ServerPassword.IsEmpty() && UGameplayStatics::ParseOption(Options, TEXT("Password")) != UAGBNetworkSubsystem::CleanOption(ServerPassword))
+	{
+		ErrorMessage = TEXT("Wrong password.");
+		return;
+	}
+	const FString PlayerId = UAGBNetworkSubsystem::CleanOption(UGameplayStatics::ParseOption(Options, TEXT("AGBId")));
+	if (!PlayerId.IsEmpty() && GetDefault<UAGBServerSettings>()->BannedIds.Contains(PlayerId))
+	{
+		ErrorMessage = TEXT("You are banned from this server.");
+	}
+}
+
+FString AAGBGameMode::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
+{
+	const FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+	if (AAGBPlayerState* State = NewPlayerController ? NewPlayerController->GetPlayerState<AAGBPlayerState>() : nullptr)
+	{
+		State->PersistentId = UAGBNetworkSubsystem::CleanOption(UGameplayStatics::ParseOption(Options, TEXT("AGBId")));
+		State->bIsHost = NewPlayerController->IsLocalController() && GetNetMode() == NM_ListenServer;
+		UE_LOG(LogAIGameBuilder, Log, TEXT("Player '%s' joining with id '%s'."), *State->GetPlayerName(), *State->PersistentId);
+	}
+	return Result;
+}
+
+void AAGBGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+	if (GetNetMode() == NM_Standalone || !NewPlayer || !NewPlayer->PlayerState)
+	{
+		return;
+	}
+	BroadcastChat(FString(), FString::Printf(TEXT("%s joined the game."), *NewPlayer->PlayerState->GetPlayerName()));
+	const FString& Motd = GetDefault<UAGBServerSettings>()->MessageOfTheDay;
+	AAGBPlayerController* Player = Cast<AAGBPlayerController>(NewPlayer);
+	if (Player && !Motd.IsEmpty())
+	{
+		Player->ClientChat(FString(), Motd);
+	}
+}
+
+void AAGBGameMode::Logout(AController* Exiting)
+{
+	if (GetNetMode() != NM_Standalone && Exiting && Exiting->PlayerState && !GetWorld()->bIsTearingDown)
+	{
+		BroadcastChat(FString(), FString::Printf(TEXT("%s left the game."), *Exiting->PlayerState->GetPlayerName()));
+	}
+	Super::Logout(Exiting);
+}
+
+void AAGBGameMode::BroadcastChat(const FString& From, const FString& Text)
+{
+	UE_LOG(LogAIGameBuilder, Log, TEXT("[Chat] %s%s"), From.IsEmpty() ? TEXT("") : *(From + TEXT(": ")), *Text);
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (AAGBPlayerController* Player = Cast<AAGBPlayerController>(It->Get()))
+		{
+			Player->ClientChat(From, Text);
+		}
+	}
+}
+
+bool AAGBGameMode::KickPlayer(APlayerController* Player)
+{
+	if (!Player || Player->IsLocalController() || !GameSession)
+	{
+		return false;
+	}
+	return GameSession->KickPlayer(Player, NSLOCTEXT("AIGameBuilder", "Kicked", "The host removed you from the game."));
+}
+
 void AAGBGameMode::StartPlay()
 {
 	Super::StartPlay();
+	if (AAGBGameState* State = GetGameState<AAGBGameState>())
+	{
+		const UAGBServerSettings* Server = GetDefault<UAGBServerSettings>();
+		FAGBServerRules& Rules = State->Rules;
+		Rules.ServerName = Server->ServerName;
+		Rules.MaxPlayers = GameSession ? GameSession->MaxPlayers : Server->MaxPlayers;
+		Rules.bPvP = Server->bPvP;
+		Rules.HarvestMultiplier = Server->HarvestMultiplier;
+		Rules.CraftSpeedMultiplier = Server->CraftSpeedMultiplier;
+		Rules.StatDecayMultiplier = Server->StatDecayMultiplier;
+		Rules.DamageTakenMultiplier = Server->DamageTakenMultiplier;
+	}
+	if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
+	{
+		if (UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this))
+		{
+			Network->StartAdvertising(GetWorld());
+		}
+	}
 	if (UAGBSaveSubsystem* Saving = GetWorld()->GetSubsystem<UAGBSaveSubsystem>())
 	{
 		Saving->SlotBase = SaveSlotName.IsEmpty() ? FString(TEXT("World")) : SaveSlotName;
@@ -178,6 +365,10 @@ void AAGBGameMode::StartPlay()
 
 void AAGBGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (UAGBNetworkSubsystem* Network = UAGBNetworkSubsystem::Get(this))
+	{
+		Network->StopAdvertising(GetWorld());
+	}
 	if (bSaveOnEnd && HasAuthority() && (EndPlayReason == EEndPlayReason::Quit || EndPlayReason == EEndPlayReason::EndPlayInEditor
 		|| EndPlayReason == EEndPlayReason::LevelTransition))
 	{
@@ -649,6 +840,45 @@ void AAGBHUD::AddNotification(const FText& Message, bool bWarning)
 	}
 }
 
+void AAGBHUD::AddChat(const FString& From, const FString& Text)
+{
+	ChatLines.Add({ From, Text, GetWorld()->GetRealTimeSeconds() });
+	if (ChatLines.Num() > 30)
+	{
+		ChatLines.RemoveAt(0);
+	}
+}
+
+void AAGBHUD::DrawChat(float Scale)
+{
+	// Bottom left above the vitals; lines fade after a while unless the chat line is open.
+	const AAGBPlayerController* Player = Cast<AAGBPlayerController>(GetOwningPlayerController());
+	const bool bOpen = Player && Player->IsChatOpen();
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	UFont* Font = GetHUDFont(1);
+	float Y = Canvas->ClipY - 250.f * Scale;
+	int32 Shown = 0;
+	for (int32 Index = ChatLines.Num() - 1; Index >= 0 && Shown < (bOpen ? 12 : 6); --Index)
+	{
+		const FChatLine& Line = ChatLines[Index];
+		const float Age = static_cast<float>(Now - Line.Time);
+		const float Alpha = bOpen ? 1.f : FMath::Clamp((15.f - Age) / 2.f, 0.f, 1.f);
+		if (Alpha <= 0.f)
+		{
+			break;
+		}
+		const FString Text = Line.From.IsEmpty() ? Line.Text : FString::Printf(TEXT("%s: %s"), *Line.From, *Line.Text);
+		FLinearColor Color = Line.From.IsEmpty() ? SelectedColor : TextColor;
+		Color.A *= Alpha;
+		float W = 0.f, H = 0.f;
+		GetTextSize(Text, W, H, Font, Scale);
+		Y -= H + 4.f * Scale;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.35f * Alpha), 18.f * Scale, Y - 2.f, W + 12.f * Scale, H + 4.f);
+		DrawText(Text, Color, 24.f * Scale, Y, Font, Scale);
+		++Shown;
+	}
+}
+
 void AAGBHUD::DrawNotifications(float Scale)
 {
 	constexpr double Lifetime = 3.0;
@@ -1083,6 +1313,7 @@ void AAGBHUD::DrawHUD()
 	DrawHotbar(Character, Scale);
 	DrawVitals(Character, Scale);
 	DrawNotifications(Scale);
+	DrawChat(Scale);
 	if (bInventoryOpen)
 	{
 		return;

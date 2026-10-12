@@ -48,7 +48,21 @@ public:
 	virtual void StartPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	// Multiplayer: password, bans, lasting player ids, join/leave messages (rules: UAGBServerSettings).
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
+
+	/** Sends a chat line to everyone (From empty = a game message). */
+	void BroadcastChat(const FString& From, const FString& Text);
+
+	/** Host: removes a player from the game. */
+	bool KickPlayer(APlayerController* Player);
+
 private:
+	FString ServerPassword;
 	void Announce(const FString& Message, bool bWarning);
 	FTimerHandle AutosaveTimer;
 };
@@ -64,6 +78,30 @@ public:
 	TWeakObjectPtr<AActor> RespawnPoint;
 
 	virtual void BeginPlay() override;
+	virtual void PawnLeavingGame() override;
+
+	/** Opens the chat line (Enter). */
+	void OpenChat();
+	void CloseChat();
+	bool IsChatOpen() const { return ChatWidget != nullptr; }
+
+	/** Console: sends a chat message. */
+	UFUNCTION(Exec)
+	void Say(const FString& Text);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSay(const FString& Text);
+
+	UFUNCTION(Client, Reliable)
+	void ClientChat(const FString& From, const FString& Text);
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<class UAGBChatWidget> ChatWidget;
+
+	double LastChatTime = -10.0;
+
+public:
 
 	/** Console (testing): jumps the clock to an hour, e.g. "AGBTime 22". */
 	UFUNCTION(Exec)
@@ -145,6 +183,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI Game Builder|HUD")
 	void AddNotification(const FText& Message, bool bWarning);
 
+	/** Adds a chat line (From empty = a game message). */
+	void AddChat(const FString& From, const FString& Text);
+
 	virtual void DrawHUD() override;
 	virtual void NotifyHitBoxClick(FName BoxName) override;
 	virtual void NotifyHitBoxBeginCursorOver(FName BoxName) override;
@@ -198,6 +239,15 @@ private:
 	void DrawVitals(class AAGBCharacter* Character, float Scale);
 	void DrawDeathScreen(float Scale);
 	void DrawNotifications(float Scale);
+	void DrawChat(float Scale);
+
+	struct FChatLine
+	{
+		FString From;
+		FString Text;
+		double Time = 0.0;
+	};
+	TArray<FChatLine> ChatLines;
 	void DrawPrecipitation(class AAGBCharacter* Character, float Scale);
 	void DrawCraftingPanel(class AAGBCharacter* Character, float Scale);
 	void DrawContainerPanel(class AAGBCharacter* Character, float Scale);

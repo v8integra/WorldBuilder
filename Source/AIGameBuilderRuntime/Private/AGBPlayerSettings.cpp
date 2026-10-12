@@ -24,6 +24,11 @@ void UAGBPlayerSettingsSubsystem::Initialize(FSubsystemCollectionBase& Collectio
 	{
 		Settings = Saved->Settings;
 	}
+	if (Settings.PlayerId.IsEmpty())
+	{
+		Settings.PlayerId = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+		SaveSettings();
+	}
 }
 
 UAGBPlayerSettingsSubsystem* UAGBPlayerSettingsSubsystem::Get(const UObject* WorldContext)
@@ -127,6 +132,7 @@ const TArray<FAGBRebindableAction>& UAGBPlayerSettingsSubsystem::GetRebindableAc
 		{ TEXT("IA_AGB_Rotate"), NSLOCTEXT("AIGameBuilder", "KeyRotate", "Rotate building") },
 		{ TEXT("IA_AGB_ToggleCamera"), NSLOCTEXT("AIGameBuilder", "KeyCamera", "Switch camera") },
 		{ TEXT("IA_AGB_Pause"), NSLOCTEXT("AIGameBuilder", "KeyPause", "Pause menu") },
+		{ TEXT("IA_AGB_Chat"), NSLOCTEXT("AIGameBuilder", "KeyChat", "Chat") },
 	};
 	return Actions;
 }

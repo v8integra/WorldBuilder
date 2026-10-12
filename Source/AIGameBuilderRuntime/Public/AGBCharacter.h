@@ -328,6 +328,7 @@ private:
 
 	void RefreshInputBindings();
 	void OnPause(const FInputActionValue& Value);
+	void OnChat(const FInputActionValue& Value);
 
 	void ApplyAppearance();
 	void ApplyCameraMode();

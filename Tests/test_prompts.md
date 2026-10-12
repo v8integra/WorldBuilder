@@ -325,3 +325,16 @@ Prereq: C++ build. Open TestWorld. Everything below works with the generated pla
 11. Co-op: the other player's footsteps, swings and hits are heard at their position; pickups/crafting only by the player who did them.
 **Claude Code:** "The game needs sound. I added the 'Nature Ambience' and 'Footsteps' packs." → SetupAudioFX + AutoAssignSounds + ambience zones per biome.
 
+## Phase 23 — Multiplayer
+
+Prereq: C++ build (new online plugins: the editor may ask to enable/restart). Open TestWorld.
+1. `SetupMultiplayer` `{}` → DefaultEngine.ini Null subsystem, DefaultAGBServer.ini, "Dedicated servers start in .../TestWorld", Server target created. **Restart the editor.** `GetMultiplayerStatus` shows your LAN address.
+2. Play options: Number of Players 2, Net Mode **Play As Listen Server**. Both windows: chat "X joined the game." Press Enter in one window, type, Enter → both see "Name: text"; Esc cancels. P → "Menu" with Players (2), the host sees "(host)", a Kick button and "Friends on your network join with: 192.168..."
+3. Persistence: the client gathers items and builds, stop Play, Play again → the client gets its own items and position back (its id ends in _PIE1). Kick the client from the host's P menu → client returns to its menu/level with a message; host chat says "... left the game."
+4. Rules: `SetServerSettings` `{"harvestMultiplier":3,"craftSpeedMultiplier":4,"statDecayMultiplier":0.2,"pvP":"on","messageOfTheDay":"Welcome!"}` → Play: 3x wood per hit, fast crafting, slow hunger, "Welcome!" in chat on join, players can hit each other (and arrows hurt the other player). Set back to 1 / off.
+5. Dedicated server: Net Mode **Play As Client**, 2 players → both are clients of a background server; everything works (saving, creatures, weather); no "(host)".
+6. Password: `SetServerSettings` `{"password":"abc"}`. Main menu flow (standalone): open MainMenu, Play in **Standalone Game** with 2 clients is awkward, so use two packaged/standalone windows later; in PIE check that a join with the wrong password is refused (client shows "Wrong password." on its main menu). Clear with `{"password":"none"}`.
+7. Main menu: Host Game (password, players 2-16, new world) → the game opens hosting; Join Game → address field (remembers the last one), LAN list ("Searching..." then games or "No games found"). Two Standalone windows on one PC: start the second with `-AGBPlayer=2` so it is a different player.
+8. Settings > Gameplay: player name → others see it on next join.
+**Claude Code:** "Make it a co-op game for up to 6 friends, with faster gathering." → SetupMultiplayer + SetServerSettings maxPlayers 6, harvestMultiplier 2.
+

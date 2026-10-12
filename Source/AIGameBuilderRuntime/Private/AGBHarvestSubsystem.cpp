@@ -1,5 +1,7 @@
 #include "AGBHarvestSubsystem.h"
 
+#include "AGBMultiplayer.h"
+
 #include "AGBCharacter.h"
 #include "AGBHarvestTypes.h"
 #include "AGBItemPickup.h"
@@ -412,13 +414,14 @@ FAGBHarvestResult UAGBHarvestSubsystem::Harvest(AAGBCharacter* Harvester, UPrimi
 	// Per-hit yields scale with power; never give more than what is left.
 	const float Counted = FMath::Min(Power, Resource->Health - (Spent - Power));
 	const FVector DropLocation = Harvester->GetActorLocation() + Harvester->GetActorForwardVector() * 60.0;
-	GiveYields(Harvester, Resource->YieldPerHit, Counted, DropLocation);
+	const float Rate = AAGBGameState::GetRules(Harvester).HarvestMultiplier;
+	GiveYields(Harvester, Resource->YieldPerHit, Counted * Rate, DropLocation);
 
 	if (Spent >= Resource->Health - KINDA_SMALL_NUMBER)
 	{
 		Result.bDepleted = true;
 		Damage.Remove(Key);
-		GiveYields(Harvester, Resource->YieldWhenDepleted, 1.f, DropLocation);
+		GiveYields(Harvester, Resource->YieldWhenDepleted, Rate, DropLocation);
 		const float RegrowSeconds = Resource->RegrowMinutes * 60.f;
 		if (Node)
 		{

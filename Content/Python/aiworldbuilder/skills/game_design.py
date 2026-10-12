@@ -221,6 +221,14 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   `PlaceSoundEmitter` for waterfalls (spray), streams, insect spots.
 - Decide yourself: cue volumes, music gaps; ask about the music mood only if the design doc does not say.
 
+## Multiplayer (milestone M10)
+
+- From the "Solo or co-op" decision: `AIWorldBuilderToolsets.MultiplayerTools.SetupMultiplayer` (the user restarts
+  the editor afterwards), then `SetServerSettings` (player limit, PvP from the design, gentler/harsher rates).
+- Explain plainly: friends on the same network use Host Game / Join Game (LAN list); over the internet the host
+  forwards UDP port 7777 (or the game ships on Steam later); dedicated servers need Unreal Engine built from source.
+- Test with Play options Number of Players 2 (Listen Server, then Play As Client for a dedicated server).
+
 ---
 
 # Things the user must do themselves
