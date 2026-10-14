@@ -129,6 +129,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Death", meta = (ClampMin = "0.1"))
 	float LootBagLifetimeMinutes = 30.f;
 
+	/** Seconds a player can stay with the head under water. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swimming", meta = (ClampMin = "1"))
+	float BreathSeconds = 30.f;
+
+	/** Breath seconds regained per second at the surface. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swimming", meta = (ClampMin = "0.1"))
+	float BreathRecoveryPerSecond = 6.f;
+
+	/** Health lost per second when out of breath. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swimming", meta = (ClampMin = "0"))
+	float DrowningDamagePerSecond = 10.f;
+
 	const FAGBStatConfig* FindStat(FName Id) const;
 
 	/** Standard survival stats (Health, Stamina, Hunger 90 min, Thirst 60 min) scaled by difficulty (1 = Normal). */

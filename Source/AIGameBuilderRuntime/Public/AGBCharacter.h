@@ -329,6 +329,11 @@ private:
 	void RefreshInputBindings();
 	void OnPause(const FInputActionValue& Value);
 	void OnChat(const FInputActionValue& Value);
+	void OnJumpStarted(const FInputActionValue& Value);
+	void OnJumpCompleted(const FInputActionValue& Value);
+
+	/** Jump held (swims up in water). */
+	bool bJumpHeld = false;
 
 	void ApplyAppearance();
 	void ApplyCameraMode();

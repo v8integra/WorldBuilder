@@ -156,6 +156,19 @@ public:
 		double LootBagLifetimeMinutes = -1.0);
 
 	/**
+	 * Swimming and drowning. Negative = unchanged.
+	 * @param BreathSeconds Seconds a player can hold their breath under water.
+	 * @param BreathRecoveryPerSecond Breath seconds regained per second at the surface.
+	 * @param DrowningDamagePerSecond Health lost per second when out of breath.
+	 * @param SwimSpeed Swimming speed (cm/s) on the player character.
+	 * @param SwimDepthCm Water depth above the feet (cm) where walking turns into swimming.
+	 * @return The updated config.
+	 */
+	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Survival")
+	static FSurvivalResult SetSwimmingRules(double BreathSeconds = -1.0, double BreathRecoveryPerSecond = -1.0, double DrowningDamagePerSecond = -1.0,
+		double SwimSpeed = -1.0, double SwimDepthCm = -1.0);
+
+	/**
 	 * Places a placeholder fire that warms the air around it (for testing temperature; real campfires come with crafting). One undo step.
 	 * @param XM World X, meters.
 	 * @param YM World Y, meters.

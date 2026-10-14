@@ -400,6 +400,7 @@ body (lake, river, ocean...) within reach and press E. Clothing stats `Insulatio
 | `RemoveVitalStat(statId)` | Not Health. |
 | `SetTemperatureRules(baseTemperatureC, seaLevelM, coolingPer100m, comfortMinC, comfortMaxC, exposureDamagePerDegree)` | -999 keeps a value. |
 | `SetSurvivalRules(sprintStaminaPerSecond, jumpStaminaCost, waterDrinkAmount, fallDamageMinSpeed, fallDamagePerSpeed, respawnDelaySeconds, dropItemsOnDeath, lootBagLifetimeMinutes)` | -1 keeps a value. |
+| `SetSwimmingRules(breathSeconds, breathRecoveryPerSecond, drowningDamagePerSecond, swimSpeed, swimDepthCm)` | Swimming in Water plugin lakes/rivers/oceans: breath (HUD bar under water), drowning damage, swim speed, depth where walking turns into swimming. -1 keeps. |
 | `SpawnHeatSource(xM, yM, warmthC = 20, radiusM = 6)` | Placeholder fire that warms the air (test temperature). |
 
 ## `AIWorldBuilderToolsets.HarvestTools` (C++, harvesting)
@@ -471,6 +472,7 @@ respawns after kills, removes the population 30 s after players leave). Players 
 |---|---|
 | `CreateCreature(creatureId, displayName, behaviour, meshPath, animationFolder, maxHealth, damage, walkSpeedMs, runSpeedMs, radiusCm, halfHeightCm, aggroRangeM, fleeRangeM, wanderRadiusM, loot, butcherToolTags, meshYawDeg = -90, meshScale = 1, folder)` | Create/update a creature; with a skeletal mesh, animations of its skeleton are found by name. |
 | `ListCreatures()` | Creature kinds and the level's spawn zones. |
+| `FitCreatureBody(creatureId, meshYawDeg = -999, meshOffsetZ = -999, meshScale = 0)` | Fix a mesh floating/sinking or walking backwards/sideways: -999 = automatic (feet on the ground from the mesh bounds; head bone points forward). CreateCreature now does this automatically. |
 | `CreateSpawnZone(creatureId, centerXM, centerYM, radiusM, maxAlive = 4, minHeightM, maxHeightM, maxSlopeDeg = 30, paintLayer = "none", minLayerWeight = 0.4, respawnMinutes = 2, label)` | Biome-filtered spawn points (landscape only, not under objects, no water); reports why spots were rejected. |
 | `SpawnCreature(creatureId, xM, yM)` | One creature (tests). |
 

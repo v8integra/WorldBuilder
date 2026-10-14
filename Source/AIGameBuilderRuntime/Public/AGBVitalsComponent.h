@@ -54,6 +54,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Vitals")
 	float GetFraction(FName Stat) const;
 
+	/** 1 = full breath, 0 = drowning (owning player and server). */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Vitals")
+	float GetBreathFraction() const;
+
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Vitals")
 	bool IsDead() const { return bDead; }
 
@@ -119,6 +123,10 @@ protected:
 
 	UPROPERTY(Replicated)
 	float AirTemperatureC = 0.f;
+
+	/** Seconds of breath left; negative = full. Only the owner needs it. */
+	UPROPERTY(Replicated)
+	float BreathLeft = -1.f;
 
 	UPROPERTY(Replicated)
 	float ComfortMinC = 0.f;

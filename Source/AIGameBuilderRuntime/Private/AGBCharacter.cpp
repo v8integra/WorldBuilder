@@ -406,6 +406,12 @@ bool AAGBCharacter::IsBuilding() const
 void AAGBCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// Holding Jump (Space) or Sprint (Shift) in water swims up.
+	const UAGBCharacterMovementComponent* SwimMovement = GetAGBMovement();
+	if (IsLocallyControlled() && SwimMovement && SwimMovement->IsSwimming() && (bJumpHeld || SwimMovement->bWantsToSprint))
+	{
+		AddMovementInput(FVector::UpVector, 1.f);
+	}
 	if (IsLocallyControlled())
 	{
 		UpdateBuildPreview();
@@ -884,8 +890,8 @@ void AAGBCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	}
 	if (Input.Jump)
 	{
-		EnhancedInput->BindAction(Input.Jump, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInput->BindAction(Input.Jump, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInput->BindAction(Input.Jump, ETriggerEvent::Started, this, &AAGBCharacter::OnJumpStarted);
+		EnhancedInput->BindAction(Input.Jump, ETriggerEvent::Completed, this, &AAGBCharacter::OnJumpCompleted);
 	}
 	if (Input.Sprint)
 	{
@@ -1315,10 +1321,12 @@ void AAGBCharacter::OnMove(const FInputActionValue& Value)
 	{
 		return;
 	}
-	const FRotator Yaw(0.0, Controller->GetControlRotation().Yaw, 0.0);
-	const FRotationMatrix Rotation(Yaw);
+	// Swimming follows the look direction (look down to dive); on land only the yaw counts.
+	const bool bSwimming = GetCharacterMovement()->IsSwimming();
+	const FRotator Facing = bSwimming ? Controller->GetControlRotation() : FRotator(0.0, Controller->GetControlRotation().Yaw, 0.0);
+	const FRotationMatrix Rotation(Facing);
 	AddMovementInput(Rotation.GetUnitAxis(EAxis::X), Axis.Y);
-	AddMovementInput(Rotation.GetUnitAxis(EAxis::Y), Axis.X);
+	AddMovementInput(FRotationMatrix(FRotator(0.0, Facing.Yaw, 0.0)).GetUnitAxis(EAxis::Y), Axis.X);
 }
 
 void AAGBCharacter::OnLook(const FInputActionValue& Value)
@@ -1331,6 +1339,18 @@ void AAGBCharacter::OnLook(const FInputActionValue& Value)
 	}
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(Axis.Y);
+}
+
+void AAGBCharacter::OnJumpStarted(const FInputActionValue& Value)
+{
+	bJumpHeld = true;
+	Jump();
+}
+
+void AAGBCharacter::OnJumpCompleted(const FInputActionValue& Value)
+{
+	bJumpHeld = false;
+	StopJumping();
 }
 
 void AAGBCharacter::OnSprintStarted(const FInputActionValue& Value)

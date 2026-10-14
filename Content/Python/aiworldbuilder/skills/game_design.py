@@ -188,6 +188,8 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   Mountains are already colder by altitude (SurvivalTools temperature rules).
 - Rain/snow particles when a VFX pack is added (`SetWeatherEffects`).
 - Playtest with the console: `AGBTime 22`, `AGBWeather Rain`.
+- Swimming works in every Water plugin lake, river and ocean (deep water = swim, breath bar, drowning). Tune with
+  `SurvivalTools.SetSwimmingRules` (breath length from the design: forgiving 45 s, normal 30 s, harsh 15 s).
 
 ## Saving (milestone M9)
 

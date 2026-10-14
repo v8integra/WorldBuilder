@@ -411,3 +411,13 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   Image crops: `FImageUtils::LoadImage`, copy rows of a BGRA8 `FImage`, `ResizeTo`, `SaveImageByExtension`.
   The input mode (UI-only from the main menu) survives `OpenLevel`: the gameplay controller must set game-only
   input in `BeginPlay`. PIE starts straight in the game level, so only a packaged/Standalone run from the menu shows it.
+- **Swimming:** the character movement swims only while its physics volume has `bWaterVolume`; Water plugin
+  bodies have no physics volume. Turn off `SetShouldUpdatePhysicsVolume` on the capsule and switch between a runtime
+  `APhysicsVolume` (bWaterVolume) and the world default in `UpdateCharacterStateBeforeMovement` (runs for predicted,
+  replayed and server moves alike): `SetPhysicsVolume(..., true)` makes the engine start/stop swimming. Water surface:
+  overlap the capsule on the Pawn channel for WaterBodyCollision components, then `LineTraceComponent` on that
+  component only (other geometry cannot block it). Override `ImmersionDepth`; `Buoyancy` 1.4 floats with the head out but
+  also lifts a diver to the top, so set it per step in `PhysSwimming`: 1.0 when fully submerged (hover), 1.4 near the surface.
+  A shapeless `APhysicsVolume` counts as containing every point (`IsOverlapInVolume` returns true without a primitive
+  root), so every other character would start swimming: override it to return false. `bPressedJump` is cleared after
+  one frame when `JumpMaxHoldTime` is 0: track the held Jump button yourself for swim-up.

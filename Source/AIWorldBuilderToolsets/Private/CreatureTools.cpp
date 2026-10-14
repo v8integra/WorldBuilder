@@ -117,6 +117,56 @@ FString UCreatureTools::GetToolsetVersion() const
 	return GetPluginVersion();
 }
 
+namespace
+{
+	/** Turn that makes the mesh's head point along +X (snapped to 90 degrees), from the reference pose; false if unknown. */
+	bool AutoYaw(const USkeletalMesh* Mesh, float& OutYaw, FString& OutNote)
+	{
+		const FReferenceSkeleton& Skeleton = Mesh->GetRefSkeleton();
+		const TArray<FTransform>& Pose = Skeleton.GetRefBonePose();
+		TArray<FTransform> Component;
+		Component.SetNum(Pose.Num());
+		int32 Head = INDEX_NONE;
+		int32 Body = INDEX_NONE;
+		for (int32 Index = 0; Index < Pose.Num(); ++Index)
+		{
+			const int32 Parent = Skeleton.GetParentIndex(Index);
+			Component[Index] = Parent >= 0 ? Pose[Index] * Component[Parent] : Pose[Index];
+			const FString Name = Skeleton.GetBoneName(Index).ToString().ToLower();
+			if (Head == INDEX_NONE && Name.Contains(TEXT("head")) && !Name.Contains(TEXT("end")))
+			{
+				Head = Index;
+			}
+			if (Body == INDEX_NONE && (Name.Contains(TEXT("pelvis")) || Name.Contains(TEXT("hip")) || Name.Contains(TEXT("spine"))))
+			{
+				Body = Index;
+			}
+		}
+		if (Head == INDEX_NONE)
+		{
+			OutNote = TEXT("no head bone: turn kept");
+			return false;
+		}
+		const FVector Forward = Component[Head].GetLocation() - Component[Body != INDEX_NONE ? Body : 0].GetLocation();
+		if (Forward.Size2D() < 5.0)
+		{
+			OutNote = TEXT("head is above the body (upright mesh): turn kept");
+			return false;
+		}
+		const float Angle = FMath::RadiansToDegrees(FMath::Atan2(Forward.Y, Forward.X));
+		OutYaw = FMath::UnwindDegrees(FMath::RoundToFloat(-Angle / 90.f) * 90.f);
+		OutNote = FString::Printf(TEXT("turn %.0f deg (head bone '%s')"), OutYaw, *Skeleton.GetBoneName(Head).ToString());
+		return true;
+	}
+
+	/** Raise / lower the mesh so its lowest point is the bottom of the body. */
+	float AutoOffset(const USkeletalMesh* Mesh, float Scale)
+	{
+		const FBoxSphereBounds Bounds = Mesh->GetImportedBounds();
+		return static_cast<float>(-(Bounds.Origin.Z - Bounds.BoxExtent.Z) * Scale);
+	}
+}
+
 FCreatureResult UCreatureTools::CreateCreature(const FString& CreatureId, const FString& DisplayName, const FString& Behaviour, const FString& MeshPath,
 	const FString& AnimationFolder, double MaxHealth, double Damage, double WalkSpeedMs, double RunSpeedMs, double RadiusCm, double HalfHeightCm,
 	double AggroRangeM, double FleeRangeM, double WanderRadiusM, const TArray<FGameResourceYieldArg>& Loot, const TArray<FString>& ButcherToolTags,
@@ -192,8 +242,26 @@ FCreatureResult UCreatureTools::CreateCreature(const FString& CreatureId, const 
 	Creature->AggroRange = static_cast<float>(FMath::Max(0.0, AggroRangeM) * CmPerMeter);
 	Creature->FleeRange = static_cast<float>(FMath::Max(0.0, FleeRangeM) * CmPerMeter);
 	Creature->WanderRadius = static_cast<float>(FMath::Max(1.0, WanderRadiusM) * CmPerMeter);
-	Creature->MeshYawDeg = static_cast<float>(MeshYawDeg);
 	Creature->MeshScale = static_cast<float>(FMath::Max(0.01, MeshScale));
+	FString BodyNote;
+	if (const USkeletalMesh* FitMesh = Creature->Mesh.LoadSynchronous())
+	{
+		float Yaw = -90.f;
+		if (MeshYawDeg > -999.0)
+		{
+			Yaw = static_cast<float>(MeshYawDeg);
+		}
+		else if (!AutoYaw(FitMesh, Yaw, BodyNote))
+		{
+			Yaw = -90.f;
+		}
+		Creature->MeshYawDeg = Yaw;
+		Creature->MeshOffsetZ = AutoOffset(FitMesh, Creature->MeshScale);
+	}
+	else
+	{
+		Creature->MeshYawDeg = MeshYawDeg > -999.0 ? static_cast<float>(MeshYawDeg) : -90.f;
+	}
 	Creature->Loot = LootList;
 	Creature->ButcherToolTags.Reset();
 	for (const FString& Tag : ButcherToolTags)
@@ -397,3 +465,45 @@ FCreatureResult UCreatureTools::SpawnCreature(const FString& CreatureId, double 
 }
 
 #undef LOCTEXT_NAMESPACE
+
+FCreatureResult UCreatureTools::FitCreatureBody(const FString& CreatureId, double MeshYawDeg, double MeshOffsetZ, double MeshScale)
+{
+	UAGBCreatureDefinition* Creature = FindCreature(CreatureId.TrimStartAndEnd().ToLower());
+	if (!Creature)
+	{
+		return Fail(FString::Printf(TEXT("No creature '%s'."), *CreatureId));
+	}
+	const USkeletalMesh* Mesh = Creature->Mesh.LoadSynchronous();
+	Creature->Modify();
+	if (MeshScale > 0.0)
+	{
+		Creature->MeshScale = static_cast<float>(FMath::Max(0.01, MeshScale));
+	}
+	FString Note;
+	if (MeshYawDeg > -999.0)
+	{
+		Creature->MeshYawDeg = static_cast<float>(MeshYawDeg);
+		Note = FString::Printf(TEXT("turn %.0f deg"), Creature->MeshYawDeg);
+	}
+	else if (Mesh)
+	{
+		float Yaw = Creature->MeshYawDeg;
+		if (AutoYaw(Mesh, Yaw, Note))
+		{
+			Creature->MeshYawDeg = Yaw;
+		}
+	}
+	if (MeshOffsetZ > -999.0)
+	{
+		Creature->MeshOffsetZ = static_cast<float>(MeshOffsetZ);
+	}
+	else if (Mesh)
+	{
+		Creature->MeshOffsetZ = AutoOffset(Mesh, Creature->MeshScale);
+	}
+	UEditorLoadingAndSavingUtils::SavePackages({ Creature->GetPackage() }, /*bOnlyDirty=*/false);
+	FCreatureResult R = ListCreatures();
+	R.Message = FString::Printf(TEXT("%s body: turn %.0f deg, height %.0f cm, scale %.2f%s%s. Play again to see it."), *Creature->CreatureId.ToString(),
+		Creature->MeshYawDeg, Creature->MeshOffsetZ, Creature->MeshScale, Note.IsEmpty() ? TEXT("") : TEXT(" - "), *Note);
+	return R;
+}

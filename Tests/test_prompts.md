@@ -360,5 +360,15 @@ Prereq: C++ build. Open TestWorld; Save All.
 6. `CreateTrailerTour` `{}` → a TrailerTour actor; save the level; Play, press ` and type AGBTour → a smooth flight with no HUD; AGBTour again stops.
 7. Python `get_store_kit_template` then `save_store_page` with a drafted page → AIGameBuilder/StorePage.md.
 8. `GetReleaseChecklist` `{}` → [x] for what was done above, [ ] for the rest (Shipping build, icon...), and the [user] steps.
+## Swimming (Track A follow-up)
+
+Prereq: C++ build. Open TestWorld (the lake with a deep section).
+1. Play, walk into the lake: ankle/knee-deep water = walking with splashy steps; at chest depth the character starts swimming, floating with head and shoulders above the surface, swim-stroke sounds.
+2. WASD swims; look down + W dives, look up + W rises; hold Space or Shift to swim up. Creatures elsewhere keep walking normally. Stop under water: the character hovers in place (no drift to the top). Swimming toward the shore: the character walks out once the water is shallow (no flicker at the edge).
+3. Dive and stay under: a blue "Breath" bar appears and empties over ~30 s, then "Drowning!" and health drops; death cause "Drowned". Surfacing refills the bar (it disappears when full).
+4. `SetSwimmingRules` `{"breathSeconds":10,"swimSpeed":450}` → shorter breath, faster swimming on the next Play. Set back (30, 300).
+5. Co-op: the other player is seen swimming (not walking on the lake bed).
+**Claude Code:** "Players should be able to swim across the lake but drown if they stay under too long." → SurvivalTools.SetSwimmingRules.
+
 **Claude Code:** "Get the game ready to put on itch.io." → PreparePackaging, PackageGame (poll), CaptureStoreScreenshots, MakeStoreImages, store page draft, GetReleaseChecklist, then tell the user exactly what to upload.
 

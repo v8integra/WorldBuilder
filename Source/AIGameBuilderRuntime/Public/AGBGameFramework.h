@@ -115,6 +115,10 @@ public:
 	UFUNCTION(Exec)
 	void AGBSave();
 
+	/** Console (testing): logs every creature's movement mode, physics volume, height above ground, speed, facing and AI state. */
+	UFUNCTION(Exec)
+	void AGBDebugCreatures();
+
 	/** Console: plays / stops the level's camera tour (trailer recording). */
 	UFUNCTION(Exec)
 	void AGBTour();

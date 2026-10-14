@@ -56,7 +56,7 @@ public:
 	 * @param WanderRadiusM Wanders this far from home, m.
 	 * @param Loot Items from butchering: [{"itemId":"raw_meat","minCount":1,"maxCount":3,"chance":1}].
 	 * @param ButcherToolTags Tool tags needed to butcher (e.g. ["Tool.Knife"]); [] = bare hands.
-	 * @param MeshYawDeg Mesh turn (most meshes face +Y: -90).
+	 * @param MeshYawDeg Mesh turn; -999 = automatic (the head bone points forward). The mesh height is always fitted so the feet touch the ground.
 	 * @param MeshScale Mesh scale.
 	 * @param Folder Content folder for the creature asset.
 	 * @return The creatures.
@@ -65,7 +65,20 @@ public:
 	static FCreatureResult CreateCreature(const FString& CreatureId, const FString& DisplayName, const FString& Behaviour, const FString& MeshPath,
 		const FString& AnimationFolder, double MaxHealth, double Damage, double WalkSpeedMs, double RunSpeedMs, double RadiusCm, double HalfHeightCm,
 		double AggroRangeM, double FleeRangeM, double WanderRadiusM, const TArray<FGameResourceYieldArg>& Loot, const TArray<FString>& ButcherToolTags,
-		double MeshYawDeg = -90.0, double MeshScale = 1.0, const FString& Folder = TEXT("/Game/AIGameBuilder/Creatures"));
+		double MeshYawDeg = -999.0, double MeshScale = 1.0, const FString& Folder = TEXT("/Game/AIGameBuilder/Creatures"));
+
+	/**
+	 * Fixes how a creature's mesh sits in its body: floating above / sinking into the ground (height), walking
+	 * backwards or sideways (turn), size. Automatic: the feet go to the ground (mesh bounds) and the head bone points
+	 * forward. Takes effect on the next Play.
+	 * @param CreatureId Creature id.
+	 * @param MeshYawDeg Turn in degrees; -999 = automatic from the head bone. Try 0, 90, -90, 180 if automatic is wrong.
+	 * @param MeshOffsetZ Height of the mesh above the body bottom (cm); -999 = automatic (feet on the ground).
+	 * @param MeshScale Mesh scale; 0 = keep.
+	 * @return The creature's body values.
+	 */
+	UFUNCTION(meta = (AICallable), Category = "AIGameBuilder|Creatures")
+	static FCreatureResult FitCreatureBody(const FString& CreatureId, double MeshYawDeg = -999.0, double MeshOffsetZ = -999.0, double MeshScale = 0.0);
 
 	/**
 	 * Lists creature kinds and the level's spawn zones.

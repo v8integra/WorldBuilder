@@ -11,6 +11,11 @@
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
 #include "AGBCameraTour.h"
+#include "GameFramework/PhysicsVolume.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "AGBCreatureAIController.h"
+#include "AGBCreature.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "AIGameBuilderRuntime.h"
@@ -172,6 +177,37 @@ void AAGBPlayerController::ClientChat_Implementation(const FString& From, const 
 	{
 		Audio->PlayCue2D(TEXT("UI.Hover"));
 	}
+}
+
+void AAGBPlayerController::AGBDebugCreatures()
+{
+	static const TCHAR* States[] = { TEXT("Idle"), TEXT("Wander"), TEXT("Flee"), TEXT("Chase"), TEXT("Return") };
+	int32 Count = 0;
+	for (TActorIterator<AAGBCreature> It(GetWorld()); It; ++It)
+	{
+		const AAGBCreature* Creature = *It;
+		const UCharacterMovementComponent* Movement = Creature->GetCharacterMovement();
+		const UCapsuleComponent* Capsule = Creature->GetCapsuleComponent();
+		const FVector Location = Creature->GetActorLocation();
+		const double Bottom = Location.Z - Capsule->GetScaledCapsuleHalfHeight();
+		FHitResult Ground;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(AGBDebugCreature), false, Creature);
+		const bool bGround = GetWorld()->LineTraceSingleByChannel(Ground, Location, Location - FVector(0.0, 0.0, 5000.0), ECC_Visibility, Params);
+		const FVector Velocity = Movement->Velocity;
+		const double FacingError = Velocity.Size2D() > 10.0
+			? FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(Velocity.GetSafeNormal2D(), Creature->GetActorForwardVector().GetSafeNormal2D()))) : 0.0;
+		const AAGBCreatureAIController* Brain = Cast<AAGBCreatureAIController>(Creature->GetController());
+		const int32 State = Brain ? static_cast<int32>(Brain->GetState()) : -1;
+		const FString Line = FString::Printf(TEXT("%s: mode %s, volume %s%s, %.0f cm above ground, speed %.0f, facing off by %.0f deg, mesh z %.0f, AI %s%s"),
+			*Creature->GetName(), *Movement->GetMovementName(), *GetNameSafe(Movement->GetPhysicsVolume()),
+			Movement->GetPhysicsVolume() && Movement->GetPhysicsVolume()->bWaterVolume ? TEXT(" (WATER)") : TEXT(""),
+			bGround ? Bottom - Ground.ImpactPoint.Z : -1.0, Velocity.Size(), FacingError, Creature->GetMesh()->GetRelativeLocation().Z,
+			State >= 0 && State < 5 ? States[State] : TEXT("none"), Creature->IsDead() ? TEXT(", dead") : TEXT(""));
+		UE_LOG(LogAIGameBuilder, Log, TEXT("[Creatures] %s"), *Line);
+		ClientMessage(Line);
+		++Count;
+	}
+	ClientMessage(FString::Printf(TEXT("%d creature(s); details also in the Output Log (LogAIGameBuilder)."), Count));
 }
 
 void AAGBPlayerController::AGBTour()
@@ -784,6 +820,18 @@ void AAGBHUD::DrawVitals(AAGBCharacter* Character, float Scale)
 	Y -= TextH;
 	DrawText(Temperature, TemperatureColor, X, Y, Font, Scale);
 	Y -= Gap;
+
+	const float Breath = Vitals->GetBreathFraction();
+	if (Breath < 0.999f)
+	{
+		Y -= Height;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f), X, Y, Width, Height);
+		DrawRect(Breath > 0.25f ? FLinearColor(0.45f, 0.8f, 1.f) : BadColor, X + 2.f, Y + 2.f, (Width - 4.f) * Breath, Height - 4.f);
+		const FString Label = Breath > 0.f ? FString(TEXT("Breath")) : FString(TEXT("Drowning!"));
+		GetTextSize(Label, TextW, TextH, Font, Scale * 0.9f);
+		DrawText(Label, TextColor, X + 6.f, Y + (Height - TextH) * 0.5f, Font, Scale * 0.9f);
+		Y -= Gap;
+	}
 
 	const TArray<FAGBStatConfig>& Stats = Vitals->GetConfig()->Stats;
 	for (int32 Index = Stats.Num() - 1; Index >= 0; --Index)

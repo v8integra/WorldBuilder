@@ -685,6 +685,23 @@ void UAGBFootstepComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		return;
 	}
+	if (Movement->IsSwimming())
+	{
+		// Swim strokes.
+		const float SwimSpeed = static_cast<float>(Movement->Velocity.Size());
+		Distance += SwimSpeed * DeltaTime;
+		if (SwimSpeed > 40.f && Distance >= 260.f)
+		{
+			Distance = 0.f;
+			if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
+			{
+				Audio->PlayCue(TEXT("Footstep.Water"), Character->GetActorLocation(), Volume * 0.7f);
+			}
+		}
+		bWasFalling = false;
+		FallSpeed = 0.f;
+		return;
+	}
 	const bool bFalling = Movement->IsFalling();
 	if (bWasFalling && !bFalling && FallSpeed < -350.f)
 	{

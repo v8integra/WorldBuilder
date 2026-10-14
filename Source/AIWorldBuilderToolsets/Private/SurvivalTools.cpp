@@ -3,6 +3,8 @@
 #include "GameToolUtils.h"
 
 #include "AGBCharacter.h"
+#include "AGBCharacterMovementComponent.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "AGBClimate.h"
 #include "AGBSurvivalConfig.h"
 #include "AIWorldBuilderCore.h"
@@ -386,3 +388,47 @@ FSurvivalResult USurvivalTools::SpawnHeatSource(double XM, double YM, double War
 }
 
 #undef LOCTEXT_NAMESPACE
+
+FSurvivalResult USurvivalTools::SetSwimmingRules(double BreathSeconds, double BreathRecoveryPerSecond, double DrowningDamagePerSecond, double SwimSpeed, double SwimDepthCm)
+{
+	FString Error;
+	UAGBSurvivalConfig* Config = GetEditableConfig(Error);
+	if (!Config)
+	{
+		return Fail(Error);
+	}
+	Config->Modify();
+	auto Set = [](float& Target, double Value, double Min) { if (Value >= 0.0) { Target = static_cast<float>(FMath::Max(Value, Min)); } };
+	Set(Config->BreathSeconds, BreathSeconds, 1.0);
+	Set(Config->BreathRecoveryPerSecond, BreathRecoveryPerSecond, 0.1);
+	Set(Config->DrowningDamagePerSecond, DrowningDamagePerSecond, 0.0);
+	Save(Config);
+
+	// Speed and depth live on the character's movement.
+	FString Movement = TEXT("");
+	UBlueprint* Blueprint = GameToolUtils::GetCharacterBlueprint(GetEditorWorld());
+	AAGBCharacter* Character = Blueprint && Blueprint->GeneratedClass ? Cast<AAGBCharacter>(Blueprint->GeneratedClass->GetDefaultObject()) : nullptr;
+	if (Character && (SwimSpeed >= 0.0 || SwimDepthCm >= 0.0))
+	{
+		UAGBCharacterMovementComponent* Moves = Character->GetAGBMovement();
+		Moves->Modify();
+		if (SwimSpeed >= 0.0)
+		{
+			Moves->MaxSwimSpeed = static_cast<float>(FMath::Max(50.0, SwimSpeed));
+		}
+		if (SwimDepthCm >= 0.0)
+		{
+			Moves->SwimEnterDepth = static_cast<float>(FMath::Max(40.0, SwimDepthCm));
+			Moves->SwimExitDepth = FMath::Max(10.f, Moves->SwimEnterDepth - 15.f);
+		}
+		Blueprint->MarkPackageDirty();
+		FKismetEditorUtilities::CompileBlueprint(Blueprint);
+		UEditorLoadingAndSavingUtils::SavePackages({ Blueprint->GetPackage() }, /*bOnlyDirty=*/false);
+	}
+	if (Character)
+	{
+		Movement = FString::Printf(TEXT(" Swim speed %.0f cm/s, swimming from %.0f cm deep."), Character->GetAGBMovement()->MaxSwimSpeed, Character->GetAGBMovement()->SwimEnterDepth);
+	}
+	return Describe(Config, FString::Printf(TEXT("Breath %.0f s (+%.1f/s at the surface), drowning %.1f health/s.%s"),
+		Config->BreathSeconds, Config->BreathRecoveryPerSecond, Config->DrowningDamagePerSecond, *Movement));
+}

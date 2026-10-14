@@ -122,7 +122,13 @@ void UAGBVitalsComponent::ResetStats()
 	}
 	bDead = false;
 	DeathCause.Reset();
+	BreathLeft = -1.f;
 	Replicate();
+}
+
+float UAGBVitalsComponent::GetBreathFraction() const
+{
+	return BreathLeft < 0.f ? 1.f : FMath::Clamp(BreathLeft / FMath::Max(1.f, GetConfig()->BreathSeconds), 0.f, 1.f);
 }
 
 void UAGBVitalsComponent::Replicate()
@@ -303,6 +309,30 @@ void UAGBVitalsComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		bSprinting = Character->IsSprinting() && Character->GetVelocity().Size2D() > 10.0;
 	}
+	// Breath: runs out with the head under water, then drowning hurts.
+	if (const AAGBCharacter* Swimmer = Cast<AAGBCharacter>(Owner))
+	{
+		const UAGBCharacterMovementComponent* Movement = Swimmer->GetAGBMovement();
+		const float MaxBreath = FMath::Max(1.f, Rules->BreathSeconds);
+		const float Current = BreathLeft < 0.f ? MaxBreath : BreathLeft;
+		if (Movement && Movement->IsHeadUnderwater())
+		{
+			BreathLeft = FMath::Max(0.f, Current - DeltaTime);
+			if (BreathLeft <= 0.f)
+			{
+				ApplyDamage(Rules->DrowningDamagePerSecond * DeltaTime, TEXT("Drowned"));
+			}
+		}
+		else if (BreathLeft >= 0.f)
+		{
+			BreathLeft = Current + Rules->BreathRecoveryPerSecond * DeltaTime;
+			if (BreathLeft >= MaxBreath)
+			{
+				BreathLeft = -1.f;
+			}
+		}
+	}
+
 	const int32 StaminaIndex = FindStatIndex(StaminaStat);
 	if (bSprinting && StaminaIndex != INDEX_NONE)
 	{
@@ -363,6 +393,7 @@ void UAGBVitalsComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UAGBVitalsComponent, Values);
 	DOREPLIFETIME(UAGBVitalsComponent, bDead);
 	DOREPLIFETIME(UAGBVitalsComponent, DeathCause);
+	DOREPLIFETIME_CONDITION(UAGBVitalsComponent, BreathLeft, COND_OwnerOnly);
 	DOREPLIFETIME(UAGBVitalsComponent, AirTemperatureC);
 	DOREPLIFETIME(UAGBVitalsComponent, ComfortMinC);
 	DOREPLIFETIME(UAGBVitalsComponent, ComfortMaxC);
