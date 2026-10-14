@@ -197,6 +197,12 @@ public:
 	/** Rebuild the mesh -> resource map (after resources were created or edited). */
 	void InvalidateResourceMap() { bMapBuilt = false; }
 
+	/** Every resource definition in the project. */
+	const TArray<TObjectPtr<UAGBResourceDefinition>>& GetResources() const { BuildResourceMap(); return Resources; }
+
+	/** A foliage/PCG instance that is harvested right now (hidden, waiting to regrow). */
+	bool IsHarvested(const UInstancedStaticMeshComponent* Component, int32 InstanceIndex) const;
+
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 
 private:

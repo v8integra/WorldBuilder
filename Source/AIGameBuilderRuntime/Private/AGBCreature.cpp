@@ -1,6 +1,7 @@
 #include "AGBCreature.h"
 
 #include "AGBAudioFX.h"
+#include "AGBPlaytest.h"
 
 #include "AGBCharacter.h"
 #include "AGBCreatureAIController.h"
@@ -158,6 +159,10 @@ float AAGBCreature::TakeDamage(float DamageAmount, FDamageEvent const& DamageEve
 
 void AAGBCreature::Die()
 {
+	if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+	{
+		Telemetry->Record(TEXT("Kills"), Definition ? Definition->CreatureId.ToString() : GetName());
+	}
 	bDead = true;
 	Health = 0.f;
 	ApplyDeathVisuals();

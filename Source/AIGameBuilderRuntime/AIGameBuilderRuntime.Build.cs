@@ -34,6 +34,9 @@ public class AIGameBuilderRuntime : ModuleRules
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils",
 			"Sockets",
+			"Json",
+			"RenderCore",
+			"RHI",
 		});
 	}
 }

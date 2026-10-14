@@ -391,3 +391,12 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   subsystem sessions (`bIsLANMatch`, `FindSessions`, `GetResolvedConnectString`); needs the OnlineSubsystem,
   OnlineSubsystemNull and OnlineSubsystemUtils plugins and `[OnlineSubsystem] DefaultPlatformService=Null`.
   The launcher engine cannot build Server targets; PIE "Play As Client" runs an in-process dedicated server.
+- **Playtests (Phase 24):** an editor tool can start PIE with `GEditor->RequestPlaySession(FRequestPlaySessionParams)`
+  and its own `ULevelEditorPlaySettings` (standalone, 1 player), read the running game through `GEditor->PlayWorld`,
+  and stop it with `RequestEndPlayMap`; a request handed over in a static (runtime module) is picked up in
+  `GameMode::StartPlay`. Bots drive the real input paths: `SetControlRotation` + `AddMovementInput`, then the same
+  functions the input calls (`Swing`, `PlaceSelectedItem`, `RequestCraft`); first-person camera makes the aim
+  trace exact. ISM overlaps report the instance in `FOverlapResult::ItemIndex` (include `Engine/OverlapResult.h`).
+  Frame timings: `FApp::GetDeltaTime`, `GGameThreadTime`/`GRenderThreadTime` (RenderCore), `RHIGetGPUFrameCycles`
+  (RHI). `FJsonObject::Values` keys need an explicit `FString(...)` in 5.8. A `FOutputDevice` added to `GLog`
+  collects errors during a test.

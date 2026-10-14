@@ -19,6 +19,7 @@
 #include "AGBHarvestTypes.h"
 #include "AGBMenus.h"
 #include "AGBMultiplayer.h"
+#include "AGBPlaytest.h"
 #include "AGBPlayerSettings.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
@@ -154,6 +155,12 @@ float AAGBCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		const float Armor = GetArmor();
 		Applied *= 100.f / (100.f + FMath::Max(0.f, Armor));
 		Applied *= AAGBGameState::GetRules(this).DamageTakenMultiplier;
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+		{
+			const AAGBCreature* Attacker = Cast<AAGBCreature>(DamageCauser);
+			Telemetry->Record(TEXT("DamageTaken"), Attacker && Attacker->Definition ? Attacker->Definition->CreatureId.ToString()
+				: (DamageCauser ? DamageCauser->GetClass()->GetName() : FString(TEXT("other"))), Applied);
+		}
 		for (int32 Index = 0; Index < Equipment->GetNumSlots(); ++Index)
 		{
 			const FAGBItemStack Worn = Equipment->GetSlot(Index);
@@ -238,6 +245,10 @@ void AAGBCharacter::UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex)
 	{
 		Vitals->ApplyItemEffects(Stack.Item);
 		const bool bDrink = Stack.Item->GetStat(UAGBVitalsComponent::ThirstStat, 0.f) > Stack.Item->GetStat(TEXT("Hunger"), 0.f);
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+		{
+			Telemetry->Record(TEXT("Consumed"), Stack.Item->ItemId.ToString());
+		}
 		MulticastPlayCue(bDrink ? FName(TEXT("Event.Drink")) : FName(TEXT("Event.Eat")), GetActorLocation());
 		From->RemoveFromSlot(SlotIndex, 1);
 	}
@@ -245,6 +256,13 @@ void AAGBCharacter::UseItemNow(UAGBInventoryComponent* From, int32 SlotIndex)
 
 void AAGBCharacter::HandleDeath(const FString& Cause)
 {
+	if (HasAuthority())
+	{
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+		{
+			Telemetry->Record(TEXT("Deaths"), Cause.IsEmpty() ? FString(TEXT("unknown")) : Cause);
+		}
+	}
 	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
 	{
 		Audio->PlayCue(TEXT("Event.Death"), GetActorLocation());
@@ -487,6 +505,10 @@ void AAGBCharacter::ServerPlacePiece_Implementation(FVector_NetQuantize Point, F
 		Placed->Definition = Piece;
 		Placed->FinishSpawning(Placement.Transform);
 		MulticastPlayCue(TEXT("Event.Place"), Placement.Transform.GetLocation());
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+		{
+			Telemetry->Record(TEXT("Built"), Piece->PieceId.ToString());
+		}
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
 }
@@ -577,6 +599,10 @@ void AAGBCharacter::ServerPlaceSelectedItem_Implementation(FVector_NetQuantize L
 		Station->Definition = Selected.Item->PlacesStation;
 		Station->FinishSpawning(Transform);
 		MulticastPlayCue(TEXT("Event.Place"), Transform.GetLocation());
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+		{
+			Telemetry->Record(TEXT("Stations"), Station->Definition ? Station->Definition->StationId.ToString() : FString(TEXT("station")));
+		}
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
 }

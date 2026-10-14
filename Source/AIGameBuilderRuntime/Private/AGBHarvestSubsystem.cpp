@@ -1,6 +1,7 @@
 #include "AGBHarvestSubsystem.h"
 
 #include "AGBMultiplayer.h"
+#include "AGBPlaytest.h"
 
 #include "AGBCharacter.h"
 #include "AGBHarvestTypes.h"
@@ -380,11 +381,21 @@ void UAGBHarvestSubsystem::GiveYields(AAGBCharacter* Harvester, const TArray<FAG
 			continue;
 		}
 		const int32 Given = Harvester->GiveItem(Yield.Item, Count);
+		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(Harvester))
+		{
+			Telemetry->Record(TEXT("Gathered"), Yield.Item->ItemId.ToString(), static_cast<float>(Count));
+		}
 		if (Given < Count)
 		{
 			AAGBItemPickup::SpawnPickup(Harvester, FAGBItemStack(Yield.Item, Count - Given), DropLocation, /*bSnapToGround=*/true);
 		}
 	}
+}
+
+bool UAGBHarvestSubsystem::IsHarvested(const UInstancedStaticMeshComponent* Component, int32 InstanceIndex) const
+{
+	const AAGBHarvestState* HarvestState = State.Get();
+	return HarvestState && HarvestState->IsHarvested(Component, InstanceIndex);
 }
 
 FAGBHarvestResult UAGBHarvestSubsystem::Harvest(AAGBCharacter* Harvester, UPrimitiveComponent* Component, int32 InstanceIndex, const UAGBItemDefinition* Tool, const FVector& ImpactPoint)

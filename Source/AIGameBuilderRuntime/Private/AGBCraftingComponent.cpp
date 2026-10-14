@@ -1,6 +1,7 @@
 #include "AGBCraftingComponent.h"
 
 #include "AGBMultiplayer.h"
+#include "AGBPlaytest.h"
 
 #include "AGBCharacter.h"
 #include "AGBCraftingStation.h"
@@ -357,6 +358,15 @@ void UAGBCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 
 	// One craft finished.
 	Character->ClientPlayCue(TEXT("Event.Craft"));
+	if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
+	{
+		Telemetry->Record(TEXT("Crafted"), Job.Recipe->RecipeId.ToString());
+		const UAGBItemDefinition* Output = Job.Recipe->Outputs.Num() > 0 ? Job.Recipe->Outputs[0].Item.Get() : nullptr;
+		if (Output && (Output->Category == EAGBItemCategory::Tool || Output->Category == EAGBItemCategory::Weapon))
+		{
+			Telemetry->Milestone(TEXT("first_tool"));
+		}
+	}
 	for (const FAGBItemAmount& Output : Job.Recipe->Outputs)
 	{
 		if (Output.Item)

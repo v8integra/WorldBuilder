@@ -338,3 +338,14 @@ Prereq: C++ build (new online plugins: the editor may ask to enable/restart). Op
 8. Settings > Gameplay: player name → others see it on next join.
 **Claude Code:** "Make it a co-op game for up to 6 friends, with faster gathering." → SetupMultiplayer + SetServerSettings maxPlayers 6, harvestMultiplier 2.
 
+## Phase 24 — Playtest, QA and balance
+
+Prereq: C++ build. Open TestWorld (the game level).
+1. `ValidateGame` `{}` → counts of items/recipes/resources; FAIL lines for real dead ends (e.g. an item nothing gives), WARN for setup gaps, INFO "Hunger empties in N min (a day lasts M min)". Fix one FAIL with the item/recipe tools and rerun.
+2. `StartPlaytest` `{"scenario":"Smoke","timeScale":1}` → Play starts by itself; the player switches to first person and harvests something; `GetPlaytestStatus` shows PASS/FAIL lines (HUD, inventory, vitals, input, harvest, save, load, inventory after load, pause menu, no log errors); Play stops by itself; status then shows the report path (Saved/AGBPlaytests/...).
+3. `StartPlaytest` `{}` (Survive, time x2): the bot walks to trees/rocks, crafts the first tool (getting ingredients first), places the campfire, fuels it, skips to 19:00, stays by the fire until morning; eats/drinks/fights if needed. Poll `GetPlaytestStatus` every minute: goals and a readable log ("Going to a tree for wood (12 m)", "Crafting Stone Axe", "Night fell", ...). Report includes telemetry (milestones, gathered counts, performance vs target).
+4. `StartPlaytest` `{"scenario":"Custom","goals":"gather:wood=15; craft:<a recipe id>; place:<a station item id>"}` → follows the list.
+5. `RunPerformanceSweep` `{"points":16}` → the player teleports around the map looking in 4 directions; report "Performance sweep (slowest first): (x, y) m: avg ... ms".
+6. `SetQATargets` `{"targetHardware":"Steam Deck"}` → 30 fps target. Play normally yourself for a few minutes (gather, craft, die once), stop. `GetBalanceReport` `{}` → sessions including yours and the bot's: OK/FLAG for first tool/station/building time, deaths per hour with causes, starving share, gathered/crafted per hour, performance with suggestions.
+**Claude Code:** "Playtest the game and balance it so a new player gets an axe in 3 minutes and rarely starves." → ValidateGame, SetQATargets, StartPlaytest (poll), GetBalanceReport, adjust recipes/yields/drain, repeat.
+

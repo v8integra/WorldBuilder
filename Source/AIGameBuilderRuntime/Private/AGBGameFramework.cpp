@@ -9,6 +9,8 @@
 #include "AGBInventoryComponent.h"
 #include "AGBMenus.h"
 #include "AGBMultiplayer.h"
+#include "AGBPlaytest.h"
+#include "Misc/CommandLine.h"
 #include "AIGameBuilderRuntime.h"
 #include "GameFramework/GameSession.h"
 #include "Kismet/GameplayStatics.h"
@@ -328,6 +330,24 @@ bool AAGBGameMode::KickPlayer(APlayerController* Player)
 void AAGBGameMode::StartPlay()
 {
 	Super::StartPlay();
+	FString Scenario;
+	if (!AGBPlaytest::Pending().IsSet() && FParse::Value(FCommandLine::Get(), TEXT("AGBPlaytest="), Scenario))
+	{
+		FAGBPlaytestRequest Request;
+		Request.Scenario = Scenario;
+		AGBPlaytest::Pending() = Request;
+	}
+	if (AGBPlaytest::Pending().IsSet())
+	{
+		APlayerController* First = GetWorld()->GetFirstPlayerController();
+		if (First && First->IsLocalController())
+		{
+			UAGBPlaytestBot* Bot = NewObject<UAGBPlaytestBot>(First, TEXT("PlaytestBot"));
+			Bot->Request = AGBPlaytest::Pending().GetValue();
+			Bot->RegisterComponent();
+			AGBPlaytest::Pending().Reset();
+		}
+	}
 	if (AAGBGameState* State = GetGameState<AAGBGameState>())
 	{
 		const UAGBServerSettings* Server = GetDefault<UAGBServerSettings>();

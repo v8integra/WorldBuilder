@@ -591,6 +591,27 @@ level (GameMapsSettings ServerDefaultMap); building one needs Unreal Engine from
 | `SetServerSettings(serverName, maxPlayers, password, messageOfTheDay, pvP, harvestMultiplier, craftSpeedMultiplier, statDecayMultiplier, damageTakenMultiplier)` | "" / 0 = unchanged; password "none" clears; pvP "on"/"off". |
 | `GetMultiplayerStatus()` | Settings, LAN discovery, server target, this PC's address, how to test. |
 
+## `AIWorldBuilderToolsets.PlaytestTools` (C++, playtests, QA, balance)
+Runtime: `UAGBTelemetrySubsystem` records every play session in editor/development builds (also the user's own)
+to `Saved/AGBTelemetry/<time>.json`: gathered/crafted/built/stations/kills/consumed counts, deaths by cause,
+damage by source, milestones (first_tool, first_stations, first_built, first_night_survived...), time with
+hunger/thirst empty, distance, frame/game/render/GPU times, hitches with location, peak memory.
+`UAGBPlaytestBot` (attached to the player controller when a playtest is requested, or `-AGBPlaytest=<scenario>`)
+plays through the real input paths: plans what to gather and craft for its goals (ingredients, tools, stations,
+fuel), walks to resources, picks the right tool, harvests, crafts, places stations, fuels fires, eats/drinks
+(items or water), fights aggressive creatures, survives a night (optionally skipping to 19:00), and writes a
+report to `Saved/AGBPlaytests/`. Targets: `UAGBQASettings` (Project Settings > Game > AI Game Builder QA).
+
+| Tool | Use |
+|---|---|
+| `ValidateGame()` | FAIL/WARN/INFO: unobtainable items, uncraftable recipes, missing stations/fuel/tools, resources not in the level, creatures without zones, foods without effects, icons, setup; stat drain vs day length. |
+| `StartPlaytest(scenario = "Survive", goals = "", timeScale = 2, maxMinutes = 15, bSkipToNight = true)` | Bot plays in PIE: Survive, Gather, Smoke, Explore, Custom (`gather:wood=10; craft:stone_axe; place:campfire; survive_night; explore:300; wait:20`). |
+| `RunPerformanceSweep(points = 25)` | Bot visits a grid over the landscape, measures frame times, lists the slowest places. |
+| `GetPlaytestStatus()` | Goals, bot log, telemetry so far; or the last report. |
+| `StopPlaytest()` | Ends Play; the report is saved. |
+| `SetQATargets(targetHardware, targetFPS, firstToolMinutes, firstStationMinutes, firstBuildMinutes, maxDeathsPerHour, maxStarvingShare)` | Performance budget and pacing targets. |
+| `GetBalanceReport(lastSessions = 10, bIncludeBot = true)` | Aggregated sessions with OK/FLAG lines and suggestions. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

@@ -229,6 +229,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   forwards UDP port 7777 (or the game ships on Steam later); dedicated servers need Unreal Engine built from source.
 - Test with Play options Number of Players 2 (Listen Server, then Play As Client for a dedicated server).
 
+## Playtest and balance (milestone M11)
+
+- `AIWorldBuilderToolsets.PlaytestTools.ValidateGame` after every content change; fix FAIL lines before playtesting.
+- `SetQATargets` from the design (target hardware/fps; how fast a new player should get a tool, a fire, a shelter).
+- `StartPlaytest` (Smoke first, then Survive), tell the user not to touch the controls, poll `GetPlaytestStatus`
+  about once a minute, then read the report. Where the bot gets stuck is usually a design problem (no source of
+  an item nearby, a tool missing, a recipe too expensive) - explain it plainly and propose the fix.
+- `GetBalanceReport` after the user has played too; change one thing at a time (recipe costs, yields, stat
+  drain, creature damage), then playtest again and compare.
+- `RunPerformanceSweep` when performance is FLAGged; reduce foliage density or heavy effects in the slowest places.
+
 ---
 
 # Things the user must do themselves
