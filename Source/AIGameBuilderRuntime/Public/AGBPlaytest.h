@@ -73,6 +73,12 @@ struct AIGAMEBUILDERRUNTIME_API FAGBPlaytestRequest
 	/** PerfSweep area (cm) and number of sample points. */
 	FBox2D SweepArea = FBox2D(ForceInit);
 	int32 SweepPoints = 25;
+	/** Photos: camera spots (with hour, negative = keep, and a label) and where the screenshots go. */
+	TArray<FTransform> PhotoCameras;
+	TArray<float> PhotoHours;
+	TArray<FString> PhotoLabels;
+	FString PhotoFolder;
+	FString PhotoResolution = TEXT("1920x1080");
 };
 
 namespace AGBPlaytest
@@ -211,6 +217,7 @@ private:
 	EStep Explore(FGoal& Goal, AAGBCharacter* Me);
 	EStep Smoke(FGoal& Goal, AAGBCharacter* Me, FString& OutReason);
 	EStep PerfSweep(FGoal& Goal, AAGBCharacter* Me);
+	EStep Photos(FGoal& Goal, AAGBCharacter* Me);
 
 	// Needs and threats.
 	bool HandleThreats(AAGBCharacter* Me);
@@ -259,6 +266,11 @@ private:
 	double LastNeedTime = -100.0;
 	bool bAimedAtWater = false;
 	FString LastWarning;
+
+	// Photos.
+	TWeakObjectPtr<AActor> PhotoCamera;
+	FDateTime PhotoRequestTime;
+	int32 PhotosSaved = 0;
 
 	// Performance sweep.
 	TArray<FString> SweepResults;

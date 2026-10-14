@@ -115,6 +115,10 @@ public:
 	UFUNCTION(Exec)
 	void AGBSave();
 
+	/** Console: plays / stops the level's camera tour (trailer recording). */
+	UFUNCTION(Exec)
+	void AGBTour();
+
 	/** Console: loads the last save of this level (replaces buildings and items, restores players). */
 	UFUNCTION(Exec)
 	void AGBLoad();

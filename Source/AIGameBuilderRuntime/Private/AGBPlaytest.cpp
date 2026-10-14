@@ -19,6 +19,9 @@
 #include "AGBWorldEnvironment.h"
 #include "AIGameBuilderRuntime.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "GameFramework/HUD.h"
 #include "Algo/Accumulate.h"
 #include "Dom/JsonObject.h"
 #include "DynamicRHI.h"
@@ -468,6 +471,10 @@ void UAGBPlaytestBot::BuildGoals()
 	{
 		Add(TEXT("perfsweep"));
 	}
+	else if (Scenario == TEXT("photos"))
+	{
+		Add(TEXT("photos"), FString(), Request.PhotoCameras.Num());
+	}
 	else if (Scenario == TEXT("explore"))
 	{
 		Add(TEXT("explore"), FString(), 500);
@@ -611,7 +618,7 @@ void UAGBPlaytestBot::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 		Finish(bAllPassed, bAllPassed ? TEXT("All goals reached") : TEXT("Some goals failed"));
 		return;
 	}
-	const bool bSweep = Goals[GoalIndex].Type == TEXT("perfsweep");
+	const bool bSweep = Goals[GoalIndex].Type == TEXT("perfsweep") || Goals[GoalIndex].Type == TEXT("photos");
 	if (!bSweep && (HandleThreats(Me) || HandleNeeds(Me)))
 	{
 		return;
@@ -709,6 +716,10 @@ UAGBPlaytestBot::EStep UAGBPlaytestBot::RunGoal(FGoal& Goal, AAGBCharacter* Me)
 	else if (Goal.Type == TEXT("perfsweep"))
 	{
 		Step = PerfSweep(Goal, Me);
+	}
+	else if (Goal.Type == TEXT("photos"))
+	{
+		Step = Photos(Goal, Me);
 	}
 	else if (Goal.Type == TEXT("wait"))
 	{
@@ -1160,6 +1171,106 @@ UAGBPlaytestBot::EStep UAGBPlaytestBot::PerfSweep(FGoal& Goal, AAGBCharacter* Me
 		SweepFrames = 0;
 	}
 	Cast<APlayerController>(GetOwner())->SetControlRotation(FRotator(-5.0, View * 90.0, 0.0));
+	ActionTime = Now();
+	++Goal.Step;
+	return EStep::Running;
+}
+
+UAGBPlaytestBot::EStep UAGBPlaytestBot::Photos(FGoal& Goal, AAGBCharacter* Me)
+{
+	// Per spot: 0 = place the camera and set the time, 1 = take the shot once the light settled, 2 = file it.
+	APlayerController* Player = Cast<APlayerController>(GetOwner());
+	const int32 Shot = Goal.Step / 3;
+	const int32 Phase = Goal.Step % 3;
+	const double Wait = Phase == 1 ? 4.0 : (Phase == 2 ? 2.0 : 0.2);
+	if (Now() - ActionTime < Wait)
+	{
+		return EStep::Running;
+	}
+	if (Shot >= Request.PhotoCameras.Num())
+	{
+		if (Player->GetHUD())
+		{
+			Player->GetHUD()->bShowHUD = true;
+		}
+		Player->SetViewTargetWithBlend(Me, 0.f);
+		if (PhotoCamera.IsValid())
+		{
+			PhotoCamera->Destroy();
+		}
+		Goal.Status = FString::Printf(TEXT("PASS: %d screenshot(s) in %s"), PhotosSaved, *Request.PhotoFolder);
+		return PhotosSaved > 0 ? EStep::Done : EStep::Failed;
+	}
+	const FString Label = Request.PhotoLabels.IsValidIndex(Shot) ? Request.PhotoLabels[Shot] : FString::Printf(TEXT("shot%d"), Shot + 1);
+	if (Phase == 0)
+	{
+		ACameraActor* Camera = Cast<ACameraActor>(PhotoCamera.Get());
+		if (!Camera)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			Camera = GetWorld()->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), Request.PhotoCameras[Shot], Params);
+			Camera->GetCameraComponent()->SetFieldOfView(70.f);
+			Camera->GetCameraComponent()->bConstrainAspectRatio = false;
+			PhotoCamera = Camera;
+			if (AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld()))
+			{
+				Environment->SetWeather(TEXT("Clear"));
+			}
+		}
+		Camera->SetActorTransform(Request.PhotoCameras[Shot]);
+		// The player waits out of view behind the camera.
+		FVector Ground;
+		const FVector Behind = Request.PhotoCameras[Shot].GetLocation() - Request.PhotoCameras[Shot].GetRotation().GetForwardVector() * 600.0;
+		if (FindGround(Behind, Ground))
+		{
+			Me->SetActorLocation(Ground + FVector(0.0, 0.0, 120.0), false, nullptr, ETeleportType::TeleportPhysics);
+		}
+		const float Hour = Request.PhotoHours.IsValidIndex(Shot) ? Request.PhotoHours[Shot] : -1.f;
+		AAGBWorldEnvironment* Environment = AAGBWorldEnvironment::Get(GetWorld());
+		if (Environment && Hour >= 0.f)
+		{
+			Environment->SetHour(Hour);
+		}
+		if (Player->GetHUD())
+		{
+			Player->GetHUD()->bShowHUD = false;
+		}
+		Player->SetViewTargetWithBlend(Camera, 0.f);
+		Log(FString::Printf(TEXT("Photo %d/%d: %s%s"), Shot + 1, Request.PhotoCameras.Num(), *Label, Hour >= 0.f ? *FString::Printf(TEXT(" at %.1f h"), Hour) : TEXT("")));
+	}
+	else if (Phase == 1)
+	{
+		PhotoRequestTime = FDateTime::Now();
+		Player->ConsoleCommand(TEXT("HighResShot ") + Request.PhotoResolution);
+	}
+	else
+	{
+		// High-res shots land in the engine's screenshot folder: move the new one to the store kit.
+		TArray<FString> Files;
+		IFileManager::Get().FindFilesRecursive(Files, *FPaths::ScreenShotDir(), TEXT("*.png"), true, false);
+		FString Newest;
+		FDateTime NewestTime = PhotoRequestTime - FTimespan::FromSeconds(2.0);
+		for (const FString& File : Files)
+		{
+			const FDateTime Stamp = IFileManager::Get().GetTimeStamp(*File);
+			if (Stamp > NewestTime)
+			{
+				NewestTime = Stamp;
+				Newest = File;
+			}
+		}
+		if (Newest.IsEmpty())
+		{
+			Log(TEXT("The screenshot did not appear (HighResShot failed?)"));
+		}
+		else
+		{
+			const FString Target = Request.PhotoFolder / FString::Printf(TEXT("%02d_%s.png"), Shot + 1, *Label);
+			IFileManager::Get().Move(*Target, *Newest, true, true);
+			++PhotosSaved;
+		}
+	}
 	ActionTime = Now();
 	++Goal.Step;
 	return EStep::Running;

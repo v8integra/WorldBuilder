@@ -21,6 +21,7 @@
 #include "AudioFXTools.h"
 #include "MultiplayerTools.h"
 #include "PlaytestTools.h"
+#include "PublishTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WaterTools.h"
 #include "WorldEnvironmentTools.h"
@@ -76,6 +77,7 @@ private:
 			UAudioFXTools::StaticClass(),
 			UMultiplayerTools::StaticClass(),
 			UPlaytestTools::StaticClass(),
+			UPublishTools::StaticClass(),
 		};
 	}
 };

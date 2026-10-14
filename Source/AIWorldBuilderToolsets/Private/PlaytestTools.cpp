@@ -162,6 +162,11 @@ namespace
 	}
 }
 
+FPlaytestToolsResult UPlaytestTools::StartWithRequest(const FAGBPlaytestRequest& Request)
+{
+	return StartPlay(Request);
+}
+
 FString UPlaytestTools::GetToolsetVersion() const
 {
 	return GetPluginVersion();

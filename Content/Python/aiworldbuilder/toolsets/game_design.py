@@ -576,3 +576,54 @@ class GameDesignTools(unreal.ToolsetDefinition):
             msg += ' Set up its assets and update these wishlist entries: ' + ', '.join(pack['covers']) + '.'
         return msg
 
+
+    @toolset_registry.tool_call
+    @staticmethod
+    def get_store_kit_template() -> str:
+        """What a store page needs (Steam limits, with itch.io notes), to draft it from the design doc.
+        Draft every text field, then save it with save_store_page. Images come from
+        AIWorldBuilderToolsets.PublishTools (CaptureStoreScreenshots, MakeStoreImages).
+
+        Returns:
+            The fields, their limits and tips.
+        """
+        return '\n'.join([
+            'Store page fields (draft from the design doc: pitch, pillars, core loop, setting):',
+            '- Game name (as on the store).',
+            '- Short description: max 300 characters; what you do and why it is fun, no hype words.',
+            '- About this game: 3-6 short paragraphs or bullet blocks with headings; first line hooks; list the features '
+            'players care about (crafting, building, co-op for N players, survival systems, world size).',
+            '- Feature bullets: 5-8 lines.',
+            '- Tags: up to 20 (Steam), most relevant first: e.g. Survival, Open World Survival Craft, Crafting, Base Building, '
+            'Co-op, Multiplayer, Sandbox, Exploration, Nature, Singleplayer.',
+            '- Genre(s), languages (interface/audio/subtitles), single/multi-player modes.',
+            '- System requirements (minimum / recommended): OS Windows 10/11 64-bit, CPU, RAM, GPU, DirectX 12, storage '
+            '(use the packaged size from PublishTools.GetPackagingStatus plus 20%), from the QA target hardware.',
+            '- Content descriptors / age rating questions: violence (hunting animals), blood, online interaction (chat).',
+            '- Price suggestion and launch discount; Early Access or full release (with what is planned).',
+            '- Images: at least 5 screenshots 1920x1080 (16:9), header capsule 920x430, small 462x174, main 1232x706, '
+            'vertical 748x896, library 600x900, library hero 3840x1240, library logo (transparent PNG). Capsules need the '
+            'game logo/title readable at small size: the user adds it in an image editor.',
+            '- Trailer: 30-90 s, gameplay in the first 5 s, no long logos; record the camera tour (PublishTools.CreateTrailerTour) '
+            'plus real play.',
+            '- itch.io: title, short tagline, description (markdown), up to 10 screenshots, cover image 630x500, tags (10), '
+            'price (can be 0 / pay what you want), Windows zip of the packaged folder.',
+        ])
+
+    @toolset_registry.tool_call
+    @staticmethod
+    def save_store_page(markdown: str) -> str:
+        """Saves the store page draft to <Project>/AIGameBuilder/StorePage.md (overwrites). Show it to the user;
+        they paste it into the store themselves.
+
+        Args:
+            markdown: The whole store page draft in Markdown, one heading per field.
+
+        Returns:
+            Where it was saved.
+        """
+        _require_project()
+        path = store.memory_dir() / 'StorePage.md'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(markdown.strip() + '\n', encoding='utf-8')
+        return f'Saved {path} ({len(markdown)} characters).'

@@ -10,6 +10,8 @@
 #include "AGBMenus.h"
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
+#include "AGBCameraTour.h"
+#include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "AIGameBuilderRuntime.h"
 #include "GameFramework/GameSession.h"
@@ -90,6 +92,14 @@ void AAGBPlayerController::BeginPlay()
 		{
 			Settings->ApplyAudio(GetWorld());
 		}
+		// Coming from the main menu (or a lobby), the UI-only input mode carries over into the new level:
+		// close leftover menus and give the controls back to the game.
+		if (UAGBMenuSubsystem* Menus = UAGBMenuSubsystem::Get(this))
+		{
+			Menus->CloseAll();
+		}
+		SetInputMode(FInputModeGameOnly());
+		SetShowMouseCursor(false);
 	}
 }
 
@@ -162,6 +172,23 @@ void AAGBPlayerController::ClientChat_Implementation(const FString& From, const 
 	{
 		Audio->PlayCue2D(TEXT("UI.Hover"));
 	}
+}
+
+void AAGBPlayerController::AGBTour()
+{
+	for (TActorIterator<AAGBCameraTour> It(GetWorld()); It; ++It)
+	{
+		if (It->IsPlaying())
+		{
+			It->Stop();
+		}
+		else
+		{
+			It->Play(this);
+		}
+		return;
+	}
+	ClientMessage(TEXT("No camera tour in this level (PublishTools.CreateTrailerTour)."));
 }
 
 void AAGBPlayerController::AGBSave()

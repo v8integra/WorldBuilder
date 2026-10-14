@@ -31,6 +31,9 @@ class UPlaytestTools : public UToolsetDefinition
 public:
 	virtual FString GetToolsetVersion() const override;
 
+	/** Starts Play-in-Editor with a bot request (used by other toolsets, e.g. store screenshots). */
+	static FPlaytestToolsResult StartWithRequest(const struct FAGBPlaytestRequest& Request);
+
 	/**
 	 * Checks the game's data and level setup without playing: items nobody can get, recipes needing missing stations
 	 * or fuel, resources not placed in the level or needing tools that do not exist, creatures without spawn zones,

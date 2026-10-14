@@ -612,6 +612,30 @@ report to `Saved/AGBPlaytests/`. Targets: `UAGBQASettings` (Project Settings > G
 | `SetQATargets(targetHardware, targetFPS, firstToolMinutes, firstStationMinutes, firstBuildMinutes, maxDeathsPerHour, maxStarvingShare)` | Performance budget and pacing targets. |
 | `GetBalanceReport(lastSessions = 10, bIncludeBot = true)` | Aggregated sessions with OK/FLAG lines and suggestions. |
 
+## `AIWorldBuilderToolsets.PublishTools` (C++, packaging, store kit, release)
+Packaging runs `RunUAT BuildCookRun` (Win64, compile + cook + pak/IoStore + archive, crash reporter) in the
+background (`FMonitoredProcess`); output in `<Project>/Packaged/<Configuration>/Windows`, log in
+`Saved/AGBPackaging`. The game's data folders are always cooked because the game finds items/recipes/resources
+by searching the asset registry, not through references. Store kit in `Saved/StoreKit`: screenshots taken in the
+game by the playtest bot ("Photos": camera per spot, HUD hidden, clear weather, time of day, `HighResShot`),
+capsule backgrounds cropped to every Steam size. Photo spots: the user's saved viewport views plus automatic
+ones (overlook, sunset, lake shore, campfire at night, wildlife, eye-level views). `AAGBCameraTour`: a smooth
+camera flight through the spots, console `AGBTour` in the game, for recording a trailer.
+
+| Tool | Use |
+|---|---|
+| `PreparePackaging(gameName, version, companyName, description, configuration)` | Project name/version/company, maps and data folders to cook, crash reporter, Development or Shipping. |
+| `PackageGame(configuration = "", outputFolder = "")` | Starts packaging in the background (5-60 min). |
+| `GetPackagingStatus()` / `CancelPackaging()` | Stage, errors, recent output; when done the folder, exe and size. |
+| `AddPhotoSpot(label, hour = -1)` / `ClearPhotoSpots()` | Save the editor viewport's view as a photo spot. |
+| `CaptureStoreScreenshots(count = 8, resolution = "1920x1080")` | Screenshots in the game at the spots (poll PlaytestTools.GetPlaytestStatus). |
+| `MakeStoreImages(screenshotFile = "")` | Capsule backgrounds: header 920x430, small 462x174, main 1232x706, vertical 748x896, library 600x900, hero 3840x1240, itch cover 630x500. |
+| `CreateTrailerTour(secondsPerShot = 6, hour = 17.5)` | Camera tour actor through the spots; record with `AGBTour` + Win+Alt+R. |
+| `GetReleaseChecklist()` | [x]/[ ]/[!] automatic checks and [user] store steps. |
+
+Store text (Python `GameDesignTools`): `get_store_kit_template()` (fields and Steam/itch limits),
+`save_store_page(markdown)` (`<Project>/AIGameBuilder/StorePage.md`).
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

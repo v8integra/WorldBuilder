@@ -349,3 +349,16 @@ Prereq: C++ build. Open TestWorld (the game level).
 6. `SetQATargets` `{"targetHardware":"Steam Deck"}` → 30 fps target. Play normally yourself for a few minutes (gather, craft, die once), stop. `GetBalanceReport` `{}` → sessions including yours and the bot's: OK/FLAG for first tool/station/building time, deaths per hour with causes, starving share, gathered/crafted per hour, performance with suggestions.
 **Claude Code:** "Playtest the game and balance it so a new player gets an axe in 3 minutes and rarely starves." → ValidateGame, SetQATargets, StartPlaytest (poll), GetBalanceReport, adjust recipes/yields/drain, repeat.
 
+## Phase 25 — Package and publish
+
+Prereq: C++ build. Open TestWorld; Save All.
+1. `PreparePackaging` `{"gameName":"Test Survival","version":"0.1.0","companyName":"Raven Games","description":"Survive the wild.","configuration":"Development"}` → lines with the maps cooked (MainMenu + TestWorld) and always-cooked folders (/Game/AIGameBuilder, Niagara templates).
+2. `PackageGame` `{}` → "started"; poll `GetPackagingStatus` every few minutes (stage: Build, Cook, Stage, Package, Archive). When it SUCCEEDED: run the exe from Packaged/Development/Windows: main menu, New Game, gather, craft, build, sounds, save/continue, settings. If it FAILED, send the error lines.
+3. Fly the editor viewport to a nice view, `AddPhotoSpot` `{"label":"lake view","hour":18}`; repeat once more.
+4. `CaptureStoreScreenshots` `{"count":8}` → Play starts by itself; views switch every few seconds without HUD; Play stops; Saved/StoreKit/Screenshots has 8 PNGs at 1920x1080 (your 2 spots first).
+5. `MakeStoreImages` `{}` → 7 PNGs in Saved/StoreKit/Capsules at the Steam sizes.
+6. `CreateTrailerTour` `{}` → a TrailerTour actor; save the level; Play, press ` and type AGBTour → a smooth flight with no HUD; AGBTour again stops.
+7. Python `get_store_kit_template` then `save_store_page` with a drafted page → AIGameBuilder/StorePage.md.
+8. `GetReleaseChecklist` `{}` → [x] for what was done above, [ ] for the rest (Shipping build, icon...), and the [user] steps.
+**Claude Code:** "Get the game ready to put on itch.io." → PreparePackaging, PackageGame (poll), CaptureStoreScreenshots, MakeStoreImages, store page draft, GetReleaseChecklist, then tell the user exactly what to upload.
+

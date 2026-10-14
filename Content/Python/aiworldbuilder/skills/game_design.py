@@ -240,6 +240,17 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   drain, creature damage), then playtest again and compare.
 - `RunPerformanceSweep` when performance is FLAGged; reduce foliage density or heavy effects in the slowest places.
 
+## Package and publish (milestone M12)
+
+- `AIWorldBuilderToolsets.PublishTools.PreparePackaging` (name, version, company from the design; Development for
+  test builds), the user saves all, `PackageGame`, poll `GetPackagingStatus` every few minutes; have the user play
+  the packaged exe. Failures: read the error lines and fix the cause (missing asset, compile error), then retry.
+- Store kit: ask the user to fly to 2-3 favourite views and `AddPhotoSpot`, then `CaptureStoreScreenshots`,
+  `MakeStoreImages`, `CreateTrailerTour` (explain AGBTour + Win+Alt+R). Draft the page with
+  `get_store_kit_template` from the design doc and `save_store_page`; show it to the user.
+- `GetReleaseChecklist` before release. Store accounts, fees, tax/bank forms, rating surveys, legal text, uploads
+  and pressing publish are the user's: walk them through each click; never do them yourself.
+
 ---
 
 # Things the user must do themselves

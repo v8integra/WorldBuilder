@@ -17,6 +17,8 @@ public class AIWorldBuilderToolsets : ModuleRules
 			"AssetRegistry",
 			"AssetTools",
 			"Json",
+			"DeveloperToolSettings",
+			"DeveloperSettings",
 			"EngineSettings",
 			"EnhancedInput",
 			"Foliage",

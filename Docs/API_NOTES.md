@@ -400,3 +400,14 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   Frame timings: `FApp::GetDeltaTime`, `GGameThreadTime`/`GRenderThreadTime` (RenderCore), `RHIGetGPUFrameCycles`
   (RHI). `FJsonObject::Values` keys need an explicit `FString(...)` in 5.8. A `FOutputDevice` added to `GLog`
   collects errors during a test.
+- **Packaging (Phase 25):** `RunUAT.bat BuildCookRun -platform=Win64 -clientconfig=<Config> -build -cook -stage -pak
+  -iostore -archive -archivedirectory=... -prereqs -unattended -utf8output -nocompileeditor [-crashreporter]
+  [-nodebuginfo]`, launched through `cmd.exe /c ""<bat>" args"` with `FMonitoredProcess` (output and completion
+  arrive on another thread: lock). Assets found only through the asset registry (our data assets) are not cooked
+  unless listed in `DirectoriesToAlwaysCook`; maps opened by name must be in `MapsToCook`; string-referenced
+  engine/plugin assets (Niagara templates) too. `UGeneralProjectSettings` holds name/version/company.
+  Screenshots without UI at any size: `HighResShot WxH` through the PIE player controller's `ConsoleCommand`; the
+  file lands in `FPaths::ScreenShotDir()`. The editor viewport's camera: `GCurrentLevelEditingViewportClient`.
+  Image crops: `FImageUtils::LoadImage`, copy rows of a BGRA8 `FImage`, `ResizeTo`, `SaveImageByExtension`.
+  The input mode (UI-only from the main menu) survives `OpenLevel`: the gameplay controller must set game-only
+  input in `BeginPlay`. PIE starts straight in the game level, so only a packaged/Standalone run from the menu shows it.
