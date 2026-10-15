@@ -231,6 +231,13 @@ continue without it. After `start_game_project`, check that `get_project_memory`
   forwards UDP port 7777 (or the game ships on Steam later); dedicated servers need Unreal Engine built from source.
 - Test with Play options Number of Players 2 (Listen Server, then Play As Client for a dedicated server).
 
+## RPG progression (RPG pack R1)
+
+- When the design has levels/XP: `AIWorldBuilderToolsets.ProgressionTools.SetupProgression`, then shape it from the
+  design: SetLevelCurve (casual: exponent 1.2; classic: 1.5; grindy: 2), SetXPRewards (what the game rewards),
+  SetAttribute (rename/re-balance the four defaults to fit the setting), SetCreatureXP for bosses.
+- Check pacing with `GetProgression` after playtests (XP per hour, hours to level 10).
+
 ## Playtest and balance (milestone M11)
 
 - `AIWorldBuilderToolsets.PlaytestTools.ValidateGame` after every content change; fix FAIL lines before playtesting.

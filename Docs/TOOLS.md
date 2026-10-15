@@ -638,6 +638,25 @@ camera flight through the spots, console `AGBTour` in the game, for recording a 
 Store text (Python `GameDesignTools`): `get_store_kit_template()` (fields and Steam/itch limits),
 `save_store_page(markdown)` (`<Project>/AIGameBuilder/StorePage.md`).
 
+## `AIWorldBuilderToolsets.ProgressionTools` (C++, RPG R1: levels, XP, attributes)
+Runtime: `UAGBProgressionConfig` (`/Game/AIGameBuilder/Core/DA_AGB_Progression`, on the character's
+ProgressionConfig) and `UAGBProgressionComponent` on the **player state** (survives death/respawn, saved per
+player, replicated). XP from kills (creature XPReward or health x rate), gathering, crafting (+1/s of craft time),
+building; quests later. Level ups give attribute points, extra max health/stamina, a full refill, a message and
+the `Event.LevelUp` sound. Attribute effects: MaxHealth, MaxStamina, Armor (flat per point) and MeleeDamage,
+RangedDamage, HarvestPower, CraftSpeed, MoveSpeed (% per point), applied by the vitals, combat, harvesting,
+crafting and movement code. HUD: "Lv N" and XP bar under the hotbar; character panel with + buttons under the
+inventory (Tab). Console: `AGBGiveXP <n>`, `AGBRespec`.
+
+| Tool | Use |
+|---|---|
+| `SetupProgression()` | Config with Strength/Agility/Vitality/Intelligence, given to the player character. |
+| `SetLevelCurve(maxLevel, baseXP, exponent, pointsPerLevel, healthPerLevel, staminaPerLevel)` | XP to next = baseXP x level^exponent. |
+| `SetXPRewards(perCreatureHealth, perGathered, perCraft, perBuild, deathXPLoss)` | XP sources and death penalty. |
+| `SetAttribute(effects, attributeId, displayName, description, startValue)` | Effects like `["MeleeDamage+3%","MaxHealth+8"]`. |
+| `RemoveAttribute(attributeId)` / `SetCreatureXP(creatureId, xp)` | |
+| `GetProgression()` | Curve, XP table, rewards, attributes, measured XP/hour and time to level 10. |
+
 ## `aiworldbuilder.toolsets.game_design.GameDesignTools` (Python, game project memory)
 Memory for building a whole game across sessions, stored in the game project (not in Content):
 `<Project>/AIGameBuilder/project.json` (source of truth) and a regenerated, readable `GameDesign.md`. Ids look like

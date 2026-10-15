@@ -239,6 +239,7 @@ namespace AGBSynth
 				{ TEXT("Event.Place"), WithTone(Shot(0.25f, 0.07f, 0.2f, 0.6f), 110.f, 0.6f) },
 				{ TEXT("Event.Shoot"), Tone(0.2f, 0.08f, 300.f, -200.f, 0.45f, 0.3f) },
 				{ TEXT("Event.Land"), WithTone(Shot(0.2f, 0.05f, 0.15f, 0.6f), 80.f, 0.5f) },
+				{ TEXT("Event.LevelUp"), [] { FAGBSynthPatch P = Pad(523.3f, 659.3f, 784.f, 0.25f); P.Duration = 1.4f; P.Attack = 0.02f; P.Release = 0.8f; P.ModDepth = 0.f; return P; }() },
 				{ TEXT("Event.Splash"), WithCrackle(WithHighPass(Shot(0.5f, 0.15f, 0.5f, 0.45f), 0.05f), 150.f, 0.4f) },
 				// Interface.
 				{ TEXT("UI.Click"), Tone(0.04f, 0.012f, 1500.f, 0.f, 0.25f) },

@@ -2,6 +2,7 @@
 
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
+#include "AGBProgression.h"
 
 #include "AGBCharacter.h"
 #include "AGBCraftingStation.h"
@@ -100,7 +101,7 @@ float UAGBCraftingComponent::GetJobProgress(int32 Index) const
 		return 0.f;
 	}
 	const FAGBCraftJob& Job = Queue[Index];
-	const float Seconds = Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier);
+	const float Seconds = Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier * UAGBProgressionComponent::Multiplier(GetOwner(), EAGBAttributeTarget::CraftSpeed));
 	if (Index > 0 || Seconds <= 0.f)
 	{
 		return 0.f;
@@ -351,7 +352,7 @@ void UAGBCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		Job.bPaused = false;
 		Job.UpdateServerTime = Now;
 	}
-	if (Job.Progress + (Now - Job.UpdateServerTime) < Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier))
+	if (Job.Progress + (Now - Job.UpdateServerTime) < Job.Recipe->CraftSeconds / FMath::Max(0.1f, AAGBGameState::GetRules(this).CraftSpeedMultiplier * UAGBProgressionComponent::Multiplier(GetOwner(), EAGBAttributeTarget::CraftSpeed)))
 	{
 		return;
 	}
@@ -361,6 +362,10 @@ void UAGBCraftingComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
 	{
 		Telemetry->Record(TEXT("Crafted"), Job.Recipe->RecipeId.ToString());
+		if (UAGBProgressionComponent* Progression = UAGBProgressionComponent::Find(GetOwner()))
+		{
+			Progression->AddXP(FMath::RoundToInt(Progression->GetConfig()->XPPerCraft + Job.Recipe->CraftSeconds), TEXT("Craft"));
+		}
 		const UAGBItemDefinition* Output = Job.Recipe->Outputs.Num() > 0 ? Job.Recipe->Outputs[0].Item.Get() : nullptr;
 		if (Output && (Output->Category == EAGBItemCategory::Tool || Output->Category == EAGBItemCategory::Weapon))
 		{

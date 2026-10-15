@@ -421,3 +421,9 @@ Epic's **"Unreal Engine Skills"** plugin (publisher: epicgames, repo `github.com
   A shapeless `APhysicsVolume` counts as containing every point (`IsOverlapInVolume` returns true without a primitive
   root), so every other character would start swimming: override it to return false. `bPressedJump` is cleared after
   one frame when `JumpMaxHoldTime` is 0: track the held Jump button yourself for swim-up.
+- **Progression (RPG R1):** put per-player progress on the PlayerState (a component created in its constructor):
+  the pawn is destroyed on death, the player state is not, and it replicates to everyone (use COND_OwnerOnly for
+  XP). Re-apply body bonuses in the character's `PossessedBy`. Movement-speed bonuses in `GetMaxSpeed` stay
+  predicted because attributes replicate to every machine.
+  `PossessedBy` can run before the pawn's components' `BeginPlay`: any code it calls must cope with components
+  that have not set themselves up yet (empty arrays).

@@ -360,6 +360,18 @@ Prereq: C++ build. Open TestWorld; Save All.
 6. `CreateTrailerTour` `{}` → a TrailerTour actor; save the level; Play, press ` and type AGBTour → a smooth flight with no HUD; AGBTour again stops.
 7. Python `get_store_kit_template` then `save_store_page` with a drafted page → AIGameBuilder/StorePage.md.
 8. `GetReleaseChecklist` `{}` → [x] for what was done above, [ ] for the rest (Shipping build, icon...), and the [user] steps.
+## RPG R1 — Progression
+
+Prereq: C++ build. Open TestWorld.
+1. `SetupProgression` `{}` → DA_AGB_Progression created and given to the character; lines show the curve (L2 100, L3 383...), XP rewards and 4 attributes.
+2. Play: "Lv 1" and a thin XP bar under the hotbar. Chop a tree / mine rock (XP per item), craft (XP), place a piece (XP), kill a wolf (~40 XP): the bar fills; level up → "Level 2! 3 attribute point(s)...", a chime, health/stamina refill.
+3. Tab: the character panel under the inventory shows Level, XP and Strength/Agility/Vitality/Intelligence with + buttons; spend points: Vitality raises max health (the bar's max grows), Agility makes you faster, Strength makes trees fall in fewer hits, Intelligence crafts faster.
+4. Console `AGBGiveXP 2000` → several levels at once; `AGBRespec` → points back.
+5. Die → respawn keeps level and attributes, health at the new maximum. Stop and Play → level, XP and attributes are restored from the save.
+6. `SetLevelCurve` `{"baseXP":50,"exponent":1.2}` and `SetAttribute` `{"effects":["MaxHealth+15","Armor+2"],"attributeId":"Vitality"}` → `GetProgression` shows the change; in Play it applies.
+7. Co-op: each player has their own level (the client's level shows on its HUD; the host sees its own).
+**Claude Code:** "Add RPG levelling: players get stronger as they fight and craft." → ProgressionTools.SetupProgression, tune with SetLevelCurve/SetXPRewards/SetAttribute.
+
 ## Swimming (Track A follow-up)
 
 Prereq: C++ build. Open TestWorld (the lake with a deep section).

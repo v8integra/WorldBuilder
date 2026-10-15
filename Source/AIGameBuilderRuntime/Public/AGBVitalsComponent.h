@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Vitals")
 	float GetFraction(FName Stat) const;
 
+	/** Server: extra maximum for a stat (levels and attributes). */
+	void SetMaxBonus(FName Stat, float Bonus);
+
 	/** 1 = full breath, 0 = drowning (owning player and server). */
 	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Vitals")
 	float GetBreathFraction() const;
@@ -123,6 +126,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	float AirTemperatureC = 0.f;
+
+	/** Extra maximum per stat (index-aligned with the config's Stats). */
+	UPROPERTY(Replicated)
+	TArray<float> MaxBonuses;
+
+	float GetMaxAt(int32 Index) const;
 
 	/** Seconds of breath left; negative = full. Only the owner needs it. */
 	UPROPERTY(Replicated)

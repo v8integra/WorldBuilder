@@ -60,7 +60,27 @@ float UAGBVitalsComponent::GetValue(FName Stat) const
 float UAGBVitalsComponent::GetMaxValue(FName Stat) const
 {
 	const int32 Index = FindStatIndex(Stat);
-	return Index != INDEX_NONE ? GetConfig()->Stats[Index].MaxValue : 0.f;
+	return Index != INDEX_NONE ? GetMaxAt(Index) : 0.f;
+}
+
+float UAGBVitalsComponent::GetMaxAt(int32 Index) const
+{
+	const TArray<FAGBStatConfig>& Stats = GetConfig()->Stats;
+	return Stats.IsValidIndex(Index) ? Stats[Index].MaxValue + (MaxBonuses.IsValidIndex(Index) ? MaxBonuses[Index] : 0.f) : 0.f;
+}
+
+void UAGBVitalsComponent::SetMaxBonus(FName Stat, float Bonus)
+{
+	const int32 Index = FindStatIndex(Stat);
+	if (Index == INDEX_NONE || !GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	if (MaxBonuses.Num() <= Index)
+	{
+		MaxBonuses.SetNumZeroed(GetConfig()->Stats.Num());
+	}
+	MaxBonuses[Index] = Bonus;
 }
 
 float UAGBVitalsComponent::GetFraction(FName Stat) const
@@ -91,7 +111,7 @@ void UAGBVitalsComponent::RestoreValues(const TMap<FName, float>& Saved)
 		const int32 Index = FindStatIndex(Pair.Key);
 		if (ServerValues.IsValidIndex(Index))
 		{
-			ServerValues[Index] = FMath::Clamp(Pair.Value, 0.f, GetConfig()->Stats[Index].MaxValue);
+			ServerValues[Index] = FMath::Clamp(Pair.Value, 0.f, GetMaxAt(Index));
 		}
 	}
 	Replicate();
@@ -118,7 +138,7 @@ void UAGBVitalsComponent::ResetStats()
 	LastReducedTime.Init(-1000.0, Stats.Num());
 	for (int32 Index = 0; Index < Stats.Num(); ++Index)
 	{
-		ServerValues[Index] = Stats[Index].StartValue < 0.f ? Stats[Index].MaxValue : FMath::Min(Stats[Index].StartValue, Stats[Index].MaxValue);
+		ServerValues[Index] = Stats[Index].StartValue < 0.f ? GetMaxAt(Index) : FMath::Min(Stats[Index].StartValue, GetMaxAt(Index));
 	}
 	bDead = false;
 	DeathCause.Reset();
@@ -143,7 +163,7 @@ void UAGBVitalsComponent::SetValue(int32 Index, float NewValue)
 	{
 		return;
 	}
-	const float Clamped = FMath::Clamp(NewValue, 0.f, GetConfig()->Stats[Index].MaxValue);
+	const float Clamped = FMath::Clamp(NewValue, 0.f, GetMaxAt(Index));
 	if (Clamped < ServerValues[Index])
 	{
 		LastReducedTime[Index] = GetWorld()->GetTimeSeconds();
@@ -154,7 +174,8 @@ void UAGBVitalsComponent::SetValue(int32 Index, float NewValue)
 void UAGBVitalsComponent::ModifyStat(FName Stat, float Delta)
 {
 	const int32 Index = FindStatIndex(Stat);
-	if (bDead || Index == INDEX_NONE || !GetOwner()->HasAuthority())
+	// Not set up yet (e.g. a new body possessed before BeginPlay): BeginPlay starts the stats at their maximum.
+	if (bDead || !ServerValues.IsValidIndex(Index) || !GetOwner()->HasAuthority())
 	{
 		return;
 	}
@@ -169,7 +190,7 @@ void UAGBVitalsComponent::ModifyStat(FName Stat, float Delta)
 void UAGBVitalsComponent::ApplyDamage(float Amount, const FString& Cause)
 {
 	const int32 Index = FindStatIndex(HealthStat);
-	if (bDead || Amount <= 0.f || Index == INDEX_NONE || !GetOwner()->HasAuthority())
+	if (bDead || Amount <= 0.f || !ServerValues.IsValidIndex(Index) || !GetOwner()->HasAuthority())
 	{
 		return;
 	}
@@ -359,7 +380,7 @@ void UAGBVitalsComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 			}
 			if (Change > 0.f)
 			{
-				ServerValues[Index] = FMath::Min(ServerValues[Index] + Change, Stat.MaxValue); // Not a reduction.
+				ServerValues[Index] = FMath::Min(ServerValues[Index] + Change, GetMaxAt(Index)); // Not a reduction.
 			}
 		}
 		else if (Change < 0.f)
@@ -394,6 +415,7 @@ void UAGBVitalsComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UAGBVitalsComponent, bDead);
 	DOREPLIFETIME(UAGBVitalsComponent, DeathCause);
 	DOREPLIFETIME_CONDITION(UAGBVitalsComponent, BreathLeft, COND_OwnerOnly);
+	DOREPLIFETIME(UAGBVitalsComponent, MaxBonuses);
 	DOREPLIFETIME(UAGBVitalsComponent, AirTemperatureC);
 	DOREPLIFETIME(UAGBVitalsComponent, ComfortMinC);
 	DOREPLIFETIME(UAGBVitalsComponent, ComfortMaxC);

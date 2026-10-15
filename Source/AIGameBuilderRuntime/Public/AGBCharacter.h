@@ -176,6 +176,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Survival")
 	TObjectPtr<UAGBSurvivalConfig> SurvivalConfig;
 
+	/** Levels, XP and attributes for this game. Empty = built-in defaults. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Progression")
+	TObjectPtr<class UAGBProgressionConfig> ProgressionConfig;
+
+	/** The player's level and attributes (on the player state). */
+	UFUNCTION(BlueprintPure, Category = "AI Game Builder|Progression")
+	class UAGBProgressionComponent* GetProgression() const;
+
+	virtual void PossessedBy(AController* NewController) override;
+
 	/** Fires on the server when a non-consumable item is used (tools and weapons hook in here). */
 	UPROPERTY(BlueprintAssignable, Category = "AI Game Builder|Items")
 	FAGBItemUsedSignature OnItemUsed;

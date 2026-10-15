@@ -10,6 +10,7 @@
 #include "AGBMenus.h"
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
+#include "AGBProgression.h"
 #include "AGBCameraTour.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -176,6 +177,33 @@ void AAGBPlayerController::ClientChat_Implementation(const FString& From, const 
 	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
 	{
 		Audio->PlayCue2D(TEXT("UI.Hover"));
+	}
+}
+
+void AAGBPlayerController::AGBGiveXP(int32 Amount)
+{
+	ServerProgressionCommand(FMath::Max(1, Amount));
+}
+
+void AAGBPlayerController::AGBRespec()
+{
+	ServerProgressionCommand(0);
+}
+
+void AAGBPlayerController::ServerProgressionCommand_Implementation(int32 Amount)
+{
+	UAGBProgressionComponent* Progression = UAGBProgressionComponent::Find(this);
+	if (!Progression)
+	{
+		return;
+	}
+	if (Amount > 0)
+	{
+		Progression->AddXP(Amount, TEXT("Console"));
+	}
+	else
+	{
+		Progression->Respec();
 	}
 }
 
@@ -695,6 +723,18 @@ void AAGBHUD::OpenStation(AAGBCraftingStation* Station)
 
 bool AAGBHUD::HandleCraftingClick(const FString& BoxName)
 {
+	FString PointIndex;
+	if (BoxName.Split(TEXT("AGBP_"), nullptr, &PointIndex))
+	{
+		const AAGBCharacter* Spender = Cast<AAGBCharacter>(GetOwningPawn());
+		UAGBProgressionComponent* Progression = Spender ? Spender->GetProgression() : nullptr;
+		const int32 Index = FCString::Atoi(*PointIndex);
+		if (Progression && Progression->GetConfig()->Attributes.IsValidIndex(Index))
+		{
+			Progression->RequestSpendPoint(Progression->GetConfig()->Attributes[Index].Id);
+		}
+		return true;
+	}
 	AAGBCharacter* Character = Cast<AAGBCharacter>(GetOwningPawn());
 	if (!Character)
 	{
@@ -935,6 +975,42 @@ void AAGBHUD::AddNotification(const FText& Message, bool bWarning)
 	}
 }
 
+void AAGBHUD::DrawCharacterPanel(AAGBCharacter* Character, float X, float Y, float Width, float Scale)
+{
+	const UAGBProgressionComponent* Progression = Character->GetProgression();
+	if (!Progression)
+	{
+		return;
+	}
+	const UAGBProgressionConfig* Rules = Progression->GetConfig();
+	UFont* Font = GetHUDFont(1);
+	const float Padding = 14.f * Scale;
+	const float RowH = 24.f * Scale;
+	const int32 Rows = FMath::DivideAndRoundUp(Rules->Attributes.Num(), 2);
+	const float Height = Padding * 2.f + 26.f * Scale + Rows * RowH;
+	DrawBox(Theme->PanelTexture, PanelColor, X, Y, Width, Height);
+	const int32 Needed = Progression->GetXPToNext();
+	const FString Title = FString::Printf(TEXT("Level %d    XP %d / %d%s"), Progression->GetLevel(), Progression->GetXP(), Needed,
+		Progression->GetUnspentPoints() > 0 ? *FString::Printf(TEXT("    %d point(s) to spend"), Progression->GetUnspentPoints()) : TEXT(""));
+	DrawText(Title, Progression->GetUnspentPoints() > 0 ? SelectedColor : TextColor, X + Padding, Y + Padding, GetHUDFont(2), Scale);
+	const float ColumnW = (Width - Padding * 2.f) * 0.5f;
+	for (int32 Index = 0; Index < Rules->Attributes.Num(); ++Index)
+	{
+		const FAGBAttributeConfig& Attribute = Rules->Attributes[Index];
+		const float RX = X + Padding + (Index % 2) * ColumnW;
+		const float RY = Y + Padding + 26.f * Scale + (Index / 2) * RowH;
+		const FString Line = FString::Printf(TEXT("%s  %d"), *Attribute.DisplayName.ToString(), Progression->GetAttribute(Attribute.Id));
+		DrawText(Line, TextColor, RX, RY + 3.f * Scale, Font, Scale);
+		if (Progression->GetUnspentPoints() > 0)
+		{
+			const float BX = RX + ColumnW - 34.f * Scale;
+			DrawRect(SelectedColor, BX, RY, 26.f * Scale, RowH - 4.f * Scale);
+			DrawText(TEXT("+"), FLinearColor::Black, BX + 8.f * Scale, RY + 1.f * Scale, Font, Scale);
+			AddHitBox(FVector2D(BX, RY), FVector2D(26.f * Scale, RowH - 4.f * Scale), *FString::Printf(TEXT("AGBP_%d"), Index), true);
+		}
+	}
+}
+
 void AAGBHUD::AddChat(const FString& From, const FString& Text)
 {
 	ChatLines.Add({ From, Text, GetWorld()->GetRealTimeSeconds() });
@@ -1126,6 +1202,20 @@ void AAGBHUD::DrawHotbar(AAGBCharacter* Character, float Scale)
 		DrawSlot(Hotbar, HotbarIndex, Index, X0 + Index * (Size + Gap), Y, Size, Index == Character->GetSelectedHotbarSlot(), Number);
 	}
 
+	// Level and XP bar under the hotbar.
+	if (const UAGBProgressionComponent* Progression = Character->GetProgression())
+	{
+		const float BarY = Y + Size + 5.f * Scale;
+		const int32 Needed = Progression->GetXPToNext();
+		const float Fraction = Needed > 0 ? FMath::Clamp(static_cast<float>(Progression->GetXP()) / Needed, 0.f, 1.f) : 1.f;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f), X0, BarY, Width, 6.f * Scale);
+		DrawRect(SelectedColor, X0, BarY, Width * Fraction, 6.f * Scale);
+		const FString Label = FString::Printf(TEXT("Lv %d%s"), Progression->GetLevel(), Progression->GetUnspentPoints() > 0 ? TEXT("  +") : TEXT(""));
+		float LW = 0.f, LH = 0.f;
+		GetTextSize(Label, LW, LH, GetHUDFont(1), Scale);
+		DrawText(Label, Progression->GetUnspentPoints() > 0 ? SelectedColor : TextColor, X0 - LW - 8.f * Scale, BarY - LH * 0.5f, GetHUDFont(1), Scale);
+	}
+
 	// Name of the selected item above the bar.
 	const FAGBItemStack Selected = Character->GetSelectedItem();
 	if (!Selected.IsEmpty() && !bInventoryOpen)
@@ -1205,6 +1295,8 @@ void AAGBHUD::DrawInventoryScreen(AAGBCharacter* Character, float Scale)
 			Info = FString::Printf(TEXT("%s (%s, %.1f kg each)  %s"), *Stack.Item->GetDisplayNameOrId().ToString(), *Category, Stack.Item->Weight, *Stack.Item->Description.ToString());
 		}
 	}
+	DrawCharacterPanel(Character, PanelX, PanelY + PanelHeight + 8.f * Scale, PanelWidth, Scale);
+
 	const float FooterY = PanelY + PanelHeight - Padding - 30.f * Scale;
 	DrawText(Info, TextColor, PanelX + Padding, FooterY, SmallFont, Scale);
 	const FString Help = FString::Printf(TEXT("Click: pick up / place    Shift+click: half    %s: eat / use    %s: drop    %s: close"),

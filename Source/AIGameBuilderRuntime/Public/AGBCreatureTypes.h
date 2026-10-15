@@ -71,6 +71,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body|Animations")
 	TSoftObjectPtr<UAnimSequenceBase> HitAnim;
 
+	/** XP for killing it; 0 = from its health (ProgressionConfig.XPPerCreatureHealth). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats", meta = (ClampMin = "0"))
+	int32 XPReward = 0;
+
 	/** Its own voice: "Hurt", "Attack", "Death", "Idle" (others use the game's Creature.* cues). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds")
 	TMap<FName, TSoftObjectPtr<USoundBase>> Sounds;

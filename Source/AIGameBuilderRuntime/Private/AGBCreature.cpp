@@ -2,6 +2,7 @@
 
 #include "AGBAudioFX.h"
 #include "AGBPlaytest.h"
+#include "AGBProgression.h"
 
 #include "AGBCharacter.h"
 #include "AGBCreatureAIController.h"
@@ -143,6 +144,12 @@ float AAGBCreature::TakeDamage(float DamageAmount, FDamageEvent const& DamageEve
 	LastDamagedTime = GetWorld()->GetTimeSeconds();
 	if (Health <= 0.f)
 	{
+		if (UAGBProgressionComponent* Progression = UAGBProgressionComponent::Find(LastAttacker.Get()))
+		{
+			const int32 Reward = Definition && Definition->XPReward > 0 ? Definition->XPReward
+				: FMath::RoundToInt((Definition ? Definition->MaxHealth : 50.f) * Progression->GetConfig()->XPPerCreatureHealth);
+			Progression->AddXP(Reward, TEXT("Kill"));
+		}
 		Die();
 		return Applied;
 	}

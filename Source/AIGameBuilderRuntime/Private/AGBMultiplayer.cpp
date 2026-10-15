@@ -1,6 +1,7 @@
 #include "AGBMultiplayer.h"
 
 #include "AGBPlayerSettings.h"
+#include "AGBProgression.h"
 #include "AGBUITheme.h"
 #include "AIGameBuilderRuntime.h"
 #include "Engine/Engine.h"
@@ -46,6 +47,11 @@ void AAGBGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AAGBGameState, Rules);
+}
+
+AAGBPlayerState::AAGBPlayerState()
+{
+	Progression = CreateDefaultSubobject<UAGBProgressionComponent>(TEXT("Progression"));
 }
 
 void AAGBPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

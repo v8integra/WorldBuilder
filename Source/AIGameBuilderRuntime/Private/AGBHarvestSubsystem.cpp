@@ -2,6 +2,7 @@
 
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
+#include "AGBProgression.h"
 
 #include "AGBCharacter.h"
 #include "AGBHarvestTypes.h"
@@ -385,6 +386,10 @@ void UAGBHarvestSubsystem::GiveYields(AAGBCharacter* Harvester, const TArray<FAG
 		{
 			Telemetry->Record(TEXT("Gathered"), Yield.Item->ItemId.ToString(), static_cast<float>(Count));
 		}
+		if (UAGBProgressionComponent* Progression = UAGBProgressionComponent::Find(Harvester))
+		{
+			Progression->AddXP(FMath::RoundToInt(Count * Progression->GetConfig()->XPPerGathered), TEXT("Gather"));
+		}
 		if (Given < Count)
 		{
 			AAGBItemPickup::SpawnPickup(Harvester, FAGBItemStack(Yield.Item, Count - Given), DropLocation, /*bSnapToGround=*/true);
@@ -410,7 +415,9 @@ FAGBHarvestResult UAGBHarvestSubsystem::Harvest(AAGBCharacter* Harvester, UPrimi
 	Result.Resource = Resource;
 
 	float Power = 0.f;
-	if (!Resource->GetHarvestPower(Tool, Power))
+	const bool bCanHarvest = Resource->GetHarvestPower(Tool, Power);
+	Power *= UAGBProgressionComponent::Multiplier(Harvester, EAGBAttributeTarget::HarvestPower);
+	if (!bCanHarvest)
 	{
 		Result.Message = Resource->GetToolHint();
 		return Result;

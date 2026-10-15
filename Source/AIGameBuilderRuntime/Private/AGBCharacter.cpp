@@ -20,6 +20,7 @@
 #include "AGBMenus.h"
 #include "AGBMultiplayer.h"
 #include "AGBPlaytest.h"
+#include "AGBProgression.h"
 #include "AGBPlayerSettings.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
@@ -261,6 +262,10 @@ void AAGBCharacter::HandleDeath(const FString& Cause)
 		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
 		{
 			Telemetry->Record(TEXT("Deaths"), Cause.IsEmpty() ? FString(TEXT("unknown")) : Cause);
+		}
+		if (UAGBProgressionComponent* Progression = GetProgression())
+		{
+			Progression->ApplyDeathPenalty();
 		}
 	}
 	if (UAGBAudioFXSubsystem* Audio = UAGBAudioFXSubsystem::Get(this))
@@ -515,6 +520,10 @@ void AAGBCharacter::ServerPlacePiece_Implementation(FVector_NetQuantize Point, F
 		{
 			Telemetry->Record(TEXT("Built"), Piece->PieceId.ToString());
 		}
+		if (UAGBProgressionComponent* Progression = GetProgression())
+		{
+			Progression->AddXP(FMath::RoundToInt(Progression->GetConfig()->XPPerBuild), TEXT("Build"));
+		}
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
 }
@@ -608,6 +617,10 @@ void AAGBCharacter::ServerPlaceSelectedItem_Implementation(FVector_NetQuantize L
 		if (UAGBTelemetrySubsystem* Telemetry = UAGBTelemetrySubsystem::Get(this))
 		{
 			Telemetry->Record(TEXT("Stations"), Station->Definition ? Station->Definition->StationId.ToString() : FString(TEXT("station")));
+		}
+		if (UAGBProgressionComponent* Progression = GetProgression())
+		{
+			Progression->AddXP(FMath::RoundToInt(Progression->GetConfig()->XPPerBuild), TEXT("Build"));
 		}
 		Hotbar->RemoveFromSlot(SelectedHotbarSlot, 1);
 	}
@@ -991,7 +1004,7 @@ float AAGBCharacter::GetArmor() const
 	{
 		Armor += Stack.IsEmpty() ? 0.f : Stack.Item->GetStat(TEXT("Armor"));
 	}
-	return Armor;
+	return Armor + UAGBProgressionComponent::Flat(this, EAGBAttributeTarget::Armor);
 }
 
 void AAGBCharacter::WearSelectedItem()
@@ -1070,7 +1083,7 @@ void AAGBCharacter::ServerFire_Implementation(FVector_NetQuantize Origin, FVecto
 	if (AAGBProjectile* Projectile = GetWorld()->SpawnActor<AAGBProjectile>(AAGBProjectile::StaticClass(), Origin, Direction.Rotation(), SpawnParams))
 	{
 		const float Speed = Weapon->GetStat(TEXT("ProjectileSpeed"), 5000.f);
-		Projectile->Launch(Ammo, Direction * Speed, Weapon->GetStat(TEXT("Damage"), 20.f), Weapon->GetStat(TEXT("AmmoRecoverChance"), Ammo == Weapon ? 1.f : 0.5f));
+		Projectile->Launch(Ammo, Direction * Speed, Weapon->GetStat(TEXT("Damage"), 20.f) * UAGBProgressionComponent::Multiplier(this, EAGBAttributeTarget::RangedDamage), Weapon->GetStat(TEXT("AmmoRecoverChance"), Ammo == Weapon ? 1.f : 0.5f));
 		MulticastPlayCue(TEXT("Event.Shoot"), Origin);
 	}
 	if (Ammo != Weapon)
@@ -1156,7 +1169,7 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		AAGBCharacter* OtherPlayer = Cast<AAGBCharacter>(Target->GetOwner());
 		if (bInReach && OtherPlayer && OtherPlayer != this && !OtherPlayer->IsDead() && AAGBGameState::GetRules(this).bPvP)
 		{
-			const float Damage = Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f);
+			const float Damage = (Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f)) * UAGBProgressionComponent::Multiplier(this, EAGBAttributeTarget::MeleeDamage);
 			UGameplayStatics::ApplyDamage(OtherPlayer, Damage, Controller, this, nullptr);
 			MulticastPlayCue(TEXT("Impact.Flesh"), ImpactPoint);
 			return;
@@ -1164,7 +1177,7 @@ void AAGBCharacter::ServerSwing_Implementation(UPrimitiveComponent* Target, int3
 		if (bInReach && Creature && !Creature->IsDead())
 		{
 			// Hands hit for 5; tools and weapons for their "Damage" stat.
-			const float Damage = Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f);
+			const float Damage = (Selected.IsEmpty() ? 5.f : Selected.Item->GetStat(TEXT("Damage"), 5.f)) * UAGBProgressionComponent::Multiplier(this, EAGBAttributeTarget::MeleeDamage);
 			UGameplayStatics::ApplyDamage(Creature, Damage, Controller, this, nullptr);
 			MulticastPlayCue(TEXT("Impact.Flesh"), ImpactPoint);
 			if (!Selected.IsEmpty())
@@ -1339,6 +1352,21 @@ void AAGBCharacter::OnLook(const FInputActionValue& Value)
 	}
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(Axis.Y);
+}
+
+UAGBProgressionComponent* AAGBCharacter::GetProgression() const
+{
+	return UAGBProgressionComponent::Find(this);
+}
+
+void AAGBCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	// A new body (spawn, respawn): health and stamina include the player's level bonuses.
+	if (UAGBProgressionComponent* Progression = GetProgression())
+	{
+		Progression->ApplyBonuses(/*bRefill=*/true);
+	}
 }
 
 void AAGBCharacter::OnJumpStarted(const FInputActionValue& Value)

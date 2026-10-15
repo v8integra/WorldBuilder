@@ -92,6 +92,18 @@ struct AIGAMEBUILDERRUNTIME_API FAGBSavedPlayer
 	bool bHasBed = false;
 
 	UPROPERTY()
+	int32 Level = 1;
+
+	UPROPERTY()
+	int32 XP = 0;
+
+	UPROPERTY()
+	int32 AttributePoints = 0;
+
+	UPROPERTY()
+	TMap<FName, int32> Attributes;
+
+	UPROPERTY()
 	FVector BedLocation = FVector::ZeroVector;
 };
 

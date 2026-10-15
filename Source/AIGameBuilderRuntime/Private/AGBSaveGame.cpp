@@ -1,6 +1,7 @@
 #include "AGBSaveGame.h"
 
 #include "AGBMultiplayer.h"
+#include "AGBProgression.h"
 
 #include "AGBBuildingTypes.h"
 #include "AGBBuildPiece.h"
@@ -158,6 +159,13 @@ bool UAGBSaveSubsystem::SaveWorld(FString& OutMessage)
 		Out.Transform = Character->GetActorTransform();
 		Out.ControlRotation = Player->GetControlRotation();
 		Out.Vitals = Character->Vitals->GetSavedValues();
+		if (const UAGBProgressionComponent* Progression = Character->GetProgression())
+		{
+			Out.Level = Progression->GetLevel();
+			Out.XP = Progression->GetXP();
+			Out.AttributePoints = Progression->GetUnspentPoints();
+			Out.Attributes = Progression->GetSavedAttributes();
+		}
 		Out.Inventory = SaveInventory(Character->Inventory);
 		Out.Hotbar = SaveInventory(Character->Hotbar);
 		Out.Equipment = SaveInventory(Character->Equipment);
@@ -428,6 +436,11 @@ void UAGBSaveSubsystem::RestorePlayer(APlayerController* Player)
 
 	Character->TeleportTo(Saved->Transform.GetLocation(), Saved->Transform.Rotator(), false, true);
 	Player->SetControlRotation(Saved->ControlRotation);
+	if (UAGBProgressionComponent* Progression = Character->GetProgression())
+	{
+		// Before the vitals, so restored health can use the level's maximum.
+		Progression->Restore(Saved->Level, Saved->XP, Saved->AttributePoints, Saved->Attributes);
+	}
 	Character->Vitals->RestoreValues(Saved->Vitals);
 	LoadInventory(Character->Inventory, Saved->Inventory);
 	LoadInventory(Character->Hotbar, Saved->Hotbar);

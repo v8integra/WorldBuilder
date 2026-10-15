@@ -125,6 +125,12 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AI Game Builder|Server")
 	bool bIsHost = false;
 
+	/** Level, XP and attributes (kept through death and respawns). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Game Builder|Progression")
+	TObjectPtr<class UAGBProgressionComponent> Progression;
+
+	AAGBPlayerState();
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 };

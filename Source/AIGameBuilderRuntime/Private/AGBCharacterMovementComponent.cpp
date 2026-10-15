@@ -1,6 +1,7 @@
 #include "AGBCharacterMovementComponent.h"
 
 #include "AGBCharacter.h"
+#include "AGBProgression.h"
 #include "AGBVitalsComponent.h"
 #include "GameFramework/Character.h"
 #include "Components/CapsuleComponent.h"
@@ -106,11 +107,12 @@ bool UAGBCharacterMovementComponent::IsSprinting() const
 
 float UAGBCharacterMovementComponent::GetMaxSpeed() const
 {
+	const float Bonus = UAGBProgressionComponent::Multiplier(CharacterOwner, EAGBAttributeTarget::MoveSpeed);
 	if (IsSprinting())
 	{
-		return SprintSpeed;
+		return SprintSpeed * Bonus;
 	}
-	return Super::GetMaxSpeed();
+	return Super::GetMaxSpeed() * Bonus;
 }
 
 void UAGBCharacterMovementComponent::UpdateFromCompressedFlags(uint8 Flags)

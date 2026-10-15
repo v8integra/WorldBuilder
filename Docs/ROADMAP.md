@@ -103,6 +103,23 @@ These reuse the Track A building blocks and add what each genre needs.
 
 Cross-genre games (survival RPGs, sandbox survival and so on) come from combining packs.
 
+### RPG pack (first Track B pack)
+
+Built on the survival blocks (items, crafting, creatures, combat, saving, multiplayer, menus, audio, playtest bot).
+Abilities, effects and attributes use **our own data-driven system** (data assets the AI creates with tools,
+replicated like the rest), not Epic's GAS: it fits the existing systems and is far easier for an AI to author.
+
+| # | Phase | What the AI can do afterwards |
+|---|---|---|
+| R1 | **Progression** | XP and levels, attributes (Strength, Agility, Vitality, Intelligence...) feeding health, stamina, damage, harvesting, crafting and speed; XP from kills, gathering, crafting, building; HUD XP bar and character panel; saved |
+| R2 | **Classes and abilities** | Classes (starting stats, gear, abilities), data-driven abilities (cost, cooldown, cast time; melee, projectile, area, self; damage, heal, buffs, debuffs), status effects, mana, ability bar, talent points |
+| R3 | **NPCs and dialogue** | NPC characters, branching dialogue with conditions and actions (give a quest, open a shop, give an item), dialogue screen |
+| R4 | **Quests** | Objectives (kill, gather, talk, reach, craft, deliver), rewards, quest givers, quest log and HUD tracker, shared in co-op |
+| R5 | **Economy and loot** | Currency, vendors (buy/sell screen), weighted loot tables, item rarity, chests |
+| R6 | **RPG enemies** | Humanoid enemies using abilities, enemy levels and scaling, ranged casters, bosses |
+| R7 | **Dungeons** | Interiors from a dungeon kit, spawners, chests, locked doors and keys, boss rooms, entrances |
+| R8 | **Parties and RPG QA** | Party invites, shared XP and quest credit, party frames, playtest bot doing quests, XP-curve balance reports |
+
 ---
 
 ## Cross-cutting work (ongoing)

@@ -84,6 +84,7 @@ namespace AGBAudioFX
 			Slot(TEXT("Event.Shoot"), G::Effects, true, false, 40.f, TEXT("bow,arrow,shoot,twang,throw"), TEXT("Shooting or throwing")),
 			Slot(TEXT("Event.Land"), G::Effects, true, false, 25.f, TEXT("land,landing"), TEXT("Landing after a jump or fall")),
 			Slot(TEXT("Event.Splash"), G::Effects, true, false, 30.f, TEXT("splash"), TEXT("Jumping into water")),
+			Slot(TEXT("Event.LevelUp"), G::Effects, true, false, 30.f, TEXT("level,levelup,level_up,rank"), TEXT("Levelling up")),
 			Slot(TEXT("UI.Click"), G::UI, false, false, 0.f, TEXT("click,select,confirm,button"), TEXT("Clicking buttons and slots")),
 			Slot(TEXT("UI.Hover"), G::UI, false, false, 0.f, TEXT("hover,highlight,tick"), TEXT("Moving over a button")),
 			Slot(TEXT("UI.Open"), G::UI, false, false, 0.f, TEXT("open,menu_open,inventory_open,window_open,whoosh_in"), TEXT("Opening a menu or the inventory")),

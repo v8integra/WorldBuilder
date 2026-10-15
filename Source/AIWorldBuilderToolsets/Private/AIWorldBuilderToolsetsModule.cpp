@@ -22,6 +22,7 @@
 #include "MultiplayerTools.h"
 #include "PlaytestTools.h"
 #include "PublishTools.h"
+#include "ProgressionTools.h"
 #include "WorldBuilderDiagnosticsToolset.h"
 #include "WaterTools.h"
 #include "WorldEnvironmentTools.h"
@@ -78,6 +79,7 @@ private:
 			UMultiplayerTools::StaticClass(),
 			UPlaytestTools::StaticClass(),
 			UPublishTools::StaticClass(),
+			UProgressionTools::StaticClass(),
 		};
 	}
 };

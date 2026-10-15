@@ -115,6 +115,17 @@ public:
 	UFUNCTION(Exec)
 	void AGBSave();
 
+	/** Console (testing): gives XP, e.g. "AGBGiveXP 500". */
+	UFUNCTION(Exec)
+	void AGBGiveXP(int32 Amount);
+
+	/** Console: gives all spent attribute points back. */
+	UFUNCTION(Exec)
+	void AGBRespec();
+
+	UFUNCTION(Server, Reliable)
+	void ServerProgressionCommand(int32 Amount);
+
 	/** Console (testing): logs every creature's movement mode, physics volume, height above ground, speed, facing and AI state. */
 	UFUNCTION(Exec)
 	void AGBDebugCreatures();
@@ -248,6 +259,7 @@ private:
 	void DrawDeathScreen(float Scale);
 	void DrawNotifications(float Scale);
 	void DrawChat(float Scale);
+	void DrawCharacterPanel(class AAGBCharacter* Character, float X, float Y, float Width, float Scale);
 
 	struct FChatLine
 	{
